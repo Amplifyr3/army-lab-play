@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Army lab</title>
+  <script type="module" crossorigin src="./assets/index-z2GrNIDA.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-kFvBKE5x.css">
+</head>
+<body>
+<div class="app">
+  <div class="bar" id="crews"></div>
+  <div class="tools">
+    <span class="clock" id="clock">0:00</span><span class="tag" id="waveTag"></span>
+    <span class="gap"></span>
+    <button class="tbtn" id="pause" type="button" aria-label="Pause">Pause</button>
+    <button class="tbtn" id="speed" type="button" aria-label="Game speed">1×</button>
+    <button class="tbtn" id="restart" type="button">New map</button>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="hint" id="hint" aria-live="polite"></div>
+  <div class="toolbar">
+    <button class="tool" data-tool="swarm" type="button" aria-label="Swarm: a wide burst of ships along your aim"><small></small><span><i>⋙</i>Swarm</span></button>
+    <button class="tool" data-tool="turret" type="button" aria-label="Turret: drops where your aim lands and holds the ground"><small></small><span><i>⛬</i>Turret</span></button>
+    <button class="tool" data-tool="bombard" type="button" aria-label="Bombard: a shell onto where your aim lands"><small></small><span><i>✸</i>Bombard</span></button>
+    <button class="tool" data-tool="barrage" type="button" aria-label="Barrage: hold to pour out a hose of ships along your aim"><small></small><span><i>⇶</i>Barrage</span></button>
+    <button class="tool" data-tool="lance" type="button" aria-label="Lance: a beam straight out along your aim, across the whole station"><small></small><span><i>⟶</i>Lance</span></button>
+    <button class="tool" data-tool="titan" type="button" aria-label="Titan: one huge, tough ship"><small></small><span><i>⬢</i>Titan</span></button>
+  </div>
+</div>
+<div class="over" id="over">
+  <div class="card"><h2 id="overTitle"></h2><p id="overText"></p><p class="cause" id="overCause"></p><button class="tbtn big" id="again" type="button">New map</button></div>
+</div>
+<div class="over show" id="start">
+  <div class="card">
+    <h2>Army lab</h2>
+    <p>Touch the board to aim your stream. Tap a glowing tool to use it. Hold <b>Barrage</b>.</p>
+    <button class="tbtn big" id="go" type="button">Tap to play</button>
+  </div>
+</div>
+</body>
+</html>
