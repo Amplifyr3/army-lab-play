@@ -11,8 +11,8 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Army lab</title>
-  <script type="module" crossorigin src="./assets/index-Dv_3evpg.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BTkSfMFg.css">
+  <script type="module" crossorigin src="./assets/index-CEjTskEQ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CsdO-p5e.css">
 </head>
 <body>
 <div class="app">
@@ -31,19 +31,114 @@
 </div>
 
 <div class="over show" id="start">
-  <div class="card">
+  <div class="card hangar">
+    <div class="wallet"><span class="ore" id="oreCount">◆ 0</span><span class="rank" id="rankLine"></span><span class="startot" id="starTot">★ 0</span></div>
     <h1>Army lab</h1>
-    <p>Touch where your ships should go.<br>Break the other Cores to win.</p>
+    <p class="sector" id="sectorLine"></p>
     <button class="big pulse" id="play" type="button">Play</button>
-    <div class="levels" id="levels"></div>
-    <button class="link" id="mute" type="button">Sound on</button>
+    <div class="minebar" id="minebar">
+      <div class="bar"><i id="mineFill"></i></div>
+      <span id="mineText"></span>
+      <button class="mid gold" id="collect" type="button">Collect</button>
+    </div>
+    <div class="tiles">
+      <button class="tile" id="toMine" type="button"><i>⛏</i>Mine<b class="badge" id="mineBadge"></b></button>
+      <button class="tile" id="toTech" type="button"><i>🔧</i>Tech<b class="badge" id="techBadge"></b></button>
+      <button class="tile" id="toMap" type="button"><i>🗺️</i>Levels</button>
+      <button class="tile" id="toDaily" type="button"><i>🥚</i>Daily egg<b class="badge" id="dailyBadge"></b></button>
+      <button class="tile" id="toGalaxy" type="button"><i>🌌</i>Galaxy</button>
+      <button class="tile" id="mute" type="button"><i id="muteIcon">🔊</i><span id="muteText">Sound on</span></button>
+    </div>
+  </div>
+</div>
+<div class="over" id="mine">
+  <div class="card wide">
+    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="ore" id="mineOre"></span></div>
+    <h2>The Mine</h2>
+    <p class="small center" id="mineRate"></p>
+    <div class="shafts" id="shafts"></div>
+    <button class="big" id="mineCollect" type="button">Collect</button>
+    <h3 id="monsterCount">Monsters</h3>
+    <p class="small center" id="mineHint">Tap a monster to put it to work. Tap a shaft to take it out.</p>
+    <div class="cards" id="cardGrid"></div>
+  </div>
+</div>
+<div class="over" id="techCard">
+  <div class="card wide">
+    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="ore" id="techOre"></span></div>
+    <h2>Tech tree</h2>
+    <p class="small center" id="techTotal"></p>
+    <div id="branches"></div>
+    <h3>Powers</h3>
+    <div class="chips" id="powerList"></div>
+    <h3>Colours</h3>
+    <div class="chips" id="skinList"></div>
+  </div>
+</div>
+<div class="over" id="map">
+  <div class="card wide">
+    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="startot" id="mapStars"></span></div>
+    <h2>Levels</h2>
+    <div id="sectors"></div>
+  </div>
+</div>
+<div class="over" id="daily">
+  <div class="card">
+    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="streak" id="dailyStreak"></span></div>
+    <h2>Daily egg</h2>
+    <div class="egg big rare" id="dailyEgg">🥚</div>
+    <p class="modname" id="dailyMod"></p>
+    <p id="dailyDesc"></p>
+    <p class="small" id="dailyInfo"></p>
+    <button class="big pulse" id="playDaily" type="button">Play</button>
+  </div>
+</div>
+<div class="over" id="galaxy">
+  <div class="card wide">
+    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="ore" id="galaxyScore"></span></div>
+    <div id="galaxyLocked">
+      <h2>The galaxy</h2>
+      <div class="egg big">🌀</div>
+      <p class="center" id="galaxyNeed"></p>
+    </div>
+    <div id="galaxyOpen">
+      <canvas id="starmap" width="360" height="220" aria-label="Your empire: one lit star system for every sector cleared"></canvas>
+      <div class="banner" id="banner"></div>
+      <label class="namefield" for="empireName">Empire name <input id="empireName" maxlength="24" autocomplete="off"></label>
+      <div class="titlebar"><div class="bar"><i id="titleFill"></i></div><span id="titleNext"></span></div>
+      <h3>Trophies</h3>
+      <div class="cards" id="trophies"></div>
+      <div class="statgrid" id="empireStats"></div>
+      <button class="big" id="share" type="button">Share my empire</button>
+      <p class="small center" id="shareNote"></p>
+    </div>
+  </div>
+</div>
+<div class="over" id="intro">
+  <div class="card">
+    <p class="sector" id="introLevel"></p>
+    <h2 id="introName"></h2>
+    <div class="egg big" id="introEgg">🥚</div>
+    <p class="eggname" id="introRarity"></p>
+    <div class="chips" id="introMods"></div>
+    <p class="small" id="introTwist"></p>
+    <button class="big pulse" id="go" type="button">Fight for the egg!</button>
+  </div>
+</div>
+<div class="over" id="hatchCard">
+  <div class="card">
+    <div class="egg big wobble" id="hatchEgg">🥚</div>
+    <div class="monster" id="hatchMonster"></div>
+    <p class="got" id="hatchGot"></p>
+    <button class="big pulse" id="hatchSlot" type="button">Put it in the Mine</button>
+    <div class="row"><button class="mid" id="hatchNext" type="button">Next level</button><button class="mid" data-home type="button">Home</button></div>
   </div>
 </div>
 <div class="over" id="pauseCard">
   <div class="card">
     <h2>Paused</h2>
     <button class="big" id="resume" type="button">Keep playing</button>
-    <div class="row"><button class="mid" id="restart" type="button">Restart level</button><button class="mid" id="toLevels" type="button">Levels</button></div>
+    <div class="row"><button class="mid" id="restart" type="button">Restart</button><button class="mid" data-home type="button">Home</button></div>
   </div>
 </div>
 <div class="over" id="winCard">
@@ -51,17 +146,22 @@
     <h2 id="winTitle">Level cleared!</h2>
     <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
     <p id="winText"></p>
-    <button class="big pulse" id="next" type="button">Next level</button>
-    <div class="row"><button class="mid" id="again" type="button">Play again</button><button class="mid" id="winLevels" type="button">Levels</button></div>
+    <div class="unlock" id="winUnlock"></div>
+    <div class="reward" id="winReward"></div>
+    <button class="nudge" id="winNudge" type="button"></button>
+    <button class="big pulse" id="hatch" type="button">🥚 Hatch the egg!</button>
   </div>
 </div>
 <div class="over" id="loseCard">
   <div class="card">
     <h2>Your Core fell</h2>
     <p class="cause" id="loseCause"></p>
+    <p class="small">The egg got away this time.</p>
+    <div class="reward" id="loseReward"></div>
+    <button class="nudge" id="loseNudge" type="button"></button>
     <p id="loseTip"></p>
     <button class="big pulse" id="retry" type="button">Try again</button>
-    <div class="row"><button class="mid" id="loseLevels" type="button">Levels</button></div>
+    <div class="row"><button class="mid" data-tech type="button">Tech</button><button class="mid" data-home type="button">Home</button></div>
   </div>
 </div>
 </body>
