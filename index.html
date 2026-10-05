@@ -11,38 +11,57 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Army lab</title>
-  <script type="module" crossorigin src="./assets/index-z2GrNIDA.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-kFvBKE5x.css">
+  <script type="module" crossorigin src="./assets/index-Dv_3evpg.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BTkSfMFg.css">
 </head>
 <body>
 <div class="app">
-  <div class="bar" id="crews"></div>
-  <div class="tools">
-    <span class="clock" id="clock">0:00</span><span class="tag" id="waveTag"></span>
-    <span class="gap"></span>
-    <button class="tbtn" id="pause" type="button" aria-label="Pause">Pause</button>
-    <button class="tbtn" id="speed" type="button" aria-label="Game speed">1×</button>
-    <button class="tbtn" id="restart" type="button">New map</button>
+  <div class="top">
+    <div class="lvl"><b id="lvlNum">Level 1</b><small id="lvlName"></small></div>
+    <div class="foes" id="foes"></div>
+    <div class="clock" id="clock">0:00</div>
+    <button class="icon" id="pause" type="button" aria-label="Pause">❚❚</button>
   </div>
   <div class="board" id="board"></div>
   <div class="hint" id="hint" aria-live="polite"></div>
-  <div class="toolbar">
-    <button class="tool" data-tool="swarm" type="button" aria-label="Swarm: a wide burst of ships along your aim"><small></small><span><i>⋙</i>Swarm</span></button>
-    <button class="tool" data-tool="turret" type="button" aria-label="Turret: drops where your aim lands and holds the ground"><small></small><span><i>⛬</i>Turret</span></button>
-    <button class="tool" data-tool="bombard" type="button" aria-label="Bombard: a shell onto where your aim lands"><small></small><span><i>✸</i>Bombard</span></button>
-    <button class="tool" data-tool="barrage" type="button" aria-label="Barrage: hold to pour out a hose of ships along your aim"><small></small><span><i>⇶</i>Barrage</span></button>
-    <button class="tool" data-tool="lance" type="button" aria-label="Lance: a beam straight out along your aim, across the whole station"><small></small><span><i>⟶</i>Lance</span></button>
-    <button class="tool" data-tool="titan" type="button" aria-label="Titan: one huge, tough ship"><small></small><span><i>⬢</i>Titan</span></button>
-  </div>
+  <button class="power" id="power" type="button" aria-label="Use your power">
+    <span class="fill" id="powerFill"></span>
+    <span class="face"><i id="powerIcon">✸</i><b id="powerName">Bomb</b><small id="powerState">charging</small></span>
+  </button>
 </div>
-<div class="over" id="over">
-  <div class="card"><h2 id="overTitle"></h2><p id="overText"></p><p class="cause" id="overCause"></p><button class="tbtn big" id="again" type="button">New map</button></div>
-</div>
+
 <div class="over show" id="start">
   <div class="card">
-    <h2>Army lab</h2>
-    <p>Touch the board to aim your stream. Tap a glowing tool to use it. Hold <b>Barrage</b>.</p>
-    <button class="tbtn big" id="go" type="button">Tap to play</button>
+    <h1>Army lab</h1>
+    <p>Touch where your ships should go.<br>Break the other Cores to win.</p>
+    <button class="big pulse" id="play" type="button">Play</button>
+    <div class="levels" id="levels"></div>
+    <button class="link" id="mute" type="button">Sound on</button>
+  </div>
+</div>
+<div class="over" id="pauseCard">
+  <div class="card">
+    <h2>Paused</h2>
+    <button class="big" id="resume" type="button">Keep playing</button>
+    <div class="row"><button class="mid" id="restart" type="button">Restart level</button><button class="mid" id="toLevels" type="button">Levels</button></div>
+  </div>
+</div>
+<div class="over" id="winCard">
+  <div class="card">
+    <h2 id="winTitle">Level cleared!</h2>
+    <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
+    <p id="winText"></p>
+    <button class="big pulse" id="next" type="button">Next level</button>
+    <div class="row"><button class="mid" id="again" type="button">Play again</button><button class="mid" id="winLevels" type="button">Levels</button></div>
+  </div>
+</div>
+<div class="over" id="loseCard">
+  <div class="card">
+    <h2>Your Core fell</h2>
+    <p class="cause" id="loseCause"></p>
+    <p id="loseTip"></p>
+    <button class="big pulse" id="retry" type="button">Try again</button>
+    <div class="row"><button class="mid" id="loseLevels" type="button">Levels</button></div>
   </div>
 </div>
 </body>
