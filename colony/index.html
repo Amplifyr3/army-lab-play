@@ -11,8 +11,8 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Army lab</title>
-  <script type="module" crossorigin src="./assets/index-rDgv9dPf.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Ce7YW_Ee.css">
+  <script type="module" crossorigin src="./assets/index-DDw4Dbx4.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DezCDczo.css">
 </head>
 <body>
 <div class="app">
@@ -32,20 +32,20 @@
 
 <div class="over show" id="start">
   <div class="card hangar">
-    <div class="wallet"><span class="ore" id="oreCount">◆ 0</span><span class="alloy" id="alloyCount"></span><span class="rank" id="rankLine"></span><span class="startot" id="starTot">★ 0</span></div>
+    <div class="wallet"><span class="ore" id="oreCount">◆ 0</span><span class="rank" id="rankLine"></span><span class="startot" id="starTot">★ 0</span></div>
     <p class="preview-tag" id="previewTag" hidden>PREVIEW · its own save, copied from your real one</p>
     <h1>Army lab</h1>
     <p class="sector" id="sectorLine"></p>
     <button class="big" id="eggWaiting" type="button" hidden>🥚 Your egg is waiting: hatch it!</button>
     <button class="big pulse" id="play" type="button">Play</button>
-    <div class="colonybar" id="colonybar">
-      <div class="flowstrip"><i id="colonyFlow"></i></div>
-      <span id="colonyText"></span>
+    <div class="colonybar" id="treebar">
+      <div class="flowstrip"><i id="treeFlow"></i></div>
+      <span id="treeText"></span>
     </div>
     <p class="savenote" id="saveNote" hidden></p>
     <div class="tiles">
-      <button class="tile" id="toColony" type="button"><i>🪺</i>Colony<b class="badge" id="colonyBadge"></b></button>
-      <button class="tile" id="toTech" type="button"><i>🔧</i>Tech<b class="badge" id="techBadge"></b></button>
+      <button class="tile" id="toTree" type="button"><i>🌳</i>Tree<b class="badge" id="treeBadge"></b></button>
+      <button class="tile" id="toCrew" type="button"><i>🎨</i>Crew</button>
       <button class="tile" id="toMap" type="button"><i>🗺️</i>Levels</button>
       <button class="tile" id="toDaily" type="button"><i>🥚</i>Daily egg<b class="badge" id="dailyBadge"></b></button>
       <button class="tile" id="toGalaxy" type="button"><i>🌌</i>Galaxy</button>
@@ -53,17 +53,17 @@
     </div>
   </div>
 </div>
-<div class="over" id="colony">
-  <div class="card wide colonycard">
-    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="bal"><span class="ore" id="colonyOre"></span> <span class="alloy" id="colonyAlloy"></span></span><button class="lens" id="colonyLens" type="button" aria-label="Show every number" aria-pressed="false">🔍</button></div>
-    <h2>Colony</h2>
-    <div class="hub" id="colonyHub"></div>
-    <div class="cboard" id="colonyBoard"></div>
-    <h3 id="colonyCount">Creatures</h3>
-    <div class="cards" id="colonyCards"></div>
+<div class="over full" id="tree">
+  <div class="treeapp">
+    <div class="treetop"><button class="back" type="button" data-home>‹ Back</button><span class="ore" id="treeOre"></span><span class="trate" id="treeRate"></span><button class="lens" id="treeLens" type="button" aria-label="Show every number" aria-pressed="false">🔍</button></div>
+    <div class="treestep" id="treeStep"></div>
+    <div class="tstats" id="treeStats"></div>
+    <div class="tstage"><svg id="treeSvg" preserveAspectRatio="xMidYMid meet" aria-label="Your creature tree"></svg></div>
+    <div class="tinfo" id="treeInfo"><p>Tap a node to see what it gives. Drag to look around, pinch to zoom.</p></div>
+    <div class="tbench" id="treeBench"></div>
   </div>
-  <div class="ctoast" id="colonyToast" aria-live="polite"></div>
-  <div class="cheer" id="colonyCheer" aria-live="polite"></div>
+  <div class="ctoast" id="treeToast" aria-live="polite"></div>
+  <div class="cheer" id="treeCheer" aria-live="polite"></div>
 </div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="sheetbody"></div></div>
 <div class="over" id="away">
@@ -72,16 +72,15 @@
     <p id="awayTime"></p>
     <div class="reward" id="awayReward"></div>
     <p class="small" id="awayNote"></p>
-    <button class="big pulse" id="awayGo" type="button">Open the colony</button>
+    <button class="big pulse" id="awayGo" type="button">Open the tree</button>
     <button class="mid" id="awayOk" type="button">OK</button>
   </div>
 </div>
-<div class="over" id="techCard">
+<div class="over" id="crewCard">
   <div class="card wide">
-    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="ore" id="techOre"></span></div>
-    <h2>Tech tree</h2>
-    <p class="small center" id="techTotal"></p>
-    <div id="branches"></div>
+    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button></div>
+    <h2>Your crew</h2>
+    <p class="small center">Grow your fleet in the creature tree. Bosses unlock powers and colours.</p>
     <h3>Powers</h3>
     <div class="chips" id="powerList"></div>
     <h3>Colours</h3>
@@ -181,7 +180,7 @@
     <button class="nudge" id="loseNudge" type="button"></button>
     <p id="loseTip"></p>
     <button class="big pulse" id="retry" type="button">Try again</button>
-    <div class="row"><button class="mid" data-tech type="button">Tech</button><button class="mid" data-home type="button">Home</button></div>
+    <div class="row"><button class="mid" data-tree type="button">Tree</button><button class="mid" data-home type="button">Home</button></div>
   </div>
 </div>
 </body>
