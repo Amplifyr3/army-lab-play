@@ -10,20 +10,18 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Army lab</title>
-  <script type="module" crossorigin src="./assets/index-Cf-yYufK.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DezCDczo.css">
+<title>Army lab</title>
+  <script type="module" crossorigin src="./assets/index-B3Notzo_.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BTE2mSBV.css">
 </head>
 <body>
 <div class="app">
-  <div class="top">
-    <div class="lvl"><b id="lvlNum">Level 1</b><small id="lvlName"></small></div>
-    <div class="foes" id="foes"></div>
-    <div class="clock" id="clock">0:00</div>
-    <button class="icon" id="pause" type="button" aria-label="Pause">❚❚</button>
-  </div>
+  <button class="top" id="pause" type="button" aria-label="Pause and open battle menu" aria-controls="pauseCard" aria-expanded="false">
+    <span class="lvl"><b id="lvlNum">Level 1</b><small id="lvlName"></small></span>
+    <span class="clock" id="clock">0:00</span>
+    <span class="top-caret" aria-hidden="true">⌄</span>
+  </button>
   <div class="board" id="board"></div>
-  <div class="hint" id="hint" aria-live="polite"></div>
   <div class="boons" id="boons" aria-live="polite">
     <p>Relic! Pick one:</p>
     <div class="row3" id="boonPicks"></div>
@@ -153,11 +151,39 @@
     <div class="row"><button class="mid" id="hatchNext" type="button">Next level</button><button class="mid" data-home type="button">Home</button></div>
   </div>
 </div>
-<div class="over" id="pauseCard">
-  <div class="card">
-    <h2>Paused</h2>
-    <button class="big" id="resume" type="button">Keep playing</button>
-    <div class="row"><button class="mid" id="restart" type="button">Restart</button><button class="mid" data-home type="button">Home</button></div>
+<div class="over" id="pauseCard" role="dialog" aria-label="Battle paused">
+  <div class="card pause-panel">
+    <div class="pause-head">
+      <div><span class="pause-kicker">Paused</span><h2 id="pauseTitle">Battle menu</h2></div>
+      <button class="pause-map-button" id="pauseMap" type="button">Full map ↗</button>
+    </div>
+    <div class="pause-body">
+      <div class="pause-metrics">
+        <div><span>Clock</span><strong id="pauseTime">0:00</strong></div>
+        <div><span>Par · 3 stars</span><strong id="pausePar">0:00</strong></div>
+      </div>
+      <section class="pause-section" aria-labelledby="pauseUpgradesTitle">
+        <h3 id="pauseUpgradesTitle">Current upgrades <span id="pauseUpgradeCount">0</span></h3>
+        <div class="pause-upgrades" id="pauseUpgrades"></div>
+      </section>
+      <section class="pause-section" aria-labelledby="pauseLoadoutTitle">
+        <h3 id="pauseLoadoutTitle">Tree loadout</h3>
+        <p class="pause-loadout" id="pauseLoadout"></p>
+      </section>
+      <section class="pause-section pause-settings" aria-labelledby="pauseSettingsTitle">
+        <h3 id="pauseSettingsTitle">Settings</h3>
+        <button id="pauseMute" type="button" aria-pressed="false">🔊 Sound on</button>
+      </section>
+    </div>
+    <div class="pause-actions">
+      <button class="big" id="resume" type="button">Resume battle</button>
+      <div class="row"><button class="mid" id="restart" type="button">Restart</button><button class="mid" data-home type="button">Home</button></div>
+    </div>
+    <div class="pause-mapdock">
+      <span>Map view · paused</span>
+      <button class="mid" id="pauseDetails" type="button">Details</button>
+      <button class="mid" id="resumeMap" type="button">Resume</button>
+    </div>
   </div>
 </div>
 <div class="over" id="winCard">
