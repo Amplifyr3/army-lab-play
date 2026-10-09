@@ -1,6 +1,6 @@
 {
-  "name": "Army lab",
-  "short_name": "Army lab",
+  "name": "Take the Stars",
+  "short_name": "Take the Stars",
   "description": "Hold a hex station with lines of ships, push with your stream and six tools, and break the other Cores.",
   "start_url": "./",
   "scope": "./",
