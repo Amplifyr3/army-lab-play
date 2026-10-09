@@ -10,9 +10,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Take the Stars</title>
-  <script type="module" crossorigin src="./assets/index-CGrNIAhM.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CpDPiQ3f.css">
+<title>Take the Stars</title>
+  <script type="module" crossorigin src="./assets/index-BKCLVdvn.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DHc21fZF.css">
 </head>
 <body>
 <div class="app">
@@ -82,7 +82,7 @@
     <section class="station-nav" aria-label="Other destinations">
       <h2>STATIONS</h2>
       <div class="tiles">
-        <button class="tile" id="toTree" type="button"><i aria-hidden="true"><svg viewBox="0 0 36 36"><path d="M18 29V13m0 8L7 14m11 3 11-8"/><path d="m18 4 5 3v6l-5 3-5-3V7ZM6 10l4 2v5l-4 2-4-2v-5Zm23-6 4 2v5l-4 2-4-2V6ZM18 26l5 3v5H13v-5Z"/></svg></i><span><strong>Tree</strong><small>Grow the network</small></span><b class="badge" id="treeBadge"></b></button>
+        <button class="tile" id="toTree" type="button"><i aria-hidden="true"><svg viewBox="0 0 36 36"><path d="M18 29V13m0 8L7 14m11 3 11-8"/><path d="m18 4 5 3v6l-5 3-5-3V7ZM6 10l4 2v5l-4 2-4-2v-5Zm23-6 4 2v5l-4 2-4-2V6ZM18 26l5 3v5H13v-5Z"/></svg></i><span><strong>Tree</strong><small>Build your empire</small></span><b class="badge" id="treeBadge"></b></button>
         <button class="tile" id="toCrew" type="button"><i aria-hidden="true"><svg viewBox="0 0 36 36"><path d="m18 4 9 7-3 15-6 6-6-6-3-15Z"/><path d="m10 14 8 5 8-5M5 17l-3 9 7-3m22-6 3 9-7-3M18 20v9"/></svg></i><span><strong>Crew</strong><small>Powers &amp; colours</small></span></button>
         <button class="tile" id="toDaily" type="button"><i aria-hidden="true"><svg viewBox="0 0 36 36"><path d="M18 3C12 3 5 18 5 25c0 11 26 11 26 0 0-7-7-22-13-22Z"/><path d="m19 10-6 10h7l-4 9 9-13h-8Z"/></svg></i><span><strong>Daily egg</strong><small>One fresh challenge</small></span><b class="badge" id="dailyBadge"></b></button>
         <button class="tile" id="toGalaxy" type="button"><i aria-hidden="true"><svg viewBox="0 0 36 36"><ellipse cx="18" cy="18" rx="17" ry="7" transform="rotate(-32 18 18)"/><circle cx="18" cy="18" r="9"/><circle cx="18" cy="18" r="3"/></svg></i><span><strong>Galaxy</strong><small>Beyond the sectors</small></span></button>
@@ -95,29 +95,13 @@
 </div>
 <div class="over full" id="tree">
   <div class="tapp">
-    <canvas class="tcv" id="treeCanvas" aria-label="Your creature tree. Tap glowing nodes to grow it; drag creatures from the Core onto rings."></canvas>
-    <div class="thud">
-      <div class="tbar">
-        <button class="back" type="button" data-home>‹ Back</button>
-        <button class="twallet" id="treeWallet" type="button" aria-label="What your tree adds up to"><span class="tore" id="treeOre"></span><span class="trate" id="treeRate"></span></button>
-        <span class="tsp"></span>
-        <button class="tbtn" id="treeBook" type="button" aria-label="Combos and keystones">📖 <span id="treeBookN"></span></button>
-      </div>
-      <div class="tchips" id="treeChips"></div>
-    </div>
-    <div class="tfoot">
-      <div class="tfootcol">
-        <div class="thint gone" id="treeHint" aria-live="polite"></div>
-        <div class="tgoal" id="treeGoal" hidden>
-          <button class="tgoaltxt" id="treeGoalInfo" type="button"><span class="gg" id="treeGoalG"></span><span><b id="treeGoalName"></b><small id="treeGoalSub"></small></span></button>
-          <button class="tgoalgo" id="treeGoalGo" type="button">Grow ▶<small id="treeGoalCost"></small></button>
-        </div>
-      </div>
-      <button class="thome" id="treeHome" type="button" aria-label="Back to the Core">⬢</button>
-    </div>
-    <div class="tbubble" id="treeBubble" hidden></div>
-    <div class="ttoast" id="treeToast" aria-live="polite"></div>
-    <div class="tbanner" id="treeBanner" aria-live="polite"><b id="treeBanT"></b><span id="treeBanS"></span></div>
+    <header class="tree-header">
+      <div class="tree-top"><button class="back" type="button" data-home>‹ Back</button><span id="treeLocation">ATTACK TREE</span><button id="treeWallet" type="button" aria-label="Open Core statistics"><b id="treeOre"></b><small id="treeRate"></small></button></div>
+      <nav id="treeTabs" aria-label="Upgrade trees"></nav>
+    </header>
+    <div id="treeViewport" tabindex="0" aria-label="Tree, scroll upward to grow"><div id="treeContent"></div></div>
+    <footer class="tree-footer"><div><button id="treeHome" type="button" aria-label="Open Core hub; swipe down on this handle">⌄ <b>Core & stats</b></button><button id="treeRoot" type="button" aria-label="Show this tree’s roots">↓ Roots</button></div><small id="treeFootNote"></small></footer>
+    <div id="treeToast" role="status" aria-live="polite"></div>
   </div>
 </div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="sheetbody"></div></div>
@@ -270,6 +254,6 @@
     <button class="big pulse" id="retry" type="button">Try again</button>
     <div class="row"><button class="mid" data-tree type="button">Tree</button><button class="mid" data-home type="button">Home</button></div>
   </div>
-</div>
+</div>
 </body>
 </html>
