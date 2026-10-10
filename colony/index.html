@@ -12,8 +12,8 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Take the Stars</title>
-  <script type="module" crossorigin src="./assets/index-Dl9wswZi.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CVnrpfgi.css">
+  <script type="module" crossorigin src="./assets/index-CLMc89Oy.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BEmU92Zw.css">
 </head>
 <body>
 <div class="app">
@@ -95,10 +95,14 @@
     <canvas id="treeCanvas" aria-hidden="true"></canvas>
     <header class="tree-header">
       <div class="tree-top plate"><button class="back" type="button" data-home>‹ Back</button><span id="treeLocation">ATTACK TREE</span><button id="treeWallet" type="button" aria-label="Open Core statistics"><b id="treeOre"></b><small id="treeRate"></small></button></div>
-      <nav id="treeTabs" aria-label="Upgrade trees"></nav>
     </header>
     <div id="treeViewport" tabindex="0" aria-label="Tree, scroll upward to grow"><div id="treeContent"></div></div>
-    <footer class="tree-footer"><div><button id="treeHome" type="button" aria-label="Open Core hub; swipe down on this handle"><span class="ico-slot" data-icon="chevron" data-px="12" aria-hidden="true"></span> <b>Core &amp; stats</b></button><button id="treeSections" type="button">Sections</button><button id="treeRoot" type="button" aria-label="Show this tree’s roots">↓ Roots</button><button id="treeFx" type="button" aria-pressed="true" aria-label="HD-2D effects">HD-2D <b>On</b></button></div><small id="treeFootNote"></small></footer>
+    <footer class="tree-footer">
+      <div id="treeDock" class="tree-dock plate" role="region" aria-label="Selected upgrade" hidden></div>
+      <div class="tree-tools"><button id="treeHome" type="button" aria-label="Open Core hub; swipe down on this handle"><span class="ico-slot" data-icon="chevron" data-px="12" aria-hidden="true"></span> <b>Core &amp; stats</b></button><button id="treeSections" type="button">Sections</button><button id="treeNext" type="button" aria-label="Go to the next upgrade to build">↑ Next</button><button id="treeRoot" type="button" aria-label="Show this tree’s roots">↓ Roots</button></div>
+      <nav id="treeTabs" aria-label="Upgrade trees"></nav>
+      <small id="treeFootNote"></small>
+    </footer>
     <div id="treeToast" role="status" aria-live="polite"></div>
   </div>
 </div>
