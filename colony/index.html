@@ -3,174 +3,215 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0a0e14">
+<meta name="theme-color" content="#05060f">
+<style>html,body{background:#05060f}</style>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Army lab</title>
-  <script type="module" crossorigin src="./assets/index-DxFMXU8v.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Do0gbd5b.css">
+<title>Take the Stars</title>
+  <script type="module" crossorigin src="./assets/index-Dl9wswZi.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CVnrpfgi.css">
 </head>
 <body>
 <div class="app">
-  <button class="top" id="pause" type="button" aria-label="Pause and open battle menu" aria-controls="pauseCard" aria-expanded="false">
+  <button class="top plate battlebar" id="pause" type="button" aria-label="Pause and open battle menu" aria-controls="pauseCard" aria-expanded="false">
     <span class="lvl"><b id="lvlNum">Level 1</b><small id="lvlName"></small></span>
     <span class="clock" id="clock">0:00</span>
-    <span class="top-caret" aria-hidden="true">⌄</span>
+    <span class="top-caret ico-slot" data-icon="chevron" data-px="12" aria-hidden="true"></span>
   </button>
   <div class="board" id="board"></div>
-  <div class="boons" id="boons" aria-live="polite">
+  <div class="boons plate deco" id="boons" aria-live="polite">
     <p>Relic! Pick one:</p>
     <div class="row3" id="boonPicks"></div>
   </div>
 </div>
 
-<div class="over show" id="start">
-  <div class="card hangar">
-    <div class="wallet"><span class="ore" id="oreCount">◆ 0</span><span class="rank" id="rankLine"></span><span class="startot" id="starTot">★ 0</span></div>
+<div class="over show hd" id="start">
+  <div class="card hangar scr">
+    <header class="hangar-header plate deco">
+      <div class="hangar-brand"><h1 aria-label="Take the Stars"><span>Take the</span><strong>Stars</strong></h1></div>
+      <div class="wallet" id="homeWallet" role="group" aria-label="Your resources"><span class="ore" id="oreCount">◆ 0</span><span class="startot" id="starTot">★ 0</span></div>
+      <button class="settings-switch" id="openSettings" type="button" aria-label="Open settings" aria-haspopup="dialog" aria-controls="homeSettings" aria-expanded="false"><span class="ico-slot" data-icon="gear" data-px="24"></span></button>
+    </header>
+    <dialog id="homeSettings" class="settings-drawer plate deco" aria-labelledby="homeSettingsTitle">
+      <div class="settings-heading"><h2 id="homeSettingsTitle">Settings</h2><button id="closeSettings" type="button" aria-label="Close settings" autofocus>×</button></div>
+      <button class="setting-row" id="mute" type="button" aria-label="Mute sound" aria-pressed="false"><span><span class="ico-slot" data-icon="sound" data-px="24"></span>Sound</span><span class="setting-state"><b id="muteText">On</b><i aria-hidden="true"></i></span></button>
+      <button class="setting-row" type="button" disabled><span>Haptics</span><small>Soon</small></button>
+      <button class="setting-row" type="button" disabled><span>Language</span><small>Soon</small></button>
+      <p>More controls are on the way.</p>
+    </dialog>
     <p class="preview-tag" id="previewTag" hidden>PREVIEW · its own save, copied from your real one</p>
-    <h1>Army lab</h1>
-    <p class="sector" id="sectorLine"></p>
-    <button class="big" id="eggWaiting" type="button" hidden>🥚 Your egg is waiting: hatch it!</button>
-    <button class="big pulse" id="play" type="button">Play</button>
-    <div class="colonybar" id="treebar">
-      <div class="flowstrip"><i id="treeFlow"></i></div>
-      <span id="treeText"></span>
-    </div>
-    <p class="savenote" id="saveNote" hidden></p>
-    <div class="tiles">
-      <button class="tile" id="toTree" type="button"><i>🌳</i>Tree<b class="badge" id="treeBadge"></b></button>
-      <button class="tile" id="toCrew" type="button"><i>🎨</i>Crew</button>
-      <button class="tile" id="toMap" type="button"><i>🗺️</i>Levels</button>
-      <button class="tile" id="toDaily" type="button"><i>🥚</i>Daily egg<b class="badge" id="dailyBadge"></b></button>
-      <button class="tile" id="toGalaxy" type="button"><i>🌌</i>Galaxy</button>
-      <button class="tile" id="mute" type="button"><i id="muteIcon">🔊</i><span id="muteText">Sound on</span></button>
+    <div class="stage-gap" aria-hidden="true"></div>
+    <div class="command-console" id="homeConsole">
+      <i class="console-lamp" aria-hidden="true"></i>
+      <section class="mission-panel" aria-labelledby="homeMissionName">
+        <div class="mission-dock">
+          <div class="mission-display">
+            <div class="mission-copy"><span class="mission-number" id="homeLevelNum"></span><h2 id="homeMissionName"></h2></div>
+            <div class="route-dock">
+              <div class="home-route-head"><div class="home-route" id="homeRoute" role="list" aria-label="Current sector progress"></div><small id="homeRouteProgress"></small></div>
+            </div>
+          </div>
+          <div class="egg-bay">
+            <button class="map-tab" id="toMap" type="button" aria-label="All levels"><span class="ico-slot" data-icon="map" data-px="12"></span>Map</button>
+            <button class="home-reward" id="homeReward" type="button"><span class="incubator" aria-hidden="true"><img class="pix" id="homeEggArtwork" alt="" draggable="false"></span><span class="egg-readout"><strong id="homeRewardLabel">Win this</strong><small id="homeRewardTitle">First egg</small></span></button>
+          </div>
+        </div>
+        <p class="reward-detail" id="homeRewardDetail">Win. Hatch. Discover who joins your army.</p>
+        <p class="first-steps" id="homeFirstSteps">Win battles. Hatch creatures.</p>
+        <p class="hatch-hint" id="homeHatchHint" hidden>See who's inside.</p>
+        <div class="aux-display">
+          <section class="home-collection" id="homeCollection" aria-label="Your creature collection" hidden><div class="collection-heading"><span>CREATURE DIRECTORY</span><small id="homeCollectionCount"></small></div><button id="homeRoster" data-tree type="button" aria-label="Open your creatures in the tree"></button></section>
+          <button class="home-prepare" id="homePrepare" data-tree type="button" hidden><strong id="homePrepareTitle"></strong><b aria-hidden="true">→</b></button>
+          <div class="colonybar" id="treebar">
+            <div class="flowstrip"><i id="treeFlow"></i></div>
+            <span id="treeText"></span>
+          </div>
+        </div>
+        <div class="launch-switch">
+          <button class="big" id="eggWaiting" type="button" hidden>Hatch your egg →</button>
+          <button class="big" id="play" type="button">Play</button>
+        </div>
+        <p class="savenote" id="saveNote" hidden></p>
+      </section>
+      <section class="station-nav home-navigation" aria-label="Other destinations">
+        <h2>STATIONS</h2>
+        <div class="tiles">
+          <button class="tile" id="toTree" type="button"><span class="spr-slot" data-sprite="machine:coil:economy:0" data-size="36"></span><strong>Tree</strong><b class="badge" id="treeBadge"></b></button>
+          <button class="tile" id="toCrew" type="button"><span class="spr-slot" id="crewTileArt" data-sprite="skin:f2b441" data-size="36"></span><strong>Crew</strong></button>
+          <button class="tile" id="toDaily" type="button"><span class="spr-slot" data-sprite="egg:rare" data-size="36"></span><strong>Daily egg</strong><b class="badge" id="dailyBadge"></b></button>
+          <button class="tile" id="toGalaxy" type="button"><span class="spr-slot" data-sprite="planet:3" data-size="36"></span><strong>Galaxy</strong></button>
+        </div>
+      </section>
+      <footer class="hangar-footer"><span class="rank" id="rankLine"></span></footer>
     </div>
   </div>
 </div>
 <div class="over full" id="tree">
   <div class="tapp">
-    <canvas class="tcv" id="treeCanvas" aria-label="Your creature tree. Tap glowing nodes to grow it; drag creatures from the Core onto rings."></canvas>
-    <div class="thud">
-      <div class="tbar">
-        <button class="back" type="button" data-home>‹ Back</button>
-        <button class="twallet" id="treeWallet" type="button" aria-label="What your tree adds up to"><span class="tore" id="treeOre"></span><span class="trate" id="treeRate"></span></button>
-        <span class="tsp"></span>
-        <button class="tbtn" id="treeBook" type="button" aria-label="Combos and keystones">📖 <span id="treeBookN"></span></button>
-      </div>
-      <div class="tchips" id="treeChips"></div>
-    </div>
-    <div class="tfoot">
-      <div class="tfootcol">
-        <div class="thint gone" id="treeHint" aria-live="polite"></div>
-        <div class="tgoal" id="treeGoal" hidden>
-          <button class="tgoaltxt" id="treeGoalInfo" type="button"><span class="gg" id="treeGoalG"></span><span><b id="treeGoalName"></b><small id="treeGoalSub"></small></span></button>
-          <button class="tgoalgo" id="treeGoalGo" type="button">Grow ▶<small id="treeGoalCost"></small></button>
-        </div>
-      </div>
-      <button class="thome" id="treeHome" type="button" aria-label="Back to the Core">⬢</button>
-    </div>
-    <div class="tbubble" id="treeBubble" hidden></div>
-    <div class="ttoast" id="treeToast" aria-live="polite"></div>
-    <div class="tbanner" id="treeBanner" aria-live="polite"><b id="treeBanT"></b><span id="treeBanS"></span></div>
+    <canvas id="treeCanvas" aria-hidden="true"></canvas>
+    <header class="tree-header">
+      <div class="tree-top plate"><button class="back" type="button" data-home>‹ Back</button><span id="treeLocation">ATTACK TREE</span><button id="treeWallet" type="button" aria-label="Open Core statistics"><b id="treeOre"></b><small id="treeRate"></small></button></div>
+      <nav id="treeTabs" aria-label="Upgrade trees"></nav>
+    </header>
+    <div id="treeViewport" tabindex="0" aria-label="Tree, scroll upward to grow"><div id="treeContent"></div></div>
+    <footer class="tree-footer"><div><button id="treeHome" type="button" aria-label="Open Core hub; swipe down on this handle"><span class="ico-slot" data-icon="chevron" data-px="12" aria-hidden="true"></span> <b>Core &amp; stats</b></button><button id="treeSections" type="button">Sections</button><button id="treeRoot" type="button" aria-label="Show this tree’s roots">↓ Roots</button><button id="treeFx" type="button" aria-pressed="true" aria-label="HD-2D effects">HD-2D <b>On</b></button></div><small id="treeFootNote"></small></footer>
+    <div id="treeToast" role="status" aria-live="polite"></div>
   </div>
 </div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="sheetbody"></div></div>
-<div class="over" id="away">
-  <div class="card">
-    <h2>While you were away…</h2>
-    <p id="awayTime"></p>
-    <div class="reward" id="awayReward"></div>
-    <p class="small" id="awayNote"></p>
-    <button class="big pulse" id="awayGo" type="button">Open the tree</button>
-    <button class="mid" id="awayOk" type="button">OK</button>
-  </div>
-</div>
-<div class="over" id="crewCard">
-  <div class="card wide">
-    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button></div>
-    <h2>Your crew</h2>
-    <p class="small center">Grow your fleet in the creature tree. Bosses unlock powers and colours.</p>
-    <h3>Powers</h3>
-    <div class="chips" id="powerList"></div>
-    <h3>Colours</h3>
-    <div class="chips" id="skinList"></div>
-  </div>
-</div>
-<div class="over" id="map">
-  <div class="card wide">
-    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="startot" id="mapStars"></span></div>
-    <h2>Levels</h2>
-    <div id="sectors"></div>
-  </div>
-</div>
-<div class="over" id="daily">
-  <div class="card">
-    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="streak" id="dailyStreak"></span></div>
-    <h2>Daily egg</h2>
-    <div class="egg big rare" id="dailyEgg">🥚</div>
-    <p class="modname" id="dailyMod"></p>
-    <p id="dailyDesc"></p>
-    <p class="small" id="dailyInfo"></p>
-    <button class="big pulse" id="playDaily" type="button">Play</button>
-  </div>
-</div>
-<div class="over" id="galaxy">
-  <div class="card wide">
-    <div class="cardtop"><button class="back" type="button" data-home>‹ Back</button><span class="ore" id="galaxyScore"></span></div>
-    <div id="galaxyLocked">
-      <h2>The galaxy</h2>
-      <div class="egg big">🌀</div>
-      <p class="center" id="galaxyNeed"></p>
-    </div>
-    <div id="galaxyOpen">
-      <canvas id="starmap" width="360" height="220" aria-label="Your empire: one lit star system for every sector cleared"></canvas>
-      <div class="banner" id="banner"></div>
-      <label class="namefield" for="empireName">Empire name <input id="empireName" maxlength="24" autocomplete="off"></label>
-      <div class="titlebar"><div class="bar"><i id="titleFill"></i></div><span id="titleNext"></span></div>
-      <h3>Trophies</h3>
-      <div class="cards" id="trophies"></div>
-      <div class="statgrid" id="empireStats"></div>
-      <button class="big" id="share" type="button">Share my empire</button>
-      <p class="small center" id="shareNote"></p>
+<div class="over hd" id="away">
+  <div class="card scr">
+    <div class="stage-gap" aria-hidden="true"></div>
+    <div class="plate deco pad center">
+      <h2>While you were away…</h2>
+      <p class="lede" id="awayTime"></p>
+      <div class="away-ore" id="awayReward"></div>
+      <p id="awayNote"></p>
+      <button class="big" id="awayGo" type="button">Open the tree</button>
+      <button class="mid" id="awayOk" type="button">OK</button>
     </div>
   </div>
 </div>
-<div class="over" id="intro">
-  <div class="card" id="introCard">
+<div class="over hd" id="crewCard">
+  <div class="card scr">
+    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Your crew</h2><span></span></div>
+    <div class="stage-gap" aria-hidden="true"></div>
+    <div class="plate deco pad">
+      <p class="lede center">Grow your fleet in the creature tree. Bosses unlock powers and colours.</p>
+      <h3>Powers</h3>
+      <div class="chips" id="powerList"></div>
+      <h3>Colours</h3>
+      <div class="chips" id="skinList"></div>
+    </div>
+  </div>
+</div>
+<div class="over hd" id="map">
+  <div class="card scr campaign">
+    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Campaign chart</h2><span class="startot" id="mapStars"></span></div>
+    <div class="stage-gap" aria-hidden="true"></div>
+    <section class="campaign-current plate deco pad" aria-labelledby="mapNextName">
+      <p class="campaign-current-top"><span>Up next · </span><b id="mapNextNumber"></b></p>
+      <h3 id="mapNextName"></h3><p class="lede" id="mapNextTwist"></p>
+      <div id="sectors"></div>
+      <button class="big" id="mapNextPlay" type="button">Play next level</button>
+    </section>
+  </div>
+</div>
+<div class="over hd" id="daily">
+  <div class="card scr">
+    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Daily egg</h2><span class="streak" id="dailyStreak"></span></div>
+    <div class="stage-gap" aria-hidden="true"></div>
+    <div class="plate deco pad center">
+      <h2>Daily egg</h2>
+      <div class="egg-art" id="dailyEgg"><span class="spr-slot" data-sprite="egg:rare" data-size="72"></span></div>
+      <div class="mood"><span id="dailyModIcon"></span><div><b class="modname" id="dailyMod"></b><small id="dailyDesc"></small></div></div>
+      <p id="dailyInfo"></p>
+      <button class="big" id="playDaily" type="button">Play</button>
+    </div>
+  </div>
+</div>
+<div class="over hd" id="galaxy">
+  <div class="card scr">
+    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Galaxy</h2><span class="ore" id="galaxyScore"></span></div>
+    <div class="stage-gap" aria-hidden="true"></div>
+    <div class="plate deco pad galaxy-plate">
+      <div id="galaxyLocked">
+        <h2>The galaxy</h2>
+        <div class="egg-art"><span class="spr-slot" data-sprite="planet:5" data-size="72"></span></div>
+        <p class="center" id="galaxyNeed"></p>
+      </div>
+      <div id="galaxyOpen">
+        <div class="banner" id="banner"></div>
+        <label class="namefield" for="empireName">Empire name <input id="empireName" maxlength="24" autocomplete="off"></label>
+        <div class="titlebar"><div class="bar"><i id="titleFill"></i></div><span id="titleNext"></span></div>
+        <h3>Trophies</h3>
+        <div class="cards" id="trophies"></div>
+        <div class="statgrid" id="empireStats"></div>
+        <button class="big" id="share" type="button"><span class="ico-slot" data-icon="share" data-px="24"></span>Share my empire</button>
+        <p class="small center" id="shareNote"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="over battle" id="intro">
+  <div class="card plate deco pad" id="introCard">
     <p class="sector" id="introLevel"></p>
-    <p class="boss-stamp">☠ BOSS FIGHT</p>
+    <p class="boss-stamp"><span class="ico-slot" data-icon="skull" data-px="24"></span>Boss fight</p>
     <h2 id="introName"></h2>
-    <div class="boss-objective">
-      <div class="boss-core-symbol" aria-hidden="true"><span></span></div>
-      <p><b>One enemy.</b> Break the giant Core.</p>
+    <div class="boss-objective mood">
+      <div class="boss-core-symbol" aria-hidden="true" id="introBossCore"></div>
+      <p><b>One enemy.</b> <small>Break the giant Core.</small></p>
     </div>
-    <p class="boss-prize">WIN THIS EGG</p>
-    <div class="egg big" id="introEgg">🥚</div>
-    <p class="eggname" id="introRarity"></p>
+    <p class="boss-prize">Win this egg</p>
+    <div class="egg big" id="introEgg"></div>
+    <div class="mood egg-mood"><span id="introMoodIcon"></span><div><b class="eggname" id="introRarity"></b><small id="introMood"></small></div></div>
     <div class="chips" id="introMods"></div>
     <p class="loadout" id="introLoadout"></p>
-    <p class="small" id="introTwist"></p>
+    <p id="introTwist"></p>
     <button class="big pulse" id="go" type="button">Fight for the egg!</button>
   </div>
 </div>
-<div class="over" id="hatchCard">
-  <div class="card">
-    <div class="egg big wobble" id="hatchEgg">🥚</div>
-    <div class="monster" id="hatchMonster"></div>
-    <p class="got" id="hatchGot"></p>
-    <button class="big pulse" id="hatchSlot" type="button">Give it a home</button>
-    <div class="row"><button class="mid" id="hatchNext" type="button">Next level</button><button class="mid" data-home type="button">Home</button></div>
+<div class="over hd" id="hatchCard">
+  <div class="card scr">
+    <div class="stage-gap" aria-hidden="true"></div>
+    <div class="plate deco pad center hatch-plate">
+      <div class="egg big wobble" id="hatchEgg"></div>
+      <div class="monster" id="hatchMonster"></div>
+      <p class="got" id="hatchGot"></p>
+      <button class="big pulse" id="hatchSlot" type="button">Give it a home</button>
+      <div class="row"><button class="mid" id="hatchNext" type="button">Next level</button><button class="mid" data-home type="button">Home</button></div>
+    </div>
   </div>
 </div>
-<div class="over" id="pauseCard" role="dialog" aria-label="Battle paused">
-  <div class="card pause-panel">
+<div class="over battle" id="pauseCard" role="dialog" aria-label="Battle paused">
+  <div class="card pause-panel plate deco">
     <div class="pause-head">
       <div><span class="pause-kicker">Paused</span><h2 id="pauseTitle">Battle menu</h2></div>
-      <button class="pause-map-button" id="pauseMap" type="button">Full map ↗</button>
+      <button class="pause-map-button" id="pauseMap" type="button"><span class="ico-slot" data-icon="map" data-px="24"></span>Full map</button>
     </div>
     <div class="pause-body">
       <div class="pause-metrics">
@@ -187,7 +228,7 @@
       </section>
       <section class="pause-section pause-settings" aria-labelledby="pauseSettingsTitle">
         <h3 id="pauseSettingsTitle">Settings</h3>
-        <button id="pauseMute" type="button" aria-pressed="false">🔊 Sound on</button>
+        <button id="pauseMute" type="button" aria-pressed="false">Sound on</button>
       </section>
     </div>
     <div class="pause-actions">
@@ -201,26 +242,26 @@
     </div>
   </div>
 </div>
-<div class="over" id="winCard">
-  <div class="card">
+<div class="over battle" id="winCard">
+  <div class="card plate deco pad">
     <h2 id="winTitle">Level cleared!</h2>
     <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
-    <p id="winText"></p>
+    <p class="lede" id="winText"></p>
     <div class="unlock" id="winUnlock"></div>
     <div class="reward" id="winReward"></div>
     <button class="nudge" id="winNudge" type="button"></button>
-    <button class="big pulse" id="hatch" type="button">🥚 Hatch the egg!</button>
+    <button class="big" id="hatch" type="button">Hatch the egg!</button>
   </div>
 </div>
-<div class="over" id="loseCard">
-  <div class="card">
+<div class="over battle" id="loseCard">
+  <div class="card plate deco pad">
     <h2>Your Core fell</h2>
     <p class="cause" id="loseCause"></p>
-    <p class="small">The egg got away this time.</p>
+    <p class="lede">The egg got away this time.</p>
     <div class="reward" id="loseReward"></div>
     <button class="nudge" id="loseNudge" type="button"></button>
-    <p id="loseTip"></p>
-    <button class="big pulse" id="retry" type="button">Try again</button>
+    <p class="lede" id="loseTip"></p>
+    <button class="big danger" id="retry" type="button">Try again</button>
     <div class="row"><button class="mid" data-tree type="button">Tree</button><button class="mid" data-home type="button">Home</button></div>
   </div>
 </div>
