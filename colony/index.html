@@ -11,14 +11,15 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Take the Stars</title>
-  <script type="module" crossorigin src="./assets/index-CLMc89Oy.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BEmU92Zw.css">
+<title>Take the Stars</title>
+  <script type="module" crossorigin src="./assets/index-DLXXWvcZ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-UAZ_yIir.css">
 </head>
 <body>
 <div class="app">
   <button class="top plate battlebar" id="pause" type="button" aria-label="Pause and open battle menu" aria-controls="pauseCard" aria-expanded="false">
     <span class="lvl"><b id="lvlNum">Level 1</b><small id="lvlName"></small></span>
+    <span class="top-egg" id="topEgg" aria-hidden="true"></span>
     <span class="clock" id="clock">0:00</span>
     <span class="top-caret ico-slot" data-icon="chevron" data-px="12" aria-hidden="true"></span>
   </button>
@@ -39,6 +40,7 @@
     <dialog id="homeSettings" class="settings-drawer plate deco" aria-labelledby="homeSettingsTitle">
       <div class="settings-heading"><h2 id="homeSettingsTitle">Settings</h2><button id="closeSettings" type="button" aria-label="Close settings" autofocus>×</button></div>
       <button class="setting-row" id="mute" type="button" aria-label="Mute sound" aria-pressed="false"><span><span class="ico-slot" data-icon="sound" data-px="24"></span>Sound</span><span class="setting-state"><b id="muteText">On</b><i aria-hidden="true"></i></span></button>
+      <button class="setting-row" id="hand" type="button" aria-label="Powers dock for the left hand" aria-pressed="false"><span><span class="ico-slot" data-icon="swap" data-px="24"></span>Hand</span><span class="setting-state"><b id="handText">Right</b><i aria-hidden="true"></i></span></button>
       <button class="setting-row" type="button" disabled><span>Haptics</span><small>Soon</small></button>
       <button class="setting-row" type="button" disabled><span>Language</span><small>Soon</small></button>
       <p>More controls are on the way.</p>
@@ -56,7 +58,7 @@
             </div>
           </div>
           <div class="egg-bay">
-            <button class="map-tab" id="toMap" type="button" aria-label="All levels"><span class="ico-slot" data-icon="map" data-px="12"></span>Map</button>
+            <button class="map-tab" id="toMap" type="button" aria-label="The star chart"><span class="ico-slot" data-icon="map" data-px="12"></span>Chart</button>
             <button class="home-reward" id="homeReward" type="button"><span class="incubator" aria-hidden="true"><img class="pix" id="homeEggArtwork" alt="" draggable="false"></span><span class="egg-readout"><strong id="homeRewardLabel">Win this</strong><small id="homeRewardTitle">First egg</small></span></button>
           </div>
         </div>
@@ -82,7 +84,7 @@
         <div class="tiles">
           <button class="tile" id="toTree" type="button"><span class="spr-slot" data-sprite="machine:coil:economy:0" data-size="36"></span><strong>Tree</strong><b class="badge" id="treeBadge"></b></button>
           <button class="tile" id="toCrew" type="button"><span class="spr-slot" id="crewTileArt" data-sprite="skin:f2b441" data-size="36"></span><strong>Crew</strong></button>
-          <button class="tile" id="toDaily" type="button"><span class="spr-slot" data-sprite="egg:rare" data-size="36"></span><strong>Daily egg</strong><b class="badge" id="dailyBadge"></b></button>
+          <button class="tile" id="toDaily" type="button"><span class="spr-slot" data-sprite="egg" data-size="36"></span><strong>Daily egg</strong><b class="badge" id="dailyBadge"></b></button>
           <button class="tile" id="toGalaxy" type="button"><span class="spr-slot" data-sprite="planet:3" data-size="36"></span><strong>Galaxy</strong></button>
         </div>
       </section>
@@ -135,15 +137,13 @@
 </div>
 <div class="over hd" id="map">
   <div class="card scr campaign">
-    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Campaign chart</h2><span class="startot" id="mapStars"></span></div>
+    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Star chart</h2><span class="chart-wallet"><span class="startot num" id="mapStars"></span><span class="dust num" id="mapDust"></span></span></div>
     <div class="stage-gap" aria-hidden="true"></div>
-    <section class="campaign-current plate deco pad" aria-labelledby="mapNextName">
-      <p class="campaign-current-top"><span>Up next · </span><b id="mapNextNumber"></b></p>
-      <h3 id="mapNextName"></h3><p class="lede" id="mapNextTwist"></p>
-      <div id="sectors"></div>
-      <button class="big" id="mapNextPlay" type="button">Play next level</button>
-    </section>
+    <section class="chart-sheet plate deco hint" id="chartSheet" aria-live="polite"></section>
   </div>
+  <div class="chart-tags" id="chartTags"></div>
+  <div class="chart-toast plate" id="chartToast" role="status" hidden></div>
+  <div class="lit-card plate deco" id="litCard" hidden></div>
 </div>
 <div class="over hd" id="daily">
   <div class="card scr">
@@ -151,7 +151,7 @@
     <div class="stage-gap" aria-hidden="true"></div>
     <div class="plate deco pad center">
       <h2>Daily egg</h2>
-      <div class="egg-art" id="dailyEgg"><span class="spr-slot" data-sprite="egg:rare" data-size="72"></span></div>
+      <div class="egg-art" id="dailyEgg"><span class="spr-slot" data-sprite="egg" data-size="72"></span></div>
       <div class="mood"><span id="dailyModIcon"></span><div><b class="modname" id="dailyMod"></b><small id="dailyDesc"></small></div></div>
       <p id="dailyInfo"></p>
       <button class="big" id="playDaily" type="button">Play</button>
@@ -207,7 +207,7 @@
       <div class="monster" id="hatchMonster"></div>
       <p class="got" id="hatchGot"></p>
       <button class="big pulse" id="hatchSlot" type="button">Give it a home</button>
-      <div class="row"><button class="mid" id="hatchNext" type="button">Next level</button><button class="mid" data-home type="button">Home</button></div>
+      <div class="row"><button class="mid" id="hatchNext" type="button">Next star</button><button class="mid" data-home type="button">Home</button></div>
     </div>
   </div>
 </div>
@@ -248,6 +248,7 @@
 </div>
 <div class="over battle" id="winCard">
   <div class="card plate deco pad">
+    <div class="egg-fall" id="eggFall" aria-hidden="true"></div>
     <h2 id="winTitle">Level cleared!</h2>
     <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
     <p class="lede" id="winText"></p>
