@@ -4,26 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#05060f">
-<style>html,body{background:#05060f}</style>
+<style>html,body{background:#05060f}.boot{z-index:100;background:radial-gradient(at 50% 42%,#1a1440,#05060f 70%);place-content:center;justify-items:center;gap:18px;transition:opacity .35s steps(5,end);display:grid;position:fixed;inset:0}.boot.done{opacity:0;pointer-events:none}.boot img{image-rendering:pixelated}.boot .boot-emblem{width:126px;height:125px;animation:2.4s steps(8,end) infinite boot-turn}.boot .boot-logo{width:min(382px,86vw);height:auto}@keyframes boot-turn{0%,to{filter:drop-shadow(0 0 6px #ffd67866);transform:scale(1)}50%{filter:drop-shadow(0 0 16px #ffd678cc);transform:scale(1.06)}}@media (prefers-reduced-motion:reduce){.boot .boot-emblem{animation:none}}</style>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Take the Stars</title>
-  <script type="module" crossorigin src="./assets/index-DLXXWvcZ.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-UAZ_yIir.css">
+  <script type="module" crossorigin src="./assets/index-Ci1Wl6tQ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BAxz_IYQ.css">
 </head>
 <body>
+<div class="boot" id="boot" role="status" aria-label="Loading Take the Stars"><img class="boot-emblem" src="data:image/png;base64,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" alt="" width="126" height="125"><img class="boot-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAL8AAABJCAYAAABsIfcCAAALgUlEQVR42u2dPY4sRQzHX4xERkSISCDYA6yEBCGbvAsQcosNIOYCXIGMCUg5A0Ii2JCAGCEC0oUaphq32y7/7XL19AzVUknv7fRHffzsdrns6jdv5nGV4913PnytZc/nzZ6fxyHAf3152kUA9ha0eczDBJHCPxLMPQVtHvM4H2+/e32thYN4Ln/9uvybQvnlVz9vrst8y0wBmEcTmB7Y+d8imp/fSxIkS0Doc6qgTQGYR8g+LqAVrWwB6nkGCqJHGPi9z+DXMgVgHl77OKJ5956ESvD/8cvzCv7y/wn/PEQYCxy13DIgkgBM8Odh28cvTzcP/7U8S/M42OB7bOl7cwsiawp0HjOPO5u4SrZ7C/57046tNlW36hSAO7TfucYrg2wN9D2aBS2Bpv0xzaI7s9/ngPa9LedxBXu89/5U888ex/usTvZnj1zBDp1abGr+u+/kP3/4DOpkaUV0RLnGMxHgrlWX7HbM48Dw07ocBZpbBD8iAP8bofHEs9fff//tp3WMClCkAZHuU/6mDaB139bvnjpbAuhtO21TTxu8z6bPneaW0sAyqdKgU92WJATYKvWtosLMzjfhF87jv5U60ueu4HfUlbf9/fc+/e9egfa32qDVsxUYhz7Xw8bdrkBvgKohtkK8iQYAOuhLOT28fv72++0gN65R4RfO2/z99LCBWHze6WFTEPir5yoMf6OtG8E6PZh9ILVFawcK/126pUWAyWtSGpAu+C+DQeFHNacoqLxwLXh6eH355oPXTz769lxU+C/nlfLj109L4UIqwV+uQdtfn9GCt9StFqk9JvykLbU9vP1zTUbT/BeIPF6X2tEa8HQw6OBLIBYtFYZfKNLgt940FXx+jQZ/WYWlbUPBb2puzZQBNX9dEyh92WoHMonX8g3uQhDEBgMNrX//+IvTUkonSwNWB6CUcl6BRtP6ZcAkAYjAr0HcNLP+qW+9DhF82nax/S//vkFq20upguOZK7jMHtKPXeAzQbxr16l39wIJAAT+1WRRGLACn6X9EViK9uOmC11hlp7NtXMm/PS6kfDXdkhtcZnAFH5l0n03q4QZfn5pwlmBb07mLoNWYcqAv+lFaZgb0cW2M9AGsE34hUl3BH76hvFo65bmv2mtPwJ+1e9twL9M6DwDzz0lyqBL14lelJaGU9ILrT71wH+uqwJ/hXdj/qFmj+HndwsAYPIcUiB4Q6xMqKhLTIVSgV8aeOptccFP7PTzpNMQAI97kpoOVtvFN5YDfjpBLSUMP2AyZXp7DvtG4AM+Ig1wNSCCBpdewfwc6pIspdjJ/JzW9XRyuwiA43rJxKj1QrXlAn/juatzhT6ov2vt2MxdpHYoxQsoAr9HsV5VCEb5a7nbk/rKS5EGn59TJ4V0YsjP4feif68CVgWndS1SP2nCiE78kftb50Z/b5UI/KjXr8J/yFD1ka8maVC5C9Q6R/KISOchv5V7ea7lJll0osjbLLlZ0XOlPtR+p9drJTr+6Dzx8Jp/pF1mDWxr8FveiQj8HsHhNjQS1+SBXxMk69zI71qp6yo9UZ3esO5DLVzN+Pa1V4YD0ePWO3IbPeDffB7BjHH3l8X7U12DzgniPcTx32wyDRrvnlE0f7EVmz+y9A5IKyYpA55NoNoV+gOt94h6DhMAT7LHKAHY89lSXbTwaxf4yoJTrwDsrQg8QWh71XfIWwCCzhtvDyyWFCCaIQsjny8ASl2dYfCVKEqPAEiT2hL1ufjaR/eHEdah1XX4uBmZcflmzqhOfX5c4Je8JXuDH4V/MzjGc7SAt1bZwG89awcBuJbCkqyFMRp/JGwK/KE69NTXWEHu1vrCsyLwb1Zy91IOgADs9qZurHaH4d9UfrSWfX5cmT1Fq1k5uE3wg2+epZweVnVwzTc8wsehte778mRrfzAFEQn4i8K/KzuXseKKKh5HE5FaCk+gFPDrvpor+KmAaMWrbYG60M5EvSpLVKdj0PnHJNDJ5gp+pP3EzNJKBvxudhwxRFLMUgV/DPw7gF8KbYQIfwtaj9Y37ieaXh7bepAzgM8PNpqfvkUaDoUSosFLjeXxan8O/rk+XrOzNR5B8MPw92h9GkTmLVrIABJY5Qbp+VG9lxai0Apphge40xPWnPSC8JeV2Sb8Du+RWJ9OBwNaKPhdWp/Df359ewerE34uAFY8DY09cW3zcYGfhzlLQWv0+YtpIPXL6aG9WwQCv/Y7C83OgJ+WdPgj84gLcxms9OXZskmod++YW4GfB25Z8FcBEOPzW+YO8US4BUDISeiBX/KK0Oyuc5KLw1yB4PcwRCwOlJWUxa3VAHG7yzF5o/vDSKVGA9LgKKtRrZDmHvjpPbj21569GVBDU25MJ6R+zBzQwrIz4Ud3m9Pu1YQ/YPJJLGWFU5uJI1EBgDwixDMS8W+r8KMD54Sfa3+aCeXZFQ6G3wA/E/4KmWddonIh9U+mAHB2tIjSNB//ZoIXNIG8i1A9YbU98GuhyC3hq32D7AonplmCAqAl42jwW/WR3sSwc4N5Wlpvx7rhVooAGIp1mACkSTC4ApseRGaA5V3BpQO88s97/OAg/NrGWGHNb72VwbWRCj7ft0gySxcBkNyXg+N7ugVASoZOF4Jg0JQ7liYBftFGjqyAAn0jpWn2av6euKsKfn0TIfCf+UF894kC0B3kZsaRZFZcGPQjw49ughuK9WcTPldw2w7wS5sBpAlAokmE7iUEmT98MihWXFpxHRSnEYaf1DUKvwcwyba2Jsjc950Kf2B86taMVuJ8yynBF9XU+UDWJBndARoddO5magqAt+IC/BTMFPhZPT3P8H58IjNcVxOA0KJScHyKACDgexLgN3FFtV5a6Epn1GlXfiW6ULWZgCXA3zJ/IPgFIbXgb4Z4jwxlAPf4DC0qSWZHYgy/tskuxI0Wt9XZnyJD3nDdqoWqW1BrxHmZPBLVJwS4aXBGsqak3d488MPt8QT0dQhAyKdOYpqiLuzoFy0tbkxlmhDn359qRgRBK1Hw0+Fv2JIeswe2852ZWZ4wYj4B3gSSIQJAwjrOAhBZxGyYE60ke6kgb4cyR/CGXWhbNeZkazmSL9BEFsnsgeDXnmtMpND7e8APwe8AD9m81hIAOgldreQnmBPeTQeKQGseIrqe4h0DCP6hMeieSl4GoLUbGpRq6UiOQO7fG3YMLdA5XuvmxzAAE6hGdq4WohIEIKxUnZls3qQYG/69wTeSSFD4vdreA/8S5ejMLqpA0s8g1X/TrcGj96d2LAw/C8SrNvhGAJImwZv0yr2VKQT/nhVsTAY18F3wOwGy7h9OsUscuFT4SbSoGK2aYP+vgttGhDI4U1I3X71UY3f2kEyhgjx7ykpS4PB795LXFtPQnaGlXaBXCzdB8KVsNqtP3PAz4dnE4QT96yr8IwXASEWt46LCv3ndjSpKBVHwVfg76oLAjwgA9Uq4BED5eEYI/uCbQwxEA/JnrfstUZ1gPm4WU9SKEL8WKXocEhLQPbs0WODDC1zATgxWwjziskPgr+DC8LNAMQR+blcvtrWz7Vq7on3ZDGvemS0V/Gbs/k4VpKaCR+OL8CfsFoGGN6DwQwLQSPj3gL8yLwKwZgmAdq9o/TZvCxB8+MPYUuDaHgXVbMiqa0a+cOZ3AdRURyU8GI2XkbwpkRAC9GMe2ffbgyvPF+FTQerdpsS770pGvRH4I0KgJrozcycKPoW/F3wrPTR6z5779RR3GPM1BMBj44+qtwf+SP6DKAAXrR9JwB4Jf+RbXKOEaTfwNc22pwD0pJ5lCEDWhw0g86cBv+cZBf4MOCRoMwQpGtm5O/hH+gTONes94oMeYuLP82P4Q25H/eTTUTi6me9uZVb8SN90suDnXzHcs50j7nsUjm7uw3Mjte41P2YmfXRaCnrbs50j7nsUht7M41hH9Kvr85jH3QnABH8e/3sBmD1yveNvSoQk5+HM8vkAAAAASUVORK5CYII=" alt="" width="382" height="146"></div>
 <div class="app">
-  <button class="top plate battlebar" id="pause" type="button" aria-label="Pause and open battle menu" aria-controls="pauseCard" aria-expanded="false">
-    <span class="lvl"><b id="lvlNum">Level 1</b><small id="lvlName"></small></span>
-    <span class="top-egg" id="topEgg" aria-hidden="true"></span>
-    <span class="clock" id="clock">0:00</span>
-    <span class="top-caret ico-slot" data-icon="chevron" data-px="12" aria-hidden="true"></span>
-  </button>
+  <header class="top battlebar" id="topbar">
+    <div class="score" id="score" role="status" aria-label="Stardust this battle: 0"><span class="score-gem ico-slot" data-icon="stardust" data-px="24" aria-hidden="true"></span><b class="score-num" id="scoreNum" aria-hidden="true">0</b></div>
+    <div class="prize" id="prize" aria-hidden="true"><span class="top-egg" id="topEgg"></span><b class="prize-count" id="eggCount" hidden></b></div>
+    <button class="time" id="pause" type="button" aria-label="Pause and open battle menu" aria-controls="pauseCard" aria-expanded="false"><span class="clock" id="clock">0:00</span><span class="pause-key" aria-hidden="true"><i></i><i></i></span></button>
+  </header>
   <div class="board" id="board"></div>
+  <i class="board-crest top" id="crestTop" aria-hidden="true" hidden></i>
+  <i class="board-crest bottom" id="crestBottom" aria-hidden="true" hidden></i>
   <div class="boons plate deco" id="boons" aria-live="polite">
     <p>Relic! Pick one:</p>
     <div class="row3" id="boonPicks"></div>
@@ -33,12 +36,12 @@
 <div class="over show hd" id="start">
   <div class="card hangar scr">
     <header class="hangar-header plate deco">
-      <div class="hangar-brand"><h1 aria-label="Take the Stars"><span>Take the</span><strong>Stars</strong></h1></div>
+      <div class="hangar-brand"><h1 aria-label="Take the Stars"><img class="logo pix" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAL8AAABJCAYAAABsIfcCAAALgUlEQVR42u2dPY4sRQzHX4xERkSISCDYA6yEBCGbvAsQcosNIOYCXIGMCUg5A0Ii2JCAGCEC0oUaphq32y7/7XL19AzVUknv7fRHffzsdrns6jdv5nGV4913PnytZc/nzZ6fxyHAf3152kUA9ha0eczDBJHCPxLMPQVtHvM4H2+/e32thYN4Ln/9uvybQvnlVz9vrst8y0wBmEcTmB7Y+d8imp/fSxIkS0Doc6qgTQGYR8g+LqAVrWwB6nkGCqJHGPi9z+DXMgVgHl77OKJ5956ESvD/8cvzCv7y/wn/PEQYCxy13DIgkgBM8Odh28cvTzcP/7U8S/M42OB7bOl7cwsiawp0HjOPO5u4SrZ7C/57046tNlW36hSAO7TfucYrg2wN9D2aBS2Bpv0xzaI7s9/ngPa9LedxBXu89/5U888ex/usTvZnj1zBDp1abGr+u+/kP3/4DOpkaUV0RLnGMxHgrlWX7HbM48Dw07ocBZpbBD8iAP8bofHEs9fff//tp3WMClCkAZHuU/6mDaB139bvnjpbAuhtO21TTxu8z6bPneaW0sAyqdKgU92WJATYKvWtosLMzjfhF87jv5U60ueu4HfUlbf9/fc+/e9egfa32qDVsxUYhz7Xw8bdrkBvgKohtkK8iQYAOuhLOT28fv72++0gN65R4RfO2/z99LCBWHze6WFTEPir5yoMf6OtG8E6PZh9ILVFawcK/126pUWAyWtSGpAu+C+DQeFHNacoqLxwLXh6eH355oPXTz769lxU+C/nlfLj109L4UIqwV+uQdtfn9GCt9StFqk9JvykLbU9vP1zTUbT/BeIPF6X2tEa8HQw6OBLIBYtFYZfKNLgt940FXx+jQZ/WYWlbUPBb2puzZQBNX9dEyh92WoHMonX8g3uQhDEBgMNrX//+IvTUkonSwNWB6CUcl6BRtP6ZcAkAYjAr0HcNLP+qW+9DhF82nax/S//vkFq20upguOZK7jMHtKPXeAzQbxr16l39wIJAAT+1WRRGLACn6X9EViK9uOmC11hlp7NtXMm/PS6kfDXdkhtcZnAFH5l0n03q4QZfn5pwlmBb07mLoNWYcqAv+lFaZgb0cW2M9AGsE34hUl3BH76hvFo65bmv2mtPwJ+1e9twL9M6DwDzz0lyqBL14lelJaGU9ILrT71wH+uqwJ/hXdj/qFmj+HndwsAYPIcUiB4Q6xMqKhLTIVSgV8aeOptccFP7PTzpNMQAI97kpoOVtvFN5YDfjpBLSUMP2AyZXp7DvtG4AM+Ig1wNSCCBpdewfwc6pIspdjJ/JzW9XRyuwiA43rJxKj1QrXlAn/juatzhT6ov2vt2MxdpHYoxQsoAr9HsV5VCEb5a7nbk/rKS5EGn59TJ4V0YsjP4feif68CVgWndS1SP2nCiE78kftb50Z/b5UI/KjXr8J/yFD1ka8maVC5C9Q6R/KISOchv5V7ea7lJll0osjbLLlZ0XOlPtR+p9drJTr+6Dzx8Jp/pF1mDWxr8FveiQj8HsHhNjQS1+SBXxMk69zI71qp6yo9UZ3esO5DLVzN+Pa1V4YD0ePWO3IbPeDffB7BjHH3l8X7U12DzgniPcTx32wyDRrvnlE0f7EVmz+y9A5IKyYpA55NoNoV+gOt94h6DhMAT7LHKAHY89lSXbTwaxf4yoJTrwDsrQg8QWh71XfIWwCCzhtvDyyWFCCaIQsjny8ASl2dYfCVKEqPAEiT2hL1ufjaR/eHEdah1XX4uBmZcflmzqhOfX5c4Je8JXuDH4V/MzjGc7SAt1bZwG89awcBuJbCkqyFMRp/JGwK/KE69NTXWEHu1vrCsyLwb1Zy91IOgADs9qZurHaH4d9UfrSWfX5cmT1Fq1k5uE3wg2+epZweVnVwzTc8wsehte778mRrfzAFEQn4i8K/KzuXseKKKh5HE5FaCk+gFPDrvpor+KmAaMWrbYG60M5EvSpLVKdj0PnHJNDJ5gp+pP3EzNJKBvxudhwxRFLMUgV/DPw7gF8KbYQIfwtaj9Y37ieaXh7bepAzgM8PNpqfvkUaDoUSosFLjeXxan8O/rk+XrOzNR5B8MPw92h9GkTmLVrIABJY5Qbp+VG9lxai0Apphge40xPWnPSC8JeV2Sb8Du+RWJ9OBwNaKPhdWp/Df359ewerE34uAFY8DY09cW3zcYGfhzlLQWv0+YtpIPXL6aG9WwQCv/Y7C83OgJ+WdPgj84gLcxms9OXZskmod++YW4GfB25Z8FcBEOPzW+YO8US4BUDISeiBX/KK0Oyuc5KLw1yB4PcwRCwOlJWUxa3VAHG7yzF5o/vDSKVGA9LgKKtRrZDmHvjpPbj21569GVBDU25MJ6R+zBzQwrIz4Ud3m9Pu1YQ/YPJJLGWFU5uJI1EBgDwixDMS8W+r8KMD54Sfa3+aCeXZFQ6G3wA/E/4KmWddonIh9U+mAHB2tIjSNB//ZoIXNIG8i1A9YbU98GuhyC3hq32D7AonplmCAqAl42jwW/WR3sSwc4N5Wlpvx7rhVooAGIp1mACkSTC4ApseRGaA5V3BpQO88s97/OAg/NrGWGHNb72VwbWRCj7ft0gySxcBkNyXg+N7ugVASoZOF4Jg0JQ7liYBftFGjqyAAn0jpWn2av6euKsKfn0TIfCf+UF894kC0B3kZsaRZFZcGPQjw49ughuK9WcTPldw2w7wS5sBpAlAokmE7iUEmT98MihWXFpxHRSnEYaf1DUKvwcwyba2Jsjc950Kf2B86taMVuJ8yynBF9XU+UDWJBndARoddO5magqAt+IC/BTMFPhZPT3P8H58IjNcVxOA0KJScHyKACDgexLgN3FFtV5a6Epn1GlXfiW6ULWZgCXA3zJ/IPgFIbXgb4Z4jwxlAPf4DC0qSWZHYgy/tskuxI0Wt9XZnyJD3nDdqoWqW1BrxHmZPBLVJwS4aXBGsqak3d488MPt8QT0dQhAyKdOYpqiLuzoFy0tbkxlmhDn359qRgRBK1Hw0+Fv2JIeswe2852ZWZ4wYj4B3gSSIQJAwjrOAhBZxGyYE60ke6kgb4cyR/CGXWhbNeZkazmSL9BEFsnsgeDXnmtMpND7e8APwe8AD9m81hIAOgldreQnmBPeTQeKQGseIrqe4h0DCP6hMeieSl4GoLUbGpRq6UiOQO7fG3YMLdA5XuvmxzAAE6hGdq4WohIEIKxUnZls3qQYG/69wTeSSFD4vdreA/8S5ejMLqpA0s8g1X/TrcGj96d2LAw/C8SrNvhGAJImwZv0yr2VKQT/nhVsTAY18F3wOwGy7h9OsUscuFT4SbSoGK2aYP+vgttGhDI4U1I3X71UY3f2kEyhgjx7ykpS4PB795LXFtPQnaGlXaBXCzdB8KVsNqtP3PAz4dnE4QT96yr8IwXASEWt46LCv3ndjSpKBVHwVfg76oLAjwgA9Uq4BED5eEYI/uCbQwxEA/JnrfstUZ1gPm4WU9SKEL8WKXocEhLQPbs0WODDC1zATgxWwjziskPgr+DC8LNAMQR+blcvtrWz7Vq7on3ZDGvemS0V/Gbs/k4VpKaCR+OL8CfsFoGGN6DwQwLQSPj3gL8yLwKwZgmAdq9o/TZvCxB8+MPYUuDaHgXVbMiqa0a+cOZ3AdRURyU8GI2XkbwpkRAC9GMe2ffbgyvPF+FTQerdpsS770pGvRH4I0KgJrozcycKPoW/F3wrPTR6z5779RR3GPM1BMBj44+qtwf+SP6DKAAXrR9JwB4Jf+RbXKOEaTfwNc22pwD0pJ5lCEDWhw0g86cBv+cZBf4MOCRoMwQpGtm5O/hH+gTONes94oMeYuLP82P4Q25H/eTTUTi6me9uZVb8SN90suDnXzHcs50j7nsUjm7uw3Mjte41P2YmfXRaCnrbs50j7nsUht7M41hH9Kvr85jH3QnABH8e/3sBmD1yveNvSoQk5+HM8vkAAAAASUVORK5CYII=" alt="" width="191" height="73" draggable="false"></h1></div>
       <div class="wallet" id="homeWallet" role="group" aria-label="Your resources"><span class="ore" id="oreCount">◆ 0</span><span class="startot" id="starTot">★ 0</span></div>
       <button class="settings-switch" id="openSettings" type="button" aria-label="Open settings" aria-haspopup="dialog" aria-controls="homeSettings" aria-expanded="false"><span class="ico-slot" data-icon="gear" data-px="24"></span></button>
     </header>
     <dialog id="homeSettings" class="settings-drawer plate deco" aria-labelledby="homeSettingsTitle">
-      <div class="settings-heading"><h2 id="homeSettingsTitle">Settings</h2><button id="closeSettings" type="button" aria-label="Close settings" autofocus>×</button></div>
+      <div class="settings-heading"><h2 id="homeSettingsTitle">Settings</h2><button id="closeSettings" type="button" aria-label="Close settings" autofocus><span class="ico-slot" data-icon="close" data-px="24"></span></button></div>
       <button class="setting-row" id="mute" type="button" aria-label="Mute sound" aria-pressed="false"><span><span class="ico-slot" data-icon="sound" data-px="24"></span>Sound</span><span class="setting-state"><b id="muteText">On</b><i aria-hidden="true"></i></span></button>
       <button class="setting-row" id="hand" type="button" aria-label="Powers dock for the left hand" aria-pressed="false"><span><span class="ico-slot" data-icon="swap" data-px="24"></span>Hand</span><span class="setting-state"><b id="handText">Right</b><i aria-hidden="true"></i></span></button>
       <button class="setting-row" type="button" disabled><span>Haptics</span><small>Soon</small></button>
@@ -58,7 +61,7 @@
             </div>
           </div>
           <div class="egg-bay">
-            <button class="map-tab" id="toMap" type="button" aria-label="The star chart"><span class="ico-slot" data-icon="map" data-px="12"></span>Chart</button>
+            <button class="map-tab" id="toMap" type="button" aria-label="The star chart"><span class="ico-slot" data-icon="chart" data-px="24"></span>Chart</button>
             <button class="home-reward" id="homeReward" type="button"><span class="incubator" aria-hidden="true"><img class="pix" id="homeEggArtwork" alt="" draggable="false"></span><span class="egg-readout"><strong id="homeRewardLabel">Win this</strong><small id="homeRewardTitle">First egg</small></span></button>
           </div>
         </div>
@@ -82,10 +85,10 @@
       <section class="station-nav home-navigation" aria-label="Other destinations">
         <h2>STATIONS</h2>
         <div class="tiles">
-          <button class="tile" id="toTree" type="button"><span class="spr-slot" data-sprite="machine:coil:economy:0" data-size="36"></span><strong>Tree</strong><b class="badge" id="treeBadge"></b></button>
-          <button class="tile" id="toCrew" type="button"><span class="spr-slot" id="crewTileArt" data-sprite="skin:f2b441" data-size="36"></span><strong>Crew</strong></button>
-          <button class="tile" id="toDaily" type="button"><span class="spr-slot" data-sprite="egg" data-size="36"></span><strong>Daily egg</strong><b class="badge" id="dailyBadge"></b></button>
-          <button class="tile" id="toGalaxy" type="button"><span class="spr-slot" data-sprite="planet:3" data-size="36"></span><strong>Galaxy</strong></button>
+          <button class="tile" id="toTree" type="button"><span class="ico-slot" data-icon="tree" data-px="36"></span><strong>Tree</strong><b class="badge" id="treeBadge"></b></button>
+          <button class="tile" id="toCrew" type="button"><span class="ico-slot" data-icon="crew" data-px="36"></span><strong>Crew</strong></button>
+          <button class="tile" id="toDaily" type="button"><span class="ico-slot" data-icon="daily" data-px="36"></span><strong>Daily egg</strong><b class="badge" id="dailyBadge"></b></button>
+          <button class="tile" id="toGalaxy" type="button"><span class="ico-slot" data-icon="galaxy" data-px="36"></span><strong>Galaxy</strong></button>
         </div>
       </section>
       <footer class="hangar-footer"><span class="rank" id="rankLine"></span></footer>
@@ -96,7 +99,7 @@
   <div class="tapp">
     <canvas id="treeCanvas" aria-hidden="true"></canvas>
     <header class="tree-header">
-      <div class="tree-top plate"><button class="back" type="button" data-home>‹ Back</button><span id="treeLocation">ATTACK TREE</span><button id="treeWallet" type="button" aria-label="Open Core statistics"><b id="treeOre"></b><small id="treeRate"></small></button></div>
+      <div class="tree-top plate"><button class="back" type="button" data-home><span class="ico-slot" data-icon="back" data-px="12"></span>Back</button><span id="treeLocation">ATTACK TREE</span><button id="treeWallet" type="button" aria-label="Open Core statistics"><b id="treeOre"></b><small id="treeRate"></small></button></div>
     </header>
     <div id="treeViewport" tabindex="0" aria-label="Tree, scroll upward to grow"><div id="treeContent"></div></div>
     <footer class="tree-footer">
@@ -124,7 +127,7 @@
 </div>
 <div class="over hd" id="crewCard">
   <div class="card scr">
-    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Your crew</h2><span></span></div>
+    <div class="cardtop plate"><button class="back" type="button" data-home><span class="ico-slot" data-icon="back" data-px="12"></span>Back</button><h2>Your crew</h2><span></span></div>
     <div class="stage-gap" aria-hidden="true"></div>
     <div class="plate deco pad">
       <p class="lede center">Grow your fleet in the creature tree. Bosses unlock powers and colours.</p>
@@ -137,7 +140,7 @@
 </div>
 <div class="over hd" id="map">
   <div class="card scr campaign">
-    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Star chart</h2><span class="chart-wallet"><span class="startot num" id="mapStars"></span><span class="dust num" id="mapDust"></span></span></div>
+    <div class="cardtop plate"><button class="back" type="button" data-home><span class="ico-slot" data-icon="back" data-px="12"></span>Back</button><h2>Star chart</h2><span class="chart-wallet"><span class="startot num" id="mapStars"></span><span class="dust num" id="mapDust"></span></span></div>
     <div class="stage-gap" aria-hidden="true"></div>
     <section class="chart-sheet plate deco hint" id="chartSheet" aria-live="polite"></section>
   </div>
@@ -147,7 +150,7 @@
 </div>
 <div class="over hd" id="daily">
   <div class="card scr">
-    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Daily egg</h2><span class="streak" id="dailyStreak"></span></div>
+    <div class="cardtop plate"><button class="back" type="button" data-home><span class="ico-slot" data-icon="back" data-px="12"></span>Back</button><h2>Daily egg</h2><span class="streak" id="dailyStreak"></span></div>
     <div class="stage-gap" aria-hidden="true"></div>
     <div class="plate deco pad center">
       <h2>Daily egg</h2>
@@ -160,12 +163,12 @@
 </div>
 <div class="over hd" id="galaxy">
   <div class="card scr">
-    <div class="cardtop plate"><button class="back" type="button" data-home>‹ Back</button><h2>Galaxy</h2><span class="ore" id="galaxyScore"></span></div>
+    <div class="cardtop plate"><button class="back" type="button" data-home><span class="ico-slot" data-icon="back" data-px="12"></span>Back</button><h2>Galaxy</h2><span class="ore" id="galaxyScore"></span></div>
     <div class="stage-gap" aria-hidden="true"></div>
     <div class="plate deco pad galaxy-plate">
       <div id="galaxyLocked">
         <h2>The galaxy</h2>
-        <div class="egg-art"><span class="spr-slot" data-sprite="planet:5" data-size="72"></span></div>
+        <div class="egg-art"><span class="spr-slot" data-sprite="planet:locked" data-size="72"></span></div>
         <p class="center" id="galaxyNeed"></p>
       </div>
       <div id="galaxyOpen">
@@ -214,10 +217,15 @@
 <div class="over battle" id="pauseCard" role="dialog" aria-label="Battle paused">
   <div class="card pause-panel plate deco">
     <div class="pause-head">
-      <div><span class="pause-kicker">Paused</span><h2 id="pauseTitle">Battle menu</h2></div>
+      <div><span class="pause-kicker"><span id="lvlNum">Level 1</span> · Paused</span><h2 id="pauseTitle">Battle menu</h2></div>
       <button class="pause-map-button" id="pauseMap" type="button"><span class="ico-slot" data-icon="map" data-px="24"></span>Full map</button>
     </div>
     <div class="pause-body">
+      <section class="pause-battle" aria-label="This battle">
+        <div class="pause-prize" id="pausePrize"></div>
+        <div class="pause-omen" id="pauseOmen" hidden></div>
+        <p class="pause-twists" id="lvlName"></p>
+      </section>
       <div class="pause-metrics">
         <div><span>Clock</span><strong id="pauseTime">0:00</strong></div>
         <div><span>Par · 3 stars</span><strong id="pausePar">0:00</strong></div>
