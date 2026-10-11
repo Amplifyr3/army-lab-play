@@ -2,7 +2,7 @@
 // (the list is precache.json, written at build time by scripts/precache.mjs), then answers from that copy first, so a
 // plane, a dead zone or a network that hangs instead of failing never stalls the game. A new build installs alongside
 // in the background and takes over on the next launch; the previous copy is kept until then.
-const VERSION = '5708f5df438e';
+const VERSION = '71ac09c48003';
 const CACHE = `army-lab-${VERSION}`;
 
 self.addEventListener('install', (e) => {
