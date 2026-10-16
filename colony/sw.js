@@ -8,7 +8,7 @@
 // background as soon as the page asks ('music-fill', every launch until they're all in), so the first download stays small
 // and the full variety is there long before a player goes offline. <audio> asks for byte ranges: those are cut from
 // the saved file.
-const VERSION = 'dfe17712bc29';
+const VERSION = '33495cfe69d3';
 const CACHE = `army-lab-${VERSION}`;
 const MUSIC = 'stars-music';
 
@@ -143,6 +143,8 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
+  // the sound sheet (sfx.html) isn't part of the offline game: always the network, never the game's page in its place
+  if (/\/sfx\.html$|\/sfx-assets\//.test(url.pathname)) return;
   e.respondWith(
     (async () => {
       const cache = await caches.open(CACHE);
