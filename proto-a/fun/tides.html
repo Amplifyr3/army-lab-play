@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1e">
+<title>Tides · Take the Stars prototype</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0f1e;overflow:hidden;touch-action:none;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#e8ecf8}
+  canvas#c{position:fixed;left:0;top:0;display:block;touch-action:none}
+  .card{position:fixed;inset:0;display:none;flex-direction:column;align-items:stretch;
+    padding:14px 16px 16px;box-sizing:border-box;background:rgba(9,12,25,.96);overflow:hidden}
+  .card.on{display:flex}
+  h1{margin:4px 0 2px;font-size:30px;letter-spacing:.06em;color:#e6b84a;font-weight:800}
+  .sub{font-size:15px;line-height:1.35;color:#c9d0e6;margin:0 0 8px}
+  .how{font-size:14px;line-height:1.4;color:#9aa4c4;margin:0 0 8px}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:14px;color:#c9d0e6;margin:0 0 10px}
+  .legend span b{display:inline-block;width:20px;text-align:center}
+  .seeds{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+  .seed{display:flex;align-items:center;gap:10px;min-height:58px;padding:6px 10px;border-radius:12px;
+    background:#151c36;border:1px solid #2a3560;color:#e8ecf8;font:inherit;text-align:left;cursor:pointer}
+  .seed:active{background:#1f2a52}
+  .seed .n{font-size:22px;font-weight:800;color:#e6b84a;width:26px;text-align:center;flex:0 0 auto}
+  .seed .g{display:flex;gap:3px;flex:0 0 auto}
+  .seed .g canvas{width:22px;height:22px}
+  .seed .t{font-size:14px;line-height:1.3;color:#c9d0e6}
+  .try{margin-top:10px;padding:8px 10px;border-radius:12px;background:#121833;border:1px solid #2a3560;font-size:14px;line-height:1.4;color:#c9d0e6}
+  .try b{color:#e6b84a}
+  .try div{margin:2px 0}
+  #end h1{font-size:34px}
+  .cause{font-size:18px;line-height:1.35;margin:4px 0 10px;color:#fff}
+  .stats{font-size:15px;color:#9aa4c4;margin:0 0 10px}
+  .log{font-size:14px;line-height:1.45;color:#c9d0e6;background:#121833;border:1px solid #2a3560;border-radius:12px;padding:8px 10px;flex:0 1 auto;overflow:hidden}
+  .log div{margin:2px 0}
+  .log .tm{color:#e6b84a;font-variant-numeric:tabular-nums;margin-right:6px}
+  .log .ev{color:#9aa4c4}
+  .btns{display:flex;gap:8px;margin-top:auto;padding-top:12px}
+  .btn{flex:1;min-height:60px;border-radius:14px;border:1px solid #3a4780;background:#1b2448;color:#e8ecf8;font-size:17px;font-weight:700;cursor:pointer}
+  .btn.main{background:#e6b84a;color:#1a1408;border-color:#e6b84a}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="card" id="start">
+  <h1>TIDES</h1>
+  <p class="sub">The sky tells you what is coming. Read the stars, then commit your swarm at the right moment, or hold it.</p>
+  <p class="how">Tap the board: swarm goes there · Tap a rival Core: assault · Tap your Core or RECALL: hold home.
+    The track under the top bar shows the next three events.</p>
+  <div class="legend" id="legend"></div>
+  <div class="seeds" id="seeds"></div>
+  <div class="try">
+    <div><b>What to try</b></div>
+    <div>1. Watch the track: hold your swarm home, then send it so it lands inside the ◐ Eclipse.</div>
+    <div>2. Lure the Corsairs into a ☄ Starfall: empty your home and let them pour through the marked lane.</div>
+    <div>3. Play seeds 1 and 2 back to back: the sky asks a different question each round.</div>
+  </div>
+</div>
+
+<div class="card" id="end">
+  <h1 id="endTitle">Won</h1>
+  <div class="cause" id="endCause"></div>
+  <div class="stats" id="endStats"></div>
+  <div class="log" id="endLog"></div>
+  <div class="btns">
+    <button class="btn main" id="bAgain">Again</button>
+    <button class="btn" id="bNext">Next seed</button>
+    <button class="btn" id="bHome">Home</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// =====================================================================
+// Tides: telegraphed events and the commit-or-hold trade (grey box)
+// =====================================================================
+const W = 400, H = 640;                     // world units (portrait board)
+const YOU = 0;
+const COL = ['#e6b84a', '#5ad2e1', '#785ae1'];
+const COLRGB = [[230,184,74],[90,210,225],[120,90,225]];
+const NAME = ['You', 'Corsairs', 'Veil'];
+const SIG = ['★', 'C', 'V'];
+const HOME = 0, MOVE = 1, ASSAULT = 2;
+
+// --- tuning ---
+const T = {
+  speed: 52, shipHp: 2, fireCd: 0.5, range: 24, sense: 54,
+  turretRange: 62, turretCd: 0.8, turretHp: 20, turretDmg: 2,
+  coreHp: [120, 100, 100], prod: 0.8, cap: 50, overcap: 90, startArmy: 10,
+  dmgTurret: 0.5, dmgCoreWarded: 0.16, dmgCoreOpen: 0.6, dmgCoreFury: 0.3, surgeMul: 2.5,
+  wellR: 46, wellBonus: 25, wellMend: 0.2, laneHW: 36, cometHW: 26,
+  tell: 8, botTele: 3, fury: 25, surgeAt: 300, hardEnd: 390,
+  firstEvent: 14, gapMin: 11, gapMax: 15,
+};
+
+// --- event kinds ---
+const SF = 0, SW = 1, BZ = 2, EC = 3, RF = 4, CT = 5, SU = 6;
+const KN = ['Starfall', 'Starwell', 'Blitz', 'Eclipse', 'Rift', 'Comet tail', 'Surge'];
+const KG = ['☄', '◎', '⚔', '◐', '╱', '✧', '✹'];
+const KC = ['#ff7a45', '#8cf5b8', '#ff5a6e', '#d0d6ee', '#f0a8ff', '#dfe7ff', '#ff4a4a'];
+const KDUR = [2.5, 10, 0, 10, 20, 15, 0];
+
+// --- hand-authored decks for seeds 1-5 (kinds; blitz = [BZ, by, target]) ---
+const DECKS = {
+  1: { line: 'Starfall ×5 across the middle · Corsairs blitz you twice · Eclipse ×3', voids: 1, rift: null, riftRival: 1,
+       cards: [SF, SW, SF, [BZ,1,0], EC, SF, CT, [BZ,2,1], SF, EC, SW, [BZ,1,0], SF, EC] },
+  2: { line: 'Eclipse at 0:14 · two Blitzes on you before 1:10 · one Starwell · two voids', voids: 2, rift: 'open', riftRival: 2,
+       cards: [EC, [BZ,1,0], SW, SF, [BZ,2,0], EC, RF, SF, [BZ,1,2], EC, CT, SF, [BZ,2,1], EC] },
+  3: { line: 'Starwell ×5 · the rivals blitz each other · Eclipse only late', voids: 1, rift: 'open', riftRival: 1,
+       cards: [SW, CT, SW, [BZ,1,2], SF, SW, [BZ,2,1], RF, SW, EC, [BZ,1,0], SF, SW, EC] },
+  4: { line: 'A wall seals the Corsairs · Rift opens it ×4 for 20 s · Comet tails ×2', voids: 1, rift: 'closed', riftRival: 1,
+       cards: [RF, CT, SF, [BZ,1,0], RF, EC, SW, SF, RF, [BZ,2,0], EC, CT, RF, EC] },
+  5: { line: 'Siege sky: Blitz ×6, four on you · Eclipse ×4 · one Starwell', voids: 2, rift: null, riftRival: 2,
+       cards: [[BZ,2,1], EC, [BZ,1,0], SF, EC, [BZ,2,0], SW, [BZ,1,2], EC, SF, [BZ,1,0], EC, [BZ,2,0], EC] },
+};
+
+// --- bots: same rules, different temperaments ---
+const BOTDEF = {
+  1: { pourAt: 20, wellLove: 0.4, eclLove: 0.85, dodge: 0.3, react: 6.0, careful: 0.6, youBias: -10 }, // Corsairs: reckless raiders
+  2: { pourAt: 28, wellLove: 0.9, eclLove: 0.6, dodge: 0.9, react: 3.0, careful: 1.0, youBias: 4 },    // Veil: cautious, loves wells
+};
+
+// =====================================================================
+// RNG
+// =====================================================================
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let rng = mulberry32(1);
+
+// =====================================================================
+// Ships (struct of arrays)
+// =====================================================================
+const MAXS = 270;
+const sx = new Float32Array(MAXS), sy = new Float32Array(MAXS), svx = new Float32Array(MAXS), svy = new Float32Array(MAXS);
+const shp = new Float32Array(MAXS), scd = new Float32Array(MAXS), sfury = new Float32Array(MAXS), sang = new Float32Array(MAXS);
+const stx = new Float32Array(MAXS), sty = new Float32Array(MAXS);
+const screw = new Int8Array(MAXS), sord = new Uint8Array(MAXS), stgt = new Int8Array(MAXS), salive = new Uint8Array(MAXS);
+const sfoe = new Int16Array(MAXS), srad = new Float32Array(MAXS);
+let shipHW = 0;
+const armyN = [0, 0, 0], lost = [0, 0, 0];
+
+// spatial grid
+const CELL = 28, GW = Math.ceil(W / CELL), GH = Math.ceil(H / CELL);
+const ghead = new Int16Array(GW * GH), gnext = new Int16Array(MAXS);
+
+// effects pools
+const NTR = 160, trx1 = new Float32Array(NTR), try1 = new Float32Array(NTR), trx2 = new Float32Array(NTR), try2 = new Float32Array(NTR),
+  trl = new Float32Array(NTR), trc = new Int8Array(NTR); let trI = 0;
+const NPA = 260, pax = new Float32Array(NPA), pay = new Float32Array(NPA), pavx = new Float32Array(NPA), pavy = new Float32Array(NPA),
+  pal = new Float32Array(NPA), pac = new Int8Array(NPA); let paI = 0;
+let floaters = [];   // {x,y,text,col,life}
+let flashes = [];    // {kind, e, life}
+let ripples = [];    // {x,y,life,col}
+
+// =====================================================================
+// Round state
+// =====================================================================
+let seed = 1, time = 0, deck = [], cores = [], bots = {}, voids = [], seam = null, eclipse = false, surge = false;
+let running = false, over = null, taps = 0, decisions = [], story = [], banner = null, moveMark = null, deckLine = '';
+let lastTerr = 0;
+
+function fmt(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function dist(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+
+// ---------------------------------------------------------------------
+// map + deck generation
+// ---------------------------------------------------------------------
+function deckSpec(sd) {
+  if (DECKS[sd]) return DECKS[sd];
+  const r = mulberry32(sd * 977 + 13);
+  const w = [[SF,3],[SW,2],[EC,2.5],[BZ,3],[RF,1],[CT,1]];
+  const tot = w.reduce((a, b) => a + b[1], 0);
+  let cards = [], prev = -1;
+  for (let i = 0; i < 14; i++) {
+    let k;
+    for (let tries = 0; tries < 20; tries++) {
+      let x = r() * tot; k = w[0][0];
+      for (const [kk, ww] of w) { if ((x -= ww) <= 0) { k = kk; break; } }
+      if (k !== prev) break;
+    }
+    prev = k;
+    if (k === BZ) { const by = 1 + (r() < 0.5 ? 1 : 0); const tg = r() < 0.55 ? 0 : 3 - by; cards.push([BZ, by, tg]); }
+    else cards.push(k);
+  }
+  // guarantees: >=2 eclipses, >=1 blitz on you
+  if (cards.filter(c => c === EC).length < 2) { cards[5] = EC; cards[11] = EC; }
+  if (!cards.some(c => Array.isArray(c) && c[2] === 0)) cards[3] = [BZ, 1, 0];
+  const cnt = k => cards.filter(c => (Array.isArray(c) ? c[0] : c) === k).length;
+  const onYou = cards.filter(c => Array.isArray(c) && c[2] === 0).length;
+  const parts = [];
+  if (cnt(SF)) parts.push('Starfall ×' + cnt(SF));
+  if (cnt(BZ)) parts.push('Blitz ×' + cnt(BZ) + ' (' + onYou + ' on you)');
+  parts.push('Eclipse ×' + cnt(EC));
+  if (cnt(SW)) parts.push('Starwell ×' + cnt(SW));
+  if (cnt(RF)) parts.push('Rift ×' + cnt(RF));
+  return { line: parts.join(' · '), voids: 1 + (r() < 0.5 ? 1 : 0), rift: cnt(RF) ? (r() < 0.5 ? 'open' : 'closed') : null,
+           riftRival: 1 + (r() < 0.5 ? 1 : 0), cards };
+}
+
+function buildRound(sd) {
+  const spec = deckSpec(sd);
+  const mr = mulberry32(sd * 7919 + 101);
+  deckLine = spec.line;
+  // cores
+  const flip = mr() < 0.5;
+  const cx1 = 70 + mr() * 70, cy1 = 95 + mr() * 70;
+  const cx2 = 260 + mr() * 70, cy2 = 100 + mr() * 90;
+  const pos = [[200, 575], flip ? [cx2, cy2] : [cx1, cy1], flip ? [cx1, cy1] : [cx2, cy2]];
+  cores = pos.map((p, c) => ({
+    c, x: p[0], y: p[1], hp: T.coreHp[c], max: T.coreHp[c], alive: true, prodT: 0, intr: -1, threat: 0,
+    lastHit: -99, lastHitBy: -1, brokeAt: -1, brokeBy: -1, ctx: '',
+    turr: [0, 1, 2].map(k => { const a = -Math.PI / 2 + k * Math.PI * 2 / 3; return { a, x: p[0] + Math.cos(a) * 24, y: p[1] + Math.sin(a) * 24, hp: T.turretHp, cd: 0, dead: -99 }; }),
+  }));
+  // voids
+  voids = [];
+  for (let n = 0; n < spec.voids; n++) {
+    for (let tries = 0; tries < 60; tries++) {
+      const v = { x: 70 + mr() * 260, y: 250 + mr() * 190, r: 30 + mr() * 22 };
+      let ok = cores.every(co => dist(co.x, co.y, v.x, v.y) > v.r + 90) && voids.every(o => dist(o.x, o.y, v.x, v.y) > o.r + v.r + 60);
+      if (ok) { voids.push(v); break; }
+    }
+  }
+  // rift seam (a wall from the side the rival sits on)
+  seam = null;
+  if (spec.rift) {
+    const R = cores[spec.riftRival];
+    const left = R.x < 200;
+    const y0 = clamp((R.y + cores[0].y) / 2 + (mr() - 0.5) * 30, 300, 380);
+    const ax = left ? 0 : W, bx = left ? 270 : W - 270;
+    const ay = y0, by = y0 + (mr() - 0.5) * 40;
+    const ux = (bx - ax) / dist(ax, ay, bx, by), uy = (by - ay) / dist(ax, ay, bx, by);
+    seam = { ax, ay, bx, by, tx: bx + ux * 24, ty: by + uy * 24 + 6, base: spec.rift === 'closed', closed: spec.rift === 'closed', rival: spec.riftRival };
+    // keep voids off the seam
+    voids = voids.filter(v => segPointDist(ax, ay, bx, by, v.x, v.y) > v.r + 30);
+  }
+  // deck
+  deck = [];
+  let t = T.firstEvent;
+  for (const card of spec.cards) {
+    const k = Array.isArray(card) ? card[0] : card;
+    const e = { k, t, dur: KDUR[k], st: 0, by: -1, tg: -1, lane: null, well: null, kills: [0, 0, 0], dodged: [false, false, false], note: '' };
+    if (k === BZ) { e.by = card[1]; e.tg = card[2]; }
+    if (k === SF) e.lane = makeLane(mr, T.laneHW, false);
+    if (k === CT) e.lane = makeLane(mr, T.cometHW, true);
+    if (k === SW) e.well = makeWell(mr);
+    deck.push(e);
+    t += T.gapMin + mr() * (T.gapMax - T.gapMin);
+  }
+}
+
+function makeLane(mr, hw, along) {
+  for (let tries = 0; tries < 80; tries++) {
+    // pick a route: you <-> rival (70%) or rival <-> rival
+    let a, b;
+    if (mr() < 0.72 || along) { a = cores[0]; b = cores[1 + (mr() < 0.5 ? 1 : 0)]; } else { a = cores[1]; b = cores[2]; }
+    const f = along ? 0.5 : 0.3 + mr() * 0.35;
+    const cx = a.x + (b.x - a.x) * f, cy = a.y + (b.y - a.y) * f;
+    let ang = Math.atan2(b.y - a.y, b.x - a.x);
+    if (!along) ang += Math.PI / 2 + (mr() - 0.5) * 1.2;
+    const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx;
+    const L = { cx, cy, dx, dy, nx, ny, hw };
+    if (!along) {
+      if (!cores.every(co => Math.abs((co.x - cx) * nx + (co.y - cy) * ny) > hw + 42)) continue;
+    } else {
+      // comet band must not cover the rival end too tightly; fine either way
+    }
+    return L;
+  }
+  return { cx: 200, cy: 330, dx: 1, dy: 0, nx: 0, ny: 1, hw };
+}
+function makeWell(mr) {
+  for (let tries = 0; tries < 80; tries++) {
+    const w = { x: 70 + mr() * 260, y: 230 + mr() * 220, r: T.wellR };
+    if (!cores.every(co => dist(co.x, co.y, w.x, w.y) > 130)) continue;
+    if (!voids.every(v => dist(v.x, v.y, w.x, w.y) > v.r + w.r + 8)) continue;
+    if (seam && segPointDist(seam.ax, seam.ay, seam.bx, seam.by, w.x, w.y) < w.r + 10) continue;
+    return w;
+  }
+  return { x: 200, y: 330, r: T.wellR };
+}
+
+// ---------------------------------------------------------------------
+// geometry helpers
+// ---------------------------------------------------------------------
+function segPointDist(ax, ay, bx, by, px, py) {
+  const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+  let u = L2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / L2 : 0; u = clamp(u, 0, 1);
+  return dist(ax + dx * u, ay + dy * u, px, py);
+}
+function segX(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+  const d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+  return (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
+}
+function laneD(L, x, y) { return (x - L.cx) * L.nx + (y - L.cy) * L.ny; }
+function inLane(L, x, y) { return Math.abs(laneD(L, x, y)) < L.hw; }
+function segCrossesLane(L, ax, ay, bx, by) {
+  const a = laneD(L, ax, ay), b = laneD(L, bx, by);
+  return Math.abs(a) < L.hw || Math.abs(b) < L.hw || (a > 0) !== (b > 0);
+}
+let RX = 0, RY = 0;
+function route(x, y, gx, gy) {
+  let wx = gx, wy = gy;
+  if (seam && seam.closed && segX(x, y, gx, gy, seam.ax, seam.ay, seam.bx, seam.by)) { wx = seam.tx; wy = seam.ty; }
+  for (let n = 0; n < voids.length; n++) {
+    const v = voids[n];
+    const dx = wx - x, dy = wy - y, L2 = dx * dx + dy * dy; if (L2 < 1) continue;
+    const u = ((v.x - x) * dx + (v.y - y) * dy) / L2; if (u <= 0 || u >= 1) continue;
+    const px = x + dx * u - v.x, py = y + dy * u - v.y, rr = v.r + 9;
+    if (px * px + py * py < rr * rr) {
+      const L = Math.sqrt(L2), nx = -dy / L, ny = dx / L;
+      let s = px * nx + py * ny; if (Math.abs(s) < 0.5) s = 1;
+      const sg = s >= 0 ? 1 : -1;
+      wx = v.x + nx * sg * (v.r + 20); wy = v.y + ny * sg * (v.r + 20);
+      break;
+    }
+  }
+  RX = wx; RY = wy;
+}
+function routeLen(ax, ay, bx, by) {
+  if (seam && seam.closed && segX(ax, ay, bx, by, seam.ax, seam.ay, seam.bx, seam.by))
+    return dist(ax, ay, seam.tx, seam.ty) + dist(seam.tx, seam.ty, bx, by);
+  return dist(ax, ay, bx, by);
+}
+function routeCrossesLane(L, ax, ay, bx, by) {
+  if (seam && seam.closed && segX(ax, ay, bx, by, seam.ax, seam.ay, seam.bx, seam.by))
+    return segCrossesLane(L, ax, ay, seam.tx, seam.ty) || segCrossesLane(L, seam.tx, seam.ty, bx, by);
+  return segCrossesLane(L, ax, ay, bx, by);
+}
+
+// ---------------------------------------------------------------------
+// ships
+// ---------------------------------------------------------------------
+function spawn(c, x, y) {
+  for (let i = 0; i < MAXS; i++) if (!salive[i]) {
+    salive[i] = 1; screw[i] = c; sx[i] = x + (rng() - 0.5) * 8; sy[i] = y + (rng() - 0.5) * 8; svx[i] = 0; svy[i] = 0;
+    shp[i] = T.shipHp; scd[i] = rng() * T.fireCd; sfury[i] = -1; sang[i] = rng() * Math.PI * 2; srad[i] = 4 + rng() * 16;
+    sord[i] = HOME; stgt[i] = -1; sfoe[i] = -1; stx[i] = x; sty[i] = y;
+    if (i >= shipHW) shipHW = i + 1; armyN[c]++; return i;
+  }
+  return -1;
+}
+function killShip(i, puff) {
+  if (!salive[i]) return;
+  salive[i] = 0; armyN[screw[i]]--; lost[screw[i]]++;
+  if (puff) for (let k = 0; k < 3; k++) addParticle(sx[i], sy[i], (rng() - 0.5) * 60, (rng() - 0.5) * 60, screw[i]);
+}
+function addParticle(x, y, vx, vy, c) { const p = paI++ % NPA; pax[p] = x; pay[p] = y; pavx[p] = vx; pavy[p] = vy; pal[p] = 0.6; pac[p] = c; }
+function addTracer(x1, y1, x2, y2, c) { const t = trI++ % NTR; trx1[t] = x1; try1[t] = y1; trx2[t] = x2; try2[t] = y2; trl[t] = 0.12; trc[t] = c; }
+function homeCount(c) { let n = 0; const co = cores[c]; for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === c && sord[i] === HOME && dist(sx[i], sy[i], co.x, co.y) < 70) n++; return n; }
+function fieldCount(c) { return armyN[c] - homeCount(c); }
+function centroid(c, onlyField) {
+  let x = 0, y = 0, n = 0; const co = cores[c];
+  for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === c) {
+    if (onlyField && sord[i] === HOME && dist(sx[i], sy[i], co.x, co.y) < 70) continue;
+    x += sx[i]; y += sy[i]; n++;
+  }
+  return n ? { x: x / n, y: y / n, n } : { x: co.x, y: co.y, n: 0 };
+}
+function order(c, ord, tx, ty, tgt, homeOnly, fury) {
+  let n = 0;
+  for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === c && (!homeOnly || sord[i] === HOME)) {
+    sord[i] = ord; stx[i] = tx; sty[i] = ty; stgt[i] = tgt; n++;
+    if (fury) sfury[i] = time + T.fury;
+  }
+  return n;
+}
+
+// ---------------------------------------------------------------------
+// start / end
+// ---------------------------------------------------------------------
+function startRound(sd) {
+  seed = sd; rng = mulberry32(sd * 31 + 7);
+  salive.fill(0); shipHW = 0; armyN.fill(0); lost.fill(0);
+  trl.fill(0); pal.fill(0); floaters = []; flashes = []; ripples = [];
+  time = 0; over = null; taps = 0; decisions = []; story = []; banner = null; moveMark = null; eclipse = false; surge = false;
+  buildRound(sd);
+  bots = {};
+  for (const c of [1, 2]) bots[c] = Object.assign({ c, think: 3 + rng() * 3, plan: null }, BOTDEF[c]);
+  for (let c = 0; c < 3; c++) for (let k = 0; k < T.startArmy; k++) spawn(c, cores[c].x, cores[c].y);
+  lastTerr = -1; terrInf.fill(0);
+  buildBg();
+  running = true;
+  hideCards();
+  showBanner(-1, 'Tap the board to send your swarm. Watch the track: the sky warns 8 s ahead.', '#e6b84a', 4);
+}
+
+function endRound(win, cause) {
+  if (over) return;
+  over = { win, cause, t: time };
+  running = false;
+  setTimeout(showEnd, 900);
+}
+
+// ---------------------------------------------------------------------
+// decisions (player taps) and their event context
+// ---------------------------------------------------------------------
+function eventsNear() { return deck.filter(e => (e.st === 1) || (e.st === 2) || (e.st === 3 && time - e.t < 6 && time >= e.t)); }
+function classify(kind, tx, ty, k) {
+  const me = centroid(YOU, false);
+  const travel = routeLen(me.x, me.y, tx, ty) / T.speed;
+  const near = eventsNear();
+  // 1. blitz on you
+  for (const e of near) if (e.k === BZ && e.tg === YOU && cores[e.by].alive) {
+    const when = e.t - time;
+    if (kind === 'recall') return 'answered ⚔ ' + NAME[e.by] + ' Blitz on you' + (when > 0 ? ' (' + Math.ceil(when) + ' s out)' : '');
+    return 'ignored ⚔ ' + NAME[e.by] + ' Blitz on you' + (when > 0 ? ' (lands in ' + Math.ceil(when) + ' s)' : '');
+  }
+  // 2. starfall
+  for (const e of near) if (e.k === SF && e.st === 1) {
+    const crosses = routeCrossesLane(e.lane, me.x, me.y, tx, ty) && travel > (e.t - time) * 0.4;
+    if (kind !== 'recall' && inLane(e.lane, tx, ty)) return 'ignored ☄ Starfall: sent into the marked lane';
+    if (kind !== 'recall' && crosses) return 'risked ☄ Starfall: path crosses the lane (' + Math.ceil(e.t - time) + ' s)';
+    let inside = 0; for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === YOU && inLane(e.lane, sx[i], sy[i])) inside++;
+    if (inside > 0) return 'dodged ☄ Starfall: pulled ' + inside + ' sparks out';
+  }
+  // 3. punish a blitzer
+  for (const e of near) if (e.k === BZ && e.tg !== YOU && kind === 'assault' && k === e.by)
+    return 'punished ⚔ ' + NAME[e.by] + ' Blitz: hit its emptied Core';
+  // 4. eclipse
+  for (const e of near) if (e.k === EC) {
+    const start = e.t, end = e.t + e.dur, arrive = time + travel;
+    if (kind === 'assault') {
+      if (arrive >= start - 1.5 && arrive <= end - 2) return 'timed for ◐ Eclipse (lands ' + (arrive < start ? 'as it starts' : 'inside it') + ')';
+      if (arrive < start - 1.5) return 'early for ◐ Eclipse (turrets still up)';
+      return 'late for ◐ Eclipse';
+    }
+    if (kind === 'recall') return 'held home through ◐ Eclipse';
+  }
+  // 5. well
+  for (const e of near) if (e.k === SW && e.st !== 3) {
+    if (kind === 'move' && dist(tx, ty, e.well.x, e.well.y) < e.well.r + 25) return 'committed to ◎ Starwell';
+    return 'passed on ◎ Starwell';
+  }
+  for (const e of near) if (e.k === CT && e.st === 2 && kind !== 'recall' && segCrossesLane(e.lane, me.x, me.y, tx, ty)) return 'rode ✧ Comet tail';
+  for (const e of near) if (e.k === RF) return 'around ╱ Rift (' + (seam && seam.closed ? 'wall up' : 'lane open') + ')';
+  for (const e of near) if (e.k === BZ && e.tg !== YOU) return 'watched ⚔ ' + NAME[e.by] + ' Blitz on ' + NAME[e.tg];
+  return 'no event in sight';
+}
+function playerOrder(kind, tx, ty, k) {
+  if (!running) return;
+  const note = classify(kind, tx, ty, k);
+  let what;
+  if (kind === 'recall') { order(YOU, HOME, 0, 0, -1, false); what = 'recalled home'; moveMark = null; }
+  else if (kind === 'assault') { order(YOU, ASSAULT, cores[k].x, cores[k].y, k, false); what = 'sent swarm at ' + NAME[k] + ' Core'; moveMark = null; }
+  else { order(YOU, MOVE, tx, ty, -1, false); what = 'sent swarm to ' + placeName(tx, ty); moveMark = { x: tx, y: ty }; }
+  taps++;
+  decisions.push({ t: time, what, note, n: armyN[YOU] });
+  ripples.push({ x: tx, y: ty, life: 0.5, col: kind === 'recall' ? 0 : 0 });
+}
+function placeName(x, y) {
+  for (const e of deck) if (e.k === SW && e.st > 0 && e.st < 3 && dist(x, y, e.well.x, e.well.y) < e.well.r + 25) return 'the ◎ Starwell';
+  for (const e of deck) if (e.k === SF && e.st === 1 && inLane(e.lane, x, y)) return 'inside the ☄ Starfall lane';
+  const v = y < 220 ? 'top' : y < 430 ? 'middle' : 'bottom';
+  const h = x < 140 ? 'left' : x > 260 ? 'right' : 'centre';
+  return v + '-' + h;
+}
+
+// ---------------------------------------------------------------------
+// bots
+// ---------------------------------------------------------------------
+function bestTarget(c) {
+  const b = bots[c]; let best = -1, bs = 1e9;
+  for (let k = 0; k < 3; k++) {
+    if (k === c || !cores[k].alive) continue;
+    const co = cores[k];
+    let sc = co.hp / co.max * 40 + homeCount(k) * 1.1 + routeLen(cores[c].x, cores[c].y, co.x, co.y) * 0.04;
+    if (k === YOU) sc += b.youBias;
+    if (eclipse) sc -= 10;
+    if (sc < bs) { bs = sc; best = k; }
+  }
+  return best;
+}
+function toldStarfallOnPath(c, tx, ty) {
+  for (const e of deck) if (e.k === SF && (e.st === 1 || e.st === 2) && routeCrossesLane(e.lane, cores[c].x, cores[c].y, tx, ty)) return e;
+  return null;
+}
+function botThink(c) {
+  const b = bots[c], co = cores[c];
+  if (b.plan) return;
+  // my own blitz is near: hold everything
+  const mine = deck.find(e => e.k === BZ && e.by === c && e.st < 3 && e.t - time < 15 && e.t > time);
+  if (mine) { if (mine.t - time < 9) order(c, HOME, 0, 0, -1, false); return; }
+  if (co.threat >= 4) { order(c, HOME, 0, 0, -1, false); return; }
+  const pool = homeCount(c);
+  const well = deck.find(e => e.k === SW && ((e.st === 2 && e.t + e.dur - time > 4) || (e.st === 1 && e.t - time < 7)));
+  if (well && pool >= 8 && rng() < b.wellLove) { b.plan = { kind: 'move', k: -1, x: well.well.x, y: well.well.y, at: time + T.botTele, why: 'well' }; return; }
+  const ecl = deck.find(e => e.k === EC && ((e.st === 2 && e.t + e.dur - time > 5) || (e.st === 1 && e.t - time < 7)));
+  if (ecl && pool >= 12 && rng() < b.eclLove) { const k = bestTarget(c); if (k >= 0 && pool >= homeCount(k) * 0.8 + 6) { b.plan = { kind: 'assault', k, at: time + T.botTele, why: 'eclipse' }; return; } }
+  if (pool >= b.pourAt) {
+    const k = bestTarget(c); if (k < 0) return;
+    if (pool < homeCount(k) * 1.3 + 4) return;       // readable: only pours when it outnumbers the guard
+    const sfe = toldStarfallOnPath(c, cores[k].x, cores[k].y);
+    if (sfe && rng() < b.dodge) return;              // careful crews wait for the Starfall
+    b.plan = { kind: 'assault', k, at: time + T.botTele, why: 'pour' };
+  }
+}
+function botLaunch(c) {
+  const b = bots[c], p = b.plan; b.plan = null;
+  if (!cores[c].alive) return;
+  if (p.kind === 'blitz') {
+    let k = p.k;
+    if (!cores[k].alive) k = bestTarget(c);
+    if (k < 0) return;
+    order(c, ASSAULT, cores[k].x, cores[k].y, k, false, true);
+    return;
+  }
+  if (p.kind === 'assault') { if (!cores[p.k].alive) return; order(c, ASSAULT, cores[p.k].x, cores[p.k].y, p.k, true); }
+  else order(c, MOVE, p.x, p.y, -1, true);
+}
+function botDodge(c, e) {
+  // pull own field ships out of a told lane
+  const L = e.lane;
+  for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === c && inLane(L, sx[i], sy[i])) {
+    const d = laneD(L, sx[i], sy[i]), s = d >= 0 ? 1 : -1;
+    sord[i] = MOVE; stx[i] = sx[i] + L.nx * s * (L.hw - Math.abs(d) + 26); sty[i] = sy[i] + L.ny * s * (L.hw - Math.abs(d) + 26);
+    stx[i] = clamp(stx[i], 10, W - 10); sty[i] = clamp(sty[i], 10, H - 10);
+  }
+}
+
+// ---------------------------------------------------------------------
+// events
+// ---------------------------------------------------------------------
+function showBanner(k, text, col, life) { banner = { k, text, col, life: life || 3, max: life || 3 }; }
+function rivalPos(c) { return c === YOU ? 'you' : 'the ' + NAME[c]; }
+function onTell(e) {
+  if (e.k === SF) showBanner(SF, 'Starfall in 8 s: everything in the marked lane dies. Clear it, or lure a rival in.', KC[SF]);
+  if (e.k === SW) showBanner(SW, 'Starwell opens in 8 s for 10 s: most sparks inside at the close gets +25 and a mend.', KC[SW]);
+  if (e.k === EC) showBanner(EC, 'Eclipse in 8 s: turrets go dark for 10 s and every Core takes full damage.', KC[EC]);
+  if (e.k === CT) showBanner(CT, 'Comet tail in 8 s: sparks inside the band fly at double speed for 15 s.', KC[CT]);
+  if (e.k === RF) showBanner(RF, 'Rift in 8 s: the wall ' + (seam && seam.closed ? 'opens' : 'closes') + ' for 20 s, changing the way to the ' + NAME[seam ? seam.rival : 1] + '.', KC[RF]);
+  if (e.k === BZ) {
+    if (!cores[e.by].alive) { e.void = true; return; }
+    showBanner(BZ, NAME[e.by] + ' will Blitz ' + (e.tg === YOU ? 'YOUR Core' : 'the ' + NAME[e.tg]) + ' in 8 s with everything. Blitz sparks hit Cores at full damage.', COL[e.by]);
+    order(e.by, HOME, 0, 0, -1, false);             // the blitzer gathers
+    // the target, if a bot, may brace
+    if (e.tg !== YOU && bots[e.tg] && rng() < bots[e.tg].careful) order(e.tg, HOME, 0, 0, -1, false);
+  }
+}
+function onLand(e) { onLand1(e); onLand2(e); }
+function onLand1(e) {
+  if (e.k === SF) {
+    const L = e.lane;
+    burnLane(e);
+    flashes.push({ k: SF, e, life: 0.9 });
+    showBanner(SF, 'Starfall! The lane burns for 2.5 s.', KC[SF], 2);
+  }
+}
+function burnLane(e) {
+  const L = e.lane;
+  for (let i = 0; i < shipHW; i++) if (salive[i] && inLane(L, sx[i], sy[i])) { e.kills[screw[i]]++; killShip(i, true); }
+}
+function starfallReport(e) {
+  {
+    const L = e.lane;
+    const parts = []; for (let c = 0; c < 3; c++) if (e.kills[c]) parts.push((c === YOU ? 'you lost ' : NAME[c] + ' lost ') + e.kills[c]);
+    showBanner(SF, 'Starfall! ' + (parts.length ? parts.join(', ') : 'the lane was empty') + '.', KC[SF], 2.5);
+    for (let c = 0; c < 3; c++) if (e.kills[c] >= 4) story.push({ t: e.t, text: '☄ Starfall took ' + e.kills[c] + (c === YOU ? ' of your sparks' : ' ' + NAME[c]) });
+    for (let c = 0; c < 3; c++) if (e.kills[c]) floaters.push({ x: clamp(L.cx, 40, 360), y: clamp(L.cy + c * 18 - 18, 40, 600), text: '−' + e.kills[c], col: COL[c], life: 1.8 });
+  }
+}
+function onLand2(e) {
+  if (e.k === BZ) {
+    if (e.void || !cores[e.by].alive) { e.void = true; showBanner(BZ, 'The ' + NAME[e.by] + ' are gone: no Blitz.', '#9aa4c4', 2); return; }
+    e.yourHome = homeCount(YOU); e.yourField = fieldCount(YOU); e.size = armyN[e.by];
+    if (!bots[e.by].plan || bots[e.by].plan.kind !== 'blitz') botLaunchBlitz(e);
+    showBanner(BZ, NAME[e.by] + ' Blitz! ' + e.size + ' sparks pour at ' + (e.tg === YOU ? 'YOUR Core' : 'the ' + NAME[e.tg]) + '.', COL[e.by], 2.5);
+  }
+  if (e.k === EC) { showBanner(EC, 'Eclipse: turrets are dark, Cores take full damage for 10 s.', KC[EC], 2.5); }
+  if (e.k === SW) { showBanner(SW, 'Starwell open: hold the most sparks inside for 10 s.', KC[SW], 2); }
+  if (e.k === RF && seam) { seam.closed = !seam.closed; pushOutOfSeam(); showBanner(RF, seam.closed ? 'Rift: the wall is up.' : 'Rift: the wall is open.', KC[RF], 2); }
+  if (e.k === CT) showBanner(CT, 'Comet tail: the band flies at double speed.', KC[CT], 2);
+}
+function botLaunchBlitz(e) { bots[e.by].plan = { kind: 'blitz', k: e.tg, at: time }; botLaunch(e.by); }
+function onEnd(e) {
+  if (e.k === SF) starfallReport(e);
+  if (e.k === SW) {
+    const w = e.well, cnt = [0, 0, 0];
+    for (let i = 0; i < shipHW; i++) if (salive[i] && dist(sx[i], sy[i], w.x, w.y) < w.r) cnt[screw[i]]++;
+    e.counts = cnt;
+    let best = -1, bn = 0, tie = false;
+    for (let c = 0; c < 3; c++) { if (!cores[c].alive) continue; if (cnt[c] > bn) { bn = cnt[c]; best = c; tie = false; } else if (cnt[c] === bn && bn > 0) tie = true; }
+    if (best >= 0 && !tie) {
+      e.winner = best;
+      const co = cores[best];
+      let add = 0; for (let n = 0; n < T.wellBonus && armyN[best] < T.overcap; n++) { if (spawn(best, co.x, co.y) >= 0) add++; }
+      co.hp = Math.min(co.max, co.hp + co.max * T.wellMend);
+      for (const tu of co.turr) { tu.hp = T.turretHp; }
+      floaters.push({ x: co.x, y: co.y - 40, text: '+' + add, col: COL[best], life: 2 });
+      showBanner(SW, (best === YOU ? 'You hold' : 'The ' + NAME[best] + ' hold') + ' the Starwell: +' + add + ' sparks and a Core mend.', COL[best], 2.5);
+      story.push({ t: e.t + e.dur, text: '◎ Starwell went to ' + (best === YOU ? 'you' : 'the ' + NAME[best]) + ' (+' + add + ')' });
+    } else { e.winner = -1; showBanner(SW, 'The Starwell closed with no clear holder.', KC[SW], 2); }
+    for (const c of [1, 2]) if (cores[c].alive) for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === c && sord[i] === MOVE) sord[i] = HOME;
+  }
+  if (e.k === RF && seam) { seam.closed = seam.base; pushOutOfSeam(); }
+}
+function pushOutOfSeam() {
+  if (!seam || !seam.closed) return;
+  const dx = seam.bx - seam.ax, dy = seam.by - seam.ay, L = Math.sqrt(dx * dx + dy * dy), nx = -dy / L, ny = dx / L;
+  for (let i = 0; i < shipHW; i++) if (salive[i]) {
+    const d = segPointDist(seam.ax, seam.ay, seam.bx, seam.by, sx[i], sy[i]);
+    if (d < 9) { const s = ((sx[i] - seam.ax) * nx + (sy[i] - seam.ay) * ny) >= 0 ? 1 : -1; sx[i] += nx * s * 12; sy[i] += ny * s * 12; }
+  }
+}
+function updateEvents() {
+  for (const e of deck) {
+    if (e.st === 0 && time >= e.t - T.tell) { e.st = 1; onTell(e); }
+    if (e.st === 1) {
+      // bot reactions to a told Starfall
+      if (e.k === SF) for (const c of [1, 2]) {
+        const b = bots[c];
+        if (!e.dodged[c] && time >= e.t - T.tell + b.react) { e.dodged[c] = true; if (rng() < b.dodge) botDodge(c, e); }
+      }
+      // the blitzer telegraphs 3 s ahead like any pour
+      if (e.k === BZ && !e.void && cores[e.by].alive && time >= e.t - T.botTele && (!bots[e.by].plan || bots[e.by].plan.kind !== 'blitz'))
+        bots[e.by].plan = { kind: 'blitz', k: e.tg, at: e.t };
+      if (time >= e.t) { e.st = e.dur > 0 ? 2 : 3; onLand(e); }
+    }
+    if (e.st === 2 && e.k === SF) burnLane(e);
+    if (e.st === 2 && time >= e.t + e.dur) { e.st = 3; onEnd(e); }
+  }
+  eclipse = deck.some(e => e.k === EC && e.st === 2);
+  surge = time >= T.surgeAt;
+}
+function activeComets() { return deck.filter(e => e.k === CT && e.st === 2); }
+
+// ---------------------------------------------------------------------
+// combat helpers
+// ---------------------------------------------------------------------
+function damageCore(k, d, by, i) {
+  const co = cores[k]; if (!co.alive) return;
+  co.hp -= d; co.lastHit = time; co.lastHitBy = by;
+  if (co.hp <= 0) breakCore(k, by, i);
+}
+function breakCore(k, by, i) {
+  const co = cores[k]; co.alive = false; co.hp = 0; co.brokeAt = time; co.brokeBy = by;
+  co.inEclipse = eclipse; co.byFury = i >= 0 && sfury[i] > time; co.inSurge = surge;
+  for (let j = 0; j < shipHW; j++) if (salive[j] && screw[j] === k) killShip(j, true);
+  for (let n = 0; n < 24; n++) addParticle(co.x, co.y, (rng() - 0.5) * 160, (rng() - 0.5) * 160, k);
+  for (let j = 0; j < shipHW; j++) if (salive[j] && sord[j] === ASSAULT && stgt[j] === k) sord[j] = HOME;
+  story.push({ t: time, text: (k === YOU ? 'your Core' : 'the ' + NAME[k] + ' Core') + ' broke' + (by >= 0 ? ' to ' + (by === YOU ? 'you' : 'the ' + NAME[by]) : '') + (co.inEclipse ? ' in the ◐ Eclipse' : '') });
+  if (k === YOU) endRound(false, loseCause(by));
+  else if (!cores[1].alive && !cores[2].alive) endRound(true, winCause(k));
+  else showBanner(-1, 'The ' + NAME[k] + ' Core is broken!', COL[k], 2.5);
+}
+function loseCause(by) {
+  const T0 = time, who = by >= 0 && by !== YOU ? 'the ' + NAME[by] : 'a rival';
+  const bz = deck.filter(e => e.k === BZ && e.tg === YOU && e.st === 3 && !e.void && T0 >= e.t && T0 - e.t < 40).pop();
+  if (bz && bz.by === by) {
+    if (bz.yourField > bz.yourHome) return 'Lost: your army was away when the ' + NAME[bz.by] + ' Blitz landed at ' + fmt(bz.t) + ' (' + bz.size + ' sparks against ' + bz.yourHome + ' at home).';
+    return 'Lost: the ' + NAME[bz.by] + ' Blitz at ' + fmt(bz.t) + ' brought ' + bz.size + ' sparks against your ' + bz.yourHome + ' at home.';
+  }
+  const sf = deck.filter(e => e.k === SF && e.st === 3 && e.kills[YOU] >= 10 && T0 - e.t < 70).pop();
+  if (sf) return 'Lost: your army was in the Starfall lane at ' + fmt(sf.t) + ', and ' + who + ' found your Core open.';
+  const away = fieldCount(YOU) > homeCount(YOU);
+  if (cores[YOU].inEclipse) return 'Lost: ' + who + ' hit your Core in the Eclipse at ' + fmt(T0) + (away ? ' while your army was out.' : '.');
+  if (cores[YOU].inSurge) return 'Lost: the Surge at 5:00 let ' + who + ' break your Core at ' + fmt(T0) + '.';
+  return 'Lost: ' + who + ' broke your Core at ' + fmt(T0) + (away ? ' while your army was out.' : '.');
+}
+function winCause(k) {
+  const co = cores[k], T0 = time;
+  if (co.inEclipse) return 'Won: your assault landed in the Eclipse at ' + fmt(T0) + '.';
+  const bz = deck.filter(e => e.k === BZ && e.by === k && e.st === 3 && !e.void && T0 - e.t < 30 && T0 >= e.t).pop();
+  if (bz) return 'Won: you hit the ' + NAME[k] + ' Core at ' + fmt(T0) + ' while its army was out on the Blitz.';
+  const sf = deck.filter(e => e.k === SF && e.st === 3 && e.kills[k] >= 10 && T0 - e.t < 70).pop();
+  if (sf) return 'Won: the ' + NAME[k] + ' lost ' + sf.kills[k] + ' sparks in the Starfall at ' + fmt(sf.t) + ' and could not hold.';
+  const sw = deck.filter(e => e.k === SW && e.st === 3 && e.winner === YOU && T0 - e.t < 60).pop();
+  if (sw) return 'Won: the Starwell at ' + fmt(sw.t) + ' gave you the sparks to break the ' + NAME[k] + '.';
+  if (co.inSurge) return 'Won: your assault broke the ' + NAME[k] + ' in the Surge at ' + fmt(T0) + '.';
+  return 'Won: you broke the ' + NAME[k] + ' Core at ' + fmt(T0) + ' with no event to help.';
+}
+
+// ---------------------------------------------------------------------
+// simulation step
+// ---------------------------------------------------------------------
+const terrInf = new Float32Array(24 * 44 * 3);
+function step(dt) {
+  if (!running) return;
+  time += dt;
+  updateEvents();
+  if (!running) return;
+  // production
+  for (let c = 0; c < 3; c++) {
+    const co = cores[c]; if (!co.alive) continue;
+    if (armyN[c] < T.cap) { co.prodT += dt; if (co.prodT >= T.prod) { co.prodT -= T.prod; spawn(c, co.x, co.y); } }
+    else co.prodT = 0;
+    // mend
+    if (time - co.lastHit > 8) co.hp = Math.min(co.max, co.hp + 0.25 * dt);
+    for (const tu of co.turr) {
+      if (tu.hp > 0 && tu.hp < T.turretHp && time - co.lastHit > 5) tu.hp = Math.min(T.turretHp, tu.hp + dt);
+      if (tu.hp <= 0 && time - tu.dead > 20) tu.hp = 8;
+    }
+  }
+  // grid
+  ghead.fill(-1);
+  for (let i = 0; i < shipHW; i++) if (salive[i]) {
+    const g = clamp((sx[i] / CELL) | 0, 0, GW - 1) + clamp((sy[i] / CELL) | 0, 0, GH - 1) * GW;
+    gnext[i] = ghead[g]; ghead[g] = i;
+  }
+  // core threat / intruder every frame (cheap: per core loop)
+  for (let c = 0; c < 3; c++) {
+    const co = cores[c]; co.intr = -1; co.threat = 0; if (!co.alive) continue;
+    let bd = 90 * 90;
+    for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] !== c) {
+      const dx = sx[i] - co.x, dy = sy[i] - co.y, d2 = dx * dx + dy * dy;
+      if (d2 < 8100) { co.threat++; if (d2 < bd) { bd = d2; co.intr = i; } }
+    }
+  }
+  const comets = activeComets();
+  // ships
+  for (let i = 0; i < shipHW; i++) {
+    if (!salive[i]) continue;
+    const c = screw[i];
+    let gx, gy;
+    const f = sfoe[i], foeOk = f >= 0 && salive[f] && screw[f] !== c;
+    if (sord[i] === ASSAULT && !cores[stgt[i]].alive) sord[i] = HOME;
+    if (sord[i] === HOME) {
+      const co = cores[c], it = co.intr;
+      if (it >= 0) { gx = sx[it]; gy = sy[it]; }
+      else { const a = sang[i] + time * 0.35, r = 18 + srad[i] * 1.1; gx = co.x + Math.cos(a) * r; gy = co.y + Math.sin(a) * r * 0.85; }
+    } else if (sord[i] === MOVE) {
+      if (foeOk && dist(sx[f], sy[f], stx[i], sty[i]) < 64) { gx = sx[f]; gy = sy[f]; }
+      else { gx = stx[i] + Math.cos(sang[i]) * srad[i]; gy = sty[i] + Math.sin(sang[i]) * srad[i]; }
+    } else {
+      const co = cores[stgt[i]];
+      gx = co.x + Math.cos(sang[i]) * 30; gy = co.y + Math.sin(sang[i]) * 30;
+    }
+    route(sx[i], sy[i], gx, gy);
+    let dx = RX - sx[i], dy = RY - sy[i]; const d = Math.sqrt(dx * dx + dy * dy) + 1e-4;
+    let sp = T.speed;
+    for (let n = 0; n < comets.length; n++) if (inLane(comets[n].lane, sx[i], sy[i])) { sp *= 2; break; }
+    if (d < 12) sp *= d / 12;
+    let dvx = dx / d * sp, dvy = dy / d * sp;
+    // separation (same crew)
+    const gx0 = clamp((sx[i] / CELL) | 0, 0, GW - 1), gy0 = clamp((sy[i] / CELL) | 0, 0, GH - 1);
+    let sepx = 0, sepy = 0;
+    for (let yy = gy0 - 1; yy <= gy0 + 1; yy++) { if (yy < 0 || yy >= GH) continue;
+      for (let xx = gx0 - 1; xx <= gx0 + 1; xx++) { if (xx < 0 || xx >= GW) continue;
+        for (let j = ghead[xx + yy * GW]; j >= 0; j = gnext[j]) {
+          if (j === i || screw[j] !== c) continue;
+          const ex = sx[i] - sx[j], ey = sy[i] - sy[j], e2 = ex * ex + ey * ey;
+          if (e2 < 49 && e2 > 0.01) { const e = Math.sqrt(e2); sepx += ex / e * (7 - e) * 9; sepy += ey / e * (7 - e) * 9; }
+        } } }
+    const k = Math.min(1, dt * 5);
+    svx[i] += (dvx + sepx - svx[i]) * k; svy[i] += (dvy + sepy - svy[i]) * k;
+    sx[i] += svx[i] * dt; sy[i] += svy[i] * dt;
+    // constraints
+    for (let n = 0; n < voids.length; n++) { const v = voids[n], ex = sx[i] - v.x, ey = sy[i] - v.y, e2 = ex * ex + ey * ey;
+      if (e2 < v.r * v.r) { const e = Math.sqrt(e2) + 1e-4; sx[i] = v.x + ex / e * v.r; sy[i] = v.y + ey / e * v.r; } }
+    if (seam && seam.closed) {
+      const sdx = seam.bx - seam.ax, sdy = seam.by - seam.ay, L2 = sdx * sdx + sdy * sdy;
+      let u = clamp(((sx[i] - seam.ax) * sdx + (sy[i] - seam.ay) * sdy) / L2, 0, 1);
+      const qx = seam.ax + sdx * u, qy = seam.ay + sdy * u, ex = sx[i] - qx, ey = sy[i] - qy, e2 = ex * ex + ey * ey;
+      if (e2 < 64) { const e = Math.sqrt(e2) + 1e-4; sx[i] = qx + ex / e * 8; sy[i] = qy + ey / e * 8; }
+    }
+    sx[i] = clamp(sx[i], 6, W - 6); sy[i] = clamp(sy[i], 6, H - 6);
+    // firing
+    scd[i] -= dt;
+    if (scd[i] <= 0) {
+      scd[i] = T.fireCd * (0.85 + rng() * 0.3);
+      let best = -1, bd = T.sense * T.sense;
+      for (let yy = gy0 - 2; yy <= gy0 + 2; yy++) { if (yy < 0 || yy >= GH) continue;
+        for (let xx = gx0 - 2; xx <= gx0 + 2; xx++) { if (xx < 0 || xx >= GW) continue;
+          for (let j = ghead[xx + yy * GW]; j >= 0; j = gnext[j]) {
+            if (!salive[j] || screw[j] === c) continue;
+            const ex = sx[j] - sx[i], ey = sy[j] - sy[i], e2 = ex * ex + ey * ey;
+            if (e2 < bd) { bd = e2; best = j; }
+          } } }
+      sfoe[i] = best;
+      if (best >= 0 && bd < T.range * T.range) {
+        addTracer(sx[i], sy[i], sx[best], sy[best], c);
+        shp[best] -= 1; if (shp[best] <= 0) killShip(best, true);
+      } else if (sord[i] === ASSAULT) {
+        const k2 = stgt[i], co = cores[k2];
+        if (dist(sx[i], sy[i], co.x, co.y) < 48) hitStructure(i, c, k2);
+      }
+    }
+  }
+  // turrets
+  if (!eclipse) for (let c = 0; c < 3; c++) {
+    const co = cores[c]; if (!co.alive) continue;
+    for (const tu of co.turr) {
+      if (tu.hp <= 0) continue;
+      tu.cd -= dt; if (tu.cd > 0) continue;
+      let best = -1, bd = T.turretRange * T.turretRange;
+      for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] !== c) {
+        const ex = sx[i] - tu.x, ey = sy[i] - tu.y, e2 = ex * ex + ey * ey; if (e2 < bd) { bd = e2; best = i; } }
+      if (best >= 0) { tu.cd = T.turretCd; addTracer(tu.x, tu.y, sx[best], sy[best], c); shp[best] -= T.turretDmg; if (shp[best] <= 0) killShip(best, true); }
+      else tu.cd = 0.1;
+    }
+  }
+  // bots
+  for (const c of [1, 2]) {
+    const b = bots[c]; if (!cores[c].alive) continue;
+    if (b.plan && time >= b.plan.at) botLaunch(c);
+    b.think -= dt;
+    if (b.think <= 0) { b.think = 4 + rng() * 2; botThink(c); }
+  }
+  if (time >= T.hardEnd && running) {
+    const alive = [1, 2].filter(c => cores[c].alive).map(c => NAME[c]);
+    endRound(false, 'Lost: the sky closed at ' + fmt(T.hardEnd) + ' with the ' + alive.join(' and the ') + ' still standing' + (taps === 0 ? ': you never committed your swarm.' : '.'));
+  }
+}
+function hitStructure(i, c, k) {
+  const co = cores[k];
+  const fury = sfury[i] > time;
+  const mul = surge ? T.surgeMul : 1;
+  if (!eclipse && !fury) {
+    let tb = null, bd = 1e9;
+    for (const tu of co.turr) if (tu.hp > 0) { const d = dist(sx[i], sy[i], tu.x, tu.y); if (d < bd) { bd = d; tb = tu; } }
+    if (tb) {
+      addTracer(sx[i], sy[i], tb.x, tb.y, c);
+      tb.hp -= T.dmgTurret * mul; co.lastHit = time; co.lastHitBy = c;
+      if (tb.hp <= 0) { tb.hp = 0; tb.dead = time; for (let n = 0; n < 6; n++) addParticle(tb.x, tb.y, (rng() - 0.5) * 80, (rng() - 0.5) * 80, k); }
+      return;
+    }
+    addTracer(sx[i], sy[i], co.x, co.y, c);
+    damageCore(k, T.dmgCoreWarded * mul, c, i);
+  } else {
+    addTracer(sx[i], sy[i], co.x, co.y, c);
+    damageCore(k, (eclipse ? T.dmgCoreOpen : T.dmgCoreFury) * mul, c, i);
+  }
+}
+
+// =====================================================================
+// Rendering
+// =====================================================================
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+let VW = 390, VH = 844, DPR = 1, S = 1, OX = 0, OY = 0;
+const TOPH = 48, TRACKH = 58, DOCKH = 92;
+let bgCv = document.createElement('canvas'), bgG = bgCv.getContext('2d');
+const terrCv = document.createElement('canvas'); terrCv.width = 24; terrCv.height = 44;
+const terrG = terrCv.getContext('2d'); const terrImg = terrG.createImageData(24, 44);
+let starsBg = [];
+
+function resize() {
+  VW = window.innerWidth; VH = window.innerHeight; DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR); cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+  const top = TOPH + TRACKH, bh = VH - top - DOCKH;
+  S = Math.min((VW - 12) / W, (bh - 6) / H);
+  OX = (VW - W * S) / 2; OY = top + (bh - H * S) / 2;
+  if (cores.length) buildBg();
+}
+function arenaPath(ctx) {
+  const r = 34; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(W - r, 0); ctx.quadraticCurveTo(W, 0, W, r); ctx.lineTo(W, H - r);
+  ctx.quadraticCurveTo(W, H, W - r, H); ctx.lineTo(r, H); ctx.quadraticCurveTo(0, H, 0, H - r); ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0); ctx.closePath();
+}
+function buildBg() {
+  const pw = Math.max(1, Math.round(W * S * DPR)), ph = Math.max(1, Math.round(H * S * DPR));
+  bgCv.width = pw; bgCv.height = ph;
+  const b = bgG; b.setTransform(S * DPR, 0, 0, S * DPR, 0, 0);
+  arenaPath(b); b.fillStyle = '#0f1530'; b.fill();
+  b.save(); arenaPath(b); b.clip();
+  const sr = mulberry32(seed * 3 + 1);
+  for (let n = 0; n < 90; n++) { b.fillStyle = 'rgba(220,230,255,' + (0.15 + sr() * 0.35) + ')'; const s = 0.6 + sr() * 1.2; b.fillRect(sr() * W, sr() * H, s, s); }
+  // faint sacred geometry: circle through the three Cores
+  if (cores.length === 3) {
+    const [a, c1, c2] = cores; const cc = circumcircle(a, c1, c2);
+    if (cc) { b.strokeStyle = 'rgba(230,184,74,0.06)'; b.lineWidth = 1.2; b.beginPath(); b.arc(cc.x, cc.y, cc.r, 0, Math.PI * 2); b.stroke();
+      b.beginPath(); b.moveTo(a.x, a.y); b.lineTo(c1.x, c1.y); b.lineTo(c2.x, c2.y); b.closePath(); b.strokeStyle = 'rgba(200,210,255,0.05)'; b.stroke(); }
+  }
+  for (const v of voids) {
+    const gr = b.createRadialGradient(v.x, v.y, v.r * 0.2, v.x, v.y, v.r * 1.15);
+    gr.addColorStop(0, '#04060d'); gr.addColorStop(0.85, '#070a16'); gr.addColorStop(1, 'rgba(7,10,22,0)');
+    b.fillStyle = gr; b.beginPath(); b.arc(v.x, v.y, v.r * 1.15, 0, Math.PI * 2); b.fill();
+    b.strokeStyle = 'rgba(140,150,200,0.35)'; b.setLineDash([3, 4]); b.lineWidth = 1.2; b.beginPath(); b.arc(v.x, v.y, v.r, 0, Math.PI * 2); b.stroke(); b.setLineDash([]);
+  }
+  b.restore();
+  arenaPath(b); b.strokeStyle = 'rgba(150,165,220,0.35)'; b.lineWidth = 1.5; b.stroke();
+}
+function circumcircle(a, b, c) {
+  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)); if (Math.abs(d) < 1e-6) return null;
+  const ux = ((a.x * a.x + a.y * a.y) * (b.y - c.y) + (b.x * b.x + b.y * b.y) * (c.y - a.y) + (c.x * c.x + c.y * c.y) * (a.y - b.y)) / d;
+  const uy = ((a.x * a.x + a.y * a.y) * (c.x - b.x) + (b.x * b.x + b.y * b.y) * (a.x - c.x) + (c.x * c.x + c.y * c.y) * (b.x - a.x)) / d;
+  return { x: ux, y: uy, r: dist(ux, uy, a.x, a.y) };
+}
+function updateTerritory() {
+  terrInf.fill(0);
+  const cw = W / 24, ch = H / 44;
+  for (let i = 0; i < shipHW; i++) if (salive[i]) {
+    const cx = (sx[i] / cw) | 0, cy = (sy[i] / ch) | 0, c = screw[i];
+    for (let yy = cy - 2; yy <= cy + 2; yy++) { if (yy < 0 || yy >= 44) continue;
+      for (let xx = cx - 2; xx <= cx + 2; xx++) { if (xx < 0 || xx >= 24) continue;
+        const w = 1 / (1 + Math.abs(xx - cx) + Math.abs(yy - cy)); terrInf[(yy * 24 + xx) * 3 + c] += w; } }
+  }
+  for (const co of cores) if (co.alive) {
+    const cx = (co.x / cw) | 0, cy = (co.y / ch) | 0;
+    for (let yy = cy - 4; yy <= cy + 4; yy++) { if (yy < 0 || yy >= 44) continue;
+      for (let xx = cx - 4; xx <= cx + 4; xx++) { if (xx < 0 || xx >= 24) continue; terrInf[(yy * 24 + xx) * 3 + co.c] += 3 / (1 + Math.abs(xx - cx) + Math.abs(yy - cy)); } }
+  }
+  const d = terrImg.data;
+  for (let n = 0; n < 24 * 44; n++) {
+    let bc = -1, bv = 0.6;
+    for (let c = 0; c < 3; c++) { const v = terrInf[n * 3 + c]; if (v > bv) { bv = v; bc = c; } }
+    const p = n * 4;
+    if (bc < 0) { d[p + 3] = 0; continue; }
+    d[p] = COLRGB[bc][0]; d[p + 1] = COLRGB[bc][1]; d[p + 2] = COLRGB[bc][2]; d[p + 3] = Math.min(70, 18 + bv * 10);
+  }
+  terrG.putImageData(terrImg, 0, 0);
+}
+
+function drawGlyph(ctx, k, x, y, s, col) {
+  ctx.save(); ctx.translate(x, y); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1.4, s * 0.11); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const r = s * 0.5;
+  ctx.beginPath();
+  switch (k) {
+    case SF: { const hx = -r * 0.4, hy = r * 0.4; ctx.arc(hx, hy, r * 0.3, 0, 7); ctx.fill(); ctx.beginPath();
+      for (const o of [-1, 0, 1]) { ctx.moveTo(hx + 0.707 * o * r * 0.3 + 0.707 * r * 0.2, hy + 0.707 * o * r * 0.3 - 0.707 * r * 0.2); ctx.lineTo(hx + 0.707 * r * 1.25 + 0.707 * o * r * 0.45, hy - 0.707 * r * 1.25 + 0.707 * o * r * 0.45); }
+      ctx.stroke(); break; }
+    case SW: ctx.arc(0, 0, r * 0.85, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.45, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, 7); ctx.fill(); break;
+    case BZ: ctx.moveTo(-r * 0.8, -r * 0.8); ctx.lineTo(r * 0.7, r * 0.7); ctx.moveTo(r * 0.8, -r * 0.8); ctx.lineTo(-r * 0.7, r * 0.7);
+      ctx.moveTo(r * 0.2, r * 0.75); ctx.lineTo(r * 0.75, r * 0.2); ctx.moveTo(-r * 0.2, r * 0.75); ctx.lineTo(-r * 0.75, r * 0.2); ctx.stroke(); break;
+    case EC: ctx.arc(0, 0, r * 0.8, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.8, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill(); break;
+    case RF: ctx.lineWidth = s * 0.2; ctx.moveTo(-r * 0.6, r * 0.85); ctx.lineTo(-r * 0.1, r * 0.1); ctx.moveTo(r * 0.1, -r * 0.1); ctx.lineTo(r * 0.6, -r * 0.85); ctx.stroke();
+      ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.moveTo(-r * 0.35, -r * 0.35); ctx.lineTo(r * 0.35, r * 0.35); ctx.stroke(); break;
+    case CT: ctx.moveTo(0, -r); ctx.lineTo(r * 0.22, -r * 0.22); ctx.lineTo(r, 0); ctx.lineTo(r * 0.22, r * 0.22); ctx.lineTo(0, r); ctx.lineTo(-r * 0.22, r * 0.22);
+      ctx.lineTo(-r, 0); ctx.lineTo(-r * 0.22, -r * 0.22); ctx.closePath(); ctx.fill(); break;
+    case SU: for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4; ctx.moveTo(Math.cos(a) * r * 0.4, Math.sin(a) * r * 0.4); ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.22, 0, 7); ctx.fill(); break;
+    default: // star (generic banner)
+      for (let n = 0; n < 5; n++) { const a = -Math.PI / 2 + n * Math.PI * 4 / 5; n ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+      ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function eventColor(e) { return e.k === BZ ? COL[e.by] : KC[e.k]; }
+
+function laneBand(ctx, L) {
+  const far = 900;
+  ctx.beginPath();
+  ctx.moveTo(L.cx - L.dx * far + L.nx * L.hw, L.cy - L.dy * far + L.ny * L.hw);
+  ctx.lineTo(L.cx + L.dx * far + L.nx * L.hw, L.cy + L.dy * far + L.ny * L.hw);
+  ctx.lineTo(L.cx + L.dx * far - L.nx * L.hw, L.cy + L.dy * far - L.ny * L.hw);
+  ctx.lineTo(L.cx - L.dx * far - L.nx * L.hw, L.cy - L.dy * far - L.ny * L.hw);
+  ctx.closePath();
+}
+function laneEdges(ctx, L) {
+  const far = 900; ctx.beginPath();
+  for (const s of [1, -1]) { ctx.moveTo(L.cx - L.dx * far + L.nx * L.hw * s, L.cy - L.dy * far + L.ny * L.hw * s); ctx.lineTo(L.cx + L.dx * far + L.nx * L.hw * s, L.cy + L.dy * far + L.ny * L.hw * s); }
+}
+function boardLabel(ctx, x, y, k, text, col) {
+  const fs = 15 / S;
+  ctx.font = '700 ' + fs + 'px system-ui,sans-serif';
+  const tw = ctx.measureText(text).width, w = tw + fs * 1.9, h = fs * 1.5;
+  x = clamp(x, w / 2 + 4, W - w / 2 - 4); y = clamp(y, h / 2 + 4, H - h / 2 - 4);
+  ctx.fillStyle = 'rgba(8,10,22,0.82)'; roundRect(ctx, x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 1.2 / S; ctx.stroke();
+  drawGlyph(ctx, k, x - w / 2 + fs * 0.8, y, fs * 0.95, col);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, x - w / 2 + fs * 1.5, y + fs * 0.04);
+}
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+function drawEvents(ctx) {
+  const blink = 0.5 + 0.5 * Math.sin(time * 8);
+  ctx.save(); arenaPath(ctx); ctx.clip();
+  for (const e of deck) {
+    const left = e.t - time;
+    if (e.k === SF && e.st === 1) {
+      const urg = 1 - left / T.tell;
+      laneBand(ctx, e.lane); ctx.fillStyle = 'rgba(255,122,69,' + (0.08 + 0.12 * urg + 0.08 * blink * urg) + ')'; ctx.fill();
+      ctx.setLineDash([6 / S * 0.6, 6 / S * 0.6]); ctx.lineDashOffset = -time * 20; laneEdges(ctx, e.lane); ctx.strokeStyle = KC[SF]; ctx.lineWidth = 2 / S; ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (e.k === CT && (e.st === 1 || e.st === 2)) {
+      laneBand(ctx, e.lane); ctx.fillStyle = e.st === 2 ? 'rgba(223,231,255,0.10)' : 'rgba(223,231,255,0.04)'; ctx.fill();
+      ctx.setLineDash([3, 9]); ctx.lineDashOffset = -time * (e.st === 2 ? 80 : 20); ctx.strokeStyle = 'rgba(223,231,255,' + (e.st === 2 ? 0.55 : 0.3) + ')'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); for (const o of [-0.6, 0, 0.6]) { const L = e.lane; ctx.moveTo(L.cx - L.dx * 900 + L.nx * L.hw * o, L.cy - L.dy * 900 + L.ny * L.hw * o); ctx.lineTo(L.cx + L.dx * 900 + L.nx * L.hw * o, L.cy + L.dy * 900 + L.ny * L.hw * o); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (e.k === SW && (e.st === 1 || e.st === 2)) {
+      const w = e.well;
+      if (e.st === 1) { ctx.setLineDash([5, 5]); ctx.lineDashOffset = time * 10; ctx.strokeStyle = 'rgba(140,245,184,' + (0.45 + 0.4 * blink) + ')'; ctx.lineWidth = 2 / S;
+        ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+      else { const rem = (e.t + e.dur - time) / e.dur;
+        ctx.fillStyle = 'rgba(140,245,184,0.10)'; ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, 7); ctx.fill();
+        ctx.strokeStyle = KC[SW]; ctx.lineWidth = 2.5 / S; ctx.beginPath(); ctx.arc(w.x, w.y, w.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * rem); ctx.stroke();
+        // inscribed hexagon (subtle geometry)
+        ctx.strokeStyle = 'rgba(140,245,184,0.25)'; ctx.lineWidth = 1; ctx.beginPath();
+        for (let n = 0; n <= 6; n++) { const a = n * Math.PI / 3 + time * 0.3; n ? ctx.lineTo(w.x + Math.cos(a) * w.r, w.y + Math.sin(a) * w.r) : ctx.moveTo(w.x + Math.cos(a) * w.r, w.y + Math.sin(a) * w.r); } ctx.stroke(); }
+    }
+  }
+  // rift wall
+  if (seam) {
+    const tellR = deck.find(e => e.k === RF && e.st === 1);
+    if (seam.closed) {
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#05070f'; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(seam.ax, seam.ay); ctx.lineTo(seam.bx, seam.by); ctx.stroke();
+      ctx.strokeStyle = tellR ? 'rgba(240,168,255,' + (0.4 + 0.6 * blink) + ')' : 'rgba(240,168,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash(tellR ? [6, 6] : []); ctx.stroke(); ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = tellR ? 'rgba(240,168,255,' + (0.3 + 0.6 * blink) + ')' : 'rgba(240,168,255,0.22)'; ctx.lineWidth = tellR ? 2.5 : 1.2; ctx.setLineDash([4, 8]);
+      ctx.beginPath(); ctx.moveTo(seam.ax, seam.ay); ctx.lineTo(seam.bx, seam.by); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  // landing flashes
+  for (const f of flashes) if (f.k === SF) { laneBand(ctx, f.e.lane); ctx.fillStyle = 'rgba(255,200,150,' + (f.life * 0.7) + ')'; ctx.fill(); }
+  for (const e of deck) if (e.k === SF && e.st === 2) { laneBand(ctx, e.lane); ctx.fillStyle = 'rgba(255,110,60,' + (0.35 + 0.15 * blink) + ')'; ctx.fill(); }
+  // eclipse shade
+  const ecTell = deck.find(e => e.k === EC && e.st === 1);
+  if (eclipse) { ctx.fillStyle = 'rgba(0,0,8,0.28)'; ctx.fillRect(0, 0, W, H); }
+  else if (ecTell) { ctx.fillStyle = 'rgba(0,0,8,' + (0.18 * (1 - (ecTell.t - time) / T.tell)) + ')'; ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
+}
+function drawEventLabels(ctx) {
+  for (const e of deck) {
+    const left = e.t - time;
+    if (e.k === SF && e.st === 1) boardLabel(ctx, clamp(e.lane.cx, 60, 340), e.lane.cy, SF, 'Starfall ' + Math.ceil(left), KC[SF]);
+    if (e.k === SW && e.st === 1) boardLabel(ctx, e.well.x, e.well.y, SW, 'opens ' + Math.ceil(left), KC[SW]);
+    if (e.k === SW && e.st === 2) {
+      const w = e.well, cnt = [0, 0, 0];
+      for (let i = 0; i < shipHW; i++) if (salive[i] && dist(sx[i], sy[i], w.x, w.y) < w.r) cnt[screw[i]]++;
+      const fs = 15 / S; ctx.font = '800 ' + fs + 'px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let xx = w.x - 34; for (let c = 0; c < 3; c++) { if (!cores[c].alive) { xx += 34; continue; } ctx.fillStyle = COL[c]; ctx.fillText(SIG[c] + cnt[c], xx, w.y - w.r - fs * 0.8); xx += 34; }
+      boardLabel(ctx, w.x, w.y + w.r + fs, SW, 'closes ' + Math.ceil(e.t + e.dur - time), KC[SW]);
+    }
+    if (e.k === CT && e.st === 1) boardLabel(ctx, e.lane.cx, e.lane.cy, CT, 'Comet ' + Math.ceil(left), KC[CT]);
+    if (e.k === RF && e.st === 1 && seam) boardLabel(ctx, (seam.ax + seam.bx) / 2, (seam.ay + seam.by) / 2 - 18, RF, (seam.closed ? 'opens ' : 'closes ') + Math.ceil(left), KC[RF]);
+    if (e.k === EC && e.st === 1) for (const co of cores) if (co.alive) boardLabel(ctx, co.x, co.y + 46, EC, 'dark in ' + Math.ceil(left), KC[EC]);
+    if (e.k === BZ && e.st === 1 && !e.void && cores[e.by].alive && cores[e.tg].alive) {
+      const a = cores[e.by], b = cores[e.tg];
+      ctx.setLineDash([2, 7]); ctx.lineDashOffset = -time * 30; ctx.strokeStyle = COL[e.by]; ctx.globalAlpha = 0.75; ctx.lineWidth = 3 / S;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      const pr = 1 - left / T.tell; ctx.strokeStyle = COL[e.by]; ctx.lineWidth = 3 / S; ctx.beginPath(); ctx.arc(a.x, a.y, 34 + 10 * Math.sin(time * 6), 0, Math.PI * 2 * pr); ctx.stroke();
+      boardLabel(ctx, (a.x + b.x) / 2, (a.y + b.y) / 2, BZ, 'Blitz ' + Math.ceil(left), COL[e.by]);
+    }
+  }
+}
+function drawCores(ctx) {
+  for (const co of cores) {
+    const col = COL[co.c];
+    if (!co.alive) {
+      ctx.strokeStyle = 'rgba(150,160,190,0.4)'; ctx.lineWidth = 1.5; hexPath(ctx, co.x, co.y, 18); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(co.x - 10, co.y - 10); ctx.lineTo(co.x + 10, co.y + 10); ctx.moveTo(co.x + 10, co.y - 10); ctx.lineTo(co.x - 10, co.y + 10); ctx.stroke();
+      continue;
+    }
+    if (co.c === YOU) { // crown ring + corner anchors
+      ctx.strokeStyle = 'rgba(230,184,74,0.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(co.x, co.y, 38, 0, 7); ctx.stroke();
+      ctx.fillStyle = col; for (let n = 0; n < 3; n++) { const a = -Math.PI / 2 + (n - 1) * 0.35; const px = co.x + Math.cos(a) * 38, py = co.y + Math.sin(a) * 38;
+        ctx.beginPath(); ctx.moveTo(px + Math.cos(a) * 7, py + Math.sin(a) * 7); ctx.lineTo(px + Math.cos(a + 1.6) * 3, py + Math.sin(a + 1.6) * 3); ctx.lineTo(px + Math.cos(a - 1.6) * 3, py + Math.sin(a - 1.6) * 3); ctx.fill(); }
+    }
+    // hp ring
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(co.x, co.y, 31, 0, 7); ctx.stroke();
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(co.x, co.y, 31, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * co.hp / co.max); ctx.stroke();
+    // body
+    hexPath(ctx, co.x, co.y, 18); ctx.fillStyle = '#141a33'; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5; if (eclipse) ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
+    // turrets
+    for (const tu of co.turr) {
+      const sz = 6.5;
+      if (tu.hp > 0) { ctx.fillStyle = eclipse ? '#3a4058' : col; ctx.fillRect(tu.x - sz / 2, tu.y - sz / 2, sz, sz);
+        if (tu.hp < T.turretHp) { ctx.fillStyle = '#000'; ctx.fillRect(tu.x - sz / 2, tu.y + sz / 2 + 1, sz, 1.6); ctx.fillStyle = '#fff'; ctx.fillRect(tu.x - sz / 2, tu.y + sz / 2 + 1, sz * tu.hp / T.turretHp, 1.6); } }
+      else { ctx.strokeStyle = 'rgba(150,160,190,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(tu.x - sz / 2, tu.y - sz / 2, sz, sz); }
+    }
+    const fs = 15 / S; ctx.font = '800 ' + fs + 'px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.fillText(SIG[co.c], co.x, co.y + 1);
+  }
+}
+function hexPath(ctx, x, y, r) { ctx.beginPath(); for (let n = 0; n < 6; n++) { const a = Math.PI / 6 + n * Math.PI / 3; n ? ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } ctx.closePath(); }
+function drawTelegraphs(ctx) {
+  for (const c of [1, 2]) {
+    const b = bots[c], p = b && b.plan; if (!p || !cores[c].alive) continue;
+    const left = p.at - time; if (left > T.botTele + 0.05) continue;
+    const pr = clamp(1 - left / T.botTele, 0, 1), co = cores[c];
+    ctx.strokeStyle = COL[c]; ctx.lineWidth = 2.2 / S; ctx.globalAlpha = 0.4 + 0.6 * pr;
+    ctx.beginPath(); ctx.arc(co.x, co.y, 22 + 30 * pr, 0, 7); ctx.stroke();
+    let tx = p.x, ty = p.y; if (p.kind !== 'move') { tx = cores[p.k].x; ty = cores[p.k].y; }
+    ctx.setLineDash([3, 6]); ctx.lineDashOffset = -time * 25; ctx.beginPath(); ctx.moveTo(co.x, co.y); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+}
+function drawShips(ctx) {
+  for (let c = 0; c < 3; c++) {
+    ctx.beginPath();
+    for (let i = 0; i < shipHW; i++) {
+      if (!salive[i] || screw[i] !== c) continue;
+      let vx = svx[i], vy = svy[i]; const v = Math.sqrt(vx * vx + vy * vy);
+      if (v < 0.5) { vx = 0; vy = -1; } else { vx /= v; vy /= v; }
+      const x = sx[i], y = sy[i], nx = -vy, ny = vx;
+      ctx.moveTo(x + vx * 6.5, y + vy * 6.5);
+      ctx.lineTo(x - vx * 3.5 + nx * 3.6, y - vy * 3.5 + ny * 3.6);
+      if (c === 1) ctx.lineTo(x - vx * 1, y - vy * 1);            // Corsairs: notched chevron
+      else if (c === 2) ctx.lineTo(x - vx * 5.5, y - vy * 5.5);   // Veil: kite
+      ctx.lineTo(x - vx * 3.5 - nx * 3.6, y - vy * 3.5 - ny * 3.6);
+      ctx.closePath();
+    }
+    ctx.fillStyle = COL[c]; ctx.fill();
+    if (c === YOU) { ctx.strokeStyle = 'rgba(255,240,200,0.5)'; ctx.lineWidth = 0.6; ctx.stroke(); }
+  }
+  // fury sparks glow a red rim
+  ctx.beginPath();
+  for (let i = 0; i < shipHW; i++) if (salive[i] && sfury[i] > time) { ctx.moveTo(sx[i] + 5, sy[i]); ctx.arc(sx[i], sy[i], 5, 0, 7); }
+  ctx.strokeStyle = 'rgba(255,90,110,0.7)'; ctx.lineWidth = 1; ctx.stroke();
+}
+function drawFx(ctx, dt) {
+  for (let c = 0; c < 3; c++) {
+    ctx.beginPath(); let any = false;
+    for (let t = 0; t < NTR; t++) if (trl[t] > 0 && trc[t] === c) { ctx.moveTo(trx1[t], try1[t]); ctx.lineTo(trx2[t], try2[t]); any = true; }
+    if (any) { ctx.strokeStyle = COL[c]; ctx.globalAlpha = 0.7; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; }
+  }
+  for (let t = 0; t < NTR; t++) if (trl[t] > 0) trl[t] -= dt;
+  for (let c = 0; c < 3; c++) {
+    ctx.fillStyle = COL[c];
+    for (let p = 0; p < NPA; p++) if (pal[p] > 0 && pac[p] === c) { ctx.globalAlpha = pal[p] / 0.6; ctx.fillRect(pax[p] - 1.2, pay[p] - 1.2, 2.4, 2.4); }
+  }
+  ctx.globalAlpha = 1;
+  for (let p = 0; p < NPA; p++) if (pal[p] > 0) { pal[p] -= dt; pax[p] += pavx[p] * dt; pay[p] += pavy[p] * dt; pavx[p] *= 0.96; pavy[p] *= 0.96; }
+  for (const r of ripples) { ctx.strokeStyle = 'rgba(230,184,74,' + (r.life * 2) + ')'; ctx.lineWidth = 2 / S; ctx.beginPath(); ctx.arc(r.x, r.y, 10 + (0.5 - r.life) * 50, 0, 7); ctx.stroke(); r.life -= dt; }
+  ripples = ripples.filter(r => r.life > 0);
+  if (moveMark && running) { ctx.strokeStyle = 'rgba(230,184,74,0.6)'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5 / S; ctx.beginPath(); ctx.arc(moveMark.x, moveMark.y, 14, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+  const fs = 18 / S; ctx.font = '800 ' + fs + 'px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y - (2 - f.life) * 14); f.life -= dt; }
+  ctx.globalAlpha = 1; floaters = floaters.filter(f => f.life > 0);
+  for (const f of flashes) f.life -= dt; flashes = flashes.filter(f => f.life > 0);
+}
+
+// --- HUD ---
+function trackItems() {
+  const act = deck.filter(e => e.st === 2), up = deck.filter(e => e.st < 2 && !e.void);
+  const list = act.concat(up).slice(0, 3);
+  if (list.length < 3 && time < T.surgeAt) list.push({ k: SU, t: T.surgeAt, st: 0, dur: 0 });
+  return list;
+}
+function drawHud(ctx) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // top bar
+  ctx.fillStyle = '#0d1226'; ctx.fillRect(0, 0, VW, TOPH);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.font = '800 20px system-ui,sans-serif'; ctx.fillStyle = surge ? '#ff6a6a' : '#e8ecf8'; ctx.fillText(fmt(time), 12, TOPH / 2);
+  // your army
+  ctx.fillStyle = COL[0]; ctx.beginPath(); ctx.moveTo(74, 14); ctx.lineTo(82, 32); ctx.lineTo(66, 32); ctx.closePath(); ctx.fill();
+  ctx.font = '800 18px system-ui,sans-serif'; ctx.fillText(String(armyN[YOU]), 88, TOPH / 2);
+  // your core hp
+  const yb = cores[YOU]; drawBar(ctx, 118, 18, 50, 12, yb.hp / yb.max, COL[0]);
+  // rivals
+  let x = VW - 12;
+  for (const c of [2, 1]) {
+    const co = cores[c], bw = Math.min(64, (VW - 200) / 2 - 30);
+    x -= bw; drawBar(ctx, x, 18, bw, 12, co.alive ? co.hp / co.max : 0, COL[c]);
+    ctx.font = '800 16px system-ui,sans-serif'; ctx.fillStyle = COL[c]; ctx.textAlign = 'right';
+    ctx.fillText(co.alive ? SIG[c] + ' ' + armyN[c] : SIG[c] + ' ✕', x - 6, TOPH / 2); ctx.textAlign = 'left';
+    x -= 52;
+  }
+  // track
+  const ty = TOPH; ctx.fillStyle = '#111733'; ctx.fillRect(0, ty, VW, TRACKH);
+  ctx.fillStyle = 'rgba(150,165,220,0.25)'; ctx.fillRect(0, ty + TRACKH - 1, VW, 1);
+  const items = trackItems(); const sw = (VW - 16) / 3;
+  for (let n = 0; n < items.length; n++) {
+    const e = items[n], x0 = 8 + n * sw, col = e.k === SU ? KC[SU] : eventColor(e);
+    const left = e.t - time, act = e.st === 2, told = e.st === 1;
+    roundRect(ctx, x0 + 2, ty + 5, sw - 4, TRACKH - 10, 10);
+    ctx.fillStyle = act ? 'rgba(255,255,255,0.10)' : told ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.025)'; ctx.fill();
+    if (act || told) { ctx.strokeStyle = col; ctx.lineWidth = told ? 1.5 + Math.sin(time * 8) * 0.8 : 2; ctx.stroke(); }
+    drawGlyph(ctx, e.k, x0 + 22, ty + TRACKH / 2, 24, col);
+    ctx.fillStyle = '#e8ecf8'; ctx.font = '700 14px system-ui,sans-serif'; ctx.textAlign = 'left';
+    let name = KN[e.k];
+    if (e.k === BZ) name = SIG[e.by] + ' → ' + (e.tg === YOU ? 'you' : SIG[e.tg]);
+    if (e.k === CT) name = 'Comet';
+    if (e.k === RF) name = 'Rift ' + (act ? (seam && seam.closed ? 'wall' : 'open') : (seam && seam.closed ? 'opens' : 'closes'));
+    ctx.fillText(name, x0 + 40, ty + 20);
+    ctx.font = (act || told ? '800 ' : '600 ') + '15px system-ui,sans-serif'; ctx.fillStyle = act ? col : told ? '#fff' : '#9aa4c4';
+    ctx.fillText(act ? 'NOW ' + fmt(e.t + e.dur - time) : fmt(left), x0 + 40, ty + 39);
+    if (e.k === BZ && n === 0 || (e.k === BZ && told)) {} // colour already marks the rival
+  }
+  // dock
+  const dy = VH - DOCKH;
+  ctx.fillStyle = '#0d1226'; ctx.fillRect(0, dy, VW, DOCKH);
+  // menu button
+  roundRect(ctx, 10, dy + 16, 58, 58, 12); ctx.fillStyle = '#1b2448'; ctx.fill(); ctx.strokeStyle = '#3a4780'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#c9d0e6'; for (let n = 0; n < 3; n++) ctx.fillRect(27, dy + 33 + n * 9, 24, 3);
+  // recall button
+  const home = homeCount(YOU), field = armyN[YOU] - home;
+  const bx = 80, bw = VW - 80 - 118;
+  roundRect(ctx, bx, dy + 14, bw, 62, 14); ctx.fillStyle = field > 0 ? '#e6b84a' : '#2a2f45'; ctx.fill();
+  ctx.fillStyle = field > 0 ? '#1a1408' : '#8a90a8'; ctx.font = '800 19px system-ui,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(field > 0 ? '⌂ RECALL' : 'HOLDING', bx + bw / 2, dy + 38);
+  ctx.font = '600 14px system-ui,sans-serif'; ctx.fillText(field > 0 ? field + ' out · back home' : 'swarm at your Core', bx + bw / 2, dy + 59);
+  // pool readout
+  ctx.textAlign = 'left'; ctx.fillStyle = COL[0]; ctx.font = '800 18px system-ui,sans-serif'; ctx.fillText('Home ' + home, VW - 108, dy + 34);
+  ctx.fillStyle = '#9aa4c4'; ctx.font = '600 14px system-ui,sans-serif'; ctx.fillText('Out ' + field + ' · cap ' + T.cap, VW - 108, dy + 58);
+  // banner
+  if (banner) {
+    const bw2 = VW - 24, lines = wrap(ctx, banner.text, bw2 - 56, '600 15px system-ui,sans-serif');
+    const bh = 14 + lines.length * 19, by0 = TOPH + TRACKH + 6;
+    ctx.globalAlpha = Math.min(1, banner.life * 2);
+    roundRect(ctx, 12, by0, bw2, bh, 12); ctx.fillStyle = 'rgba(8,10,22,0.9)'; ctx.fill(); ctx.strokeStyle = banner.col; ctx.lineWidth = 1.5; ctx.stroke();
+    drawGlyph(ctx, banner.k, 34, by0 + bh / 2, 22, banner.col);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.font = '600 15px system-ui,sans-serif';
+    lines.forEach((l, n) => ctx.fillText(l, 56, by0 + 16 + n * 19));
+    ctx.globalAlpha = 1;
+  }
+  if (surge) { ctx.fillStyle = 'rgba(255,74,74,0.85)'; ctx.font = '800 14px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✹ SURGE: Cores take ×2.5 damage', VW / 2, VH - DOCKH - 12); }
+}
+function drawBar(ctx, x, y, w, h, f, col) {
+  roundRect(ctx, x, y, w, h, 4); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+  if (f > 0) { roundRect(ctx, x, y, Math.max(4, w * f), h, 4); ctx.fillStyle = col; ctx.fill(); }
+}
+const wrapCache = new Map();
+function wrap(ctx, text, maxW, font) {
+  const key = text + '|' + maxW; if (wrapCache.has(key)) return wrapCache.get(key);
+  ctx.font = font; const words = text.split(' '); const lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur); if (wrapCache.size > 200) wrapCache.clear(); wrapCache.set(key, lines); return lines;
+}
+
+function render(dt) {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#0b0f1e'; g.fillRect(0, 0, cv.width, cv.height);
+  if (!cores.length) return;
+  g.drawImage(bgCv, Math.round(OX * DPR), Math.round(OY * DPR));
+  g.setTransform(S * DPR, 0, 0, S * DPR, OX * DPR, OY * DPR);
+  if (time - lastTerr > 0.25 || lastTerr < 0) { lastTerr = time; updateTerritory(); }
+  g.save(); arenaPath(g); g.clip(); g.imageSmoothingEnabled = true; g.globalAlpha = 1; g.drawImage(terrCv, 0, 0, W, H); g.restore();
+  drawEvents(g);
+  drawCores(g);
+  drawTelegraphs(g);
+  drawShips(g);
+  drawFx(g, dt);
+  drawEventLabels(g);
+  if (eclipse) { const e = deck.find(e => e.k === EC && e.st === 2); boardLabel(g, W / 2, 330, EC, 'ECLIPSE ' + Math.ceil(e.t + e.dur - time) + ' s: Cores open', KC[EC]); }
+  drawHud(g);
+  if (banner) { banner.life -= dt; if (banner.life <= 0) banner = null; }
+}
+
+// =====================================================================
+// Input
+// =====================================================================
+function toWorld(px, py) { return { x: (px - OX) / S, y: (py - OY) / S }; }
+cv.addEventListener('pointerdown', ev => {
+  ev.preventDefault();
+  if (!running) return;
+  const px = ev.clientX, py = ev.clientY;
+  if (py >= VH - DOCKH) {
+    if (px < 74) { showStart(); running = false; return; }
+    if (px >= 80 && px <= VW - 118) { playerOrder('recall', cores[YOU].x, cores[YOU].y, YOU); return; }
+    return;
+  }
+  if (py < TOPH + TRACKH) return;
+  const w = toWorld(px, py);
+  tapWorld(w.x, w.y);
+}, { passive: false });
+function tapWorld(x, y) {
+  let hit = -1, hd = 40;
+  for (const co of cores) if (co.alive) { const d = dist(x, y, co.x, co.y); if (d < hd) { hd = d; hit = co.c; } }
+  if (hit === YOU) return playerOrder('recall', cores[YOU].x, cores[YOU].y, YOU);
+  if (hit > 0) return playerOrder('assault', cores[hit].x, cores[hit].y, hit);
+  if (x < 0 || x > W || y < 0 || y > H) return;
+  for (const v of voids) if (dist(x, y, v.x, v.y) < v.r) { const a = Math.atan2(y - v.y, x - v.x); x = v.x + Math.cos(a) * (v.r + 6); y = v.y + Math.sin(a) * (v.r + 6); }
+  playerOrder('move', clamp(x, 10, W - 10), clamp(y, 10, H - 10), -1);
+}
+
+// =====================================================================
+// Loop
+// =====================================================================
+let rafId = 0, lastNow = 0, lastRender = 0, acc = 0, loopPaused = false;
+const perf = { frames: 0, sum: 0, max: 0, samples: [] };
+function frame(now) {
+  rafId = requestAnimationFrame(frame);
+  if (now - lastRender < 15.5) return;              // cap at ~60 fps
+  let dt = Math.min(0.1, (now - (lastNow || now)) / 1000); lastNow = now; lastRender = now;
+  const t0 = performance.now();
+  if (running && !loopPaused) { acc += dt; let n = 0; while (acc >= 1 / 60 && n < 4) { step(1 / 60); acc -= 1 / 60; n++; } if (n === 4) acc = 0; }
+  render(dt);
+  const ms = performance.now() - t0;
+  if (running) { perf.frames++; perf.sum += ms; if (ms > perf.max) perf.max = ms; perf.samples.push(ms); if (perf.samples.length > 600) perf.samples.shift(); }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { cancelAnimationFrame(rafId); rafId = 0; }
+  else if (!rafId) { lastNow = 0; lastRender = 0; rafId = requestAnimationFrame(frame); }
+});
+window.addEventListener('resize', resize);
+
+// =====================================================================
+// Cards
+// =====================================================================
+const startEl = document.getElementById('start'), endEl = document.getElementById('end');
+function hideCards() { startEl.classList.remove('on'); endEl.classList.remove('on'); }
+function glyphCanvas(k, col, size) {
+  const c = document.createElement('canvas'), d = Math.min(2, window.devicePixelRatio || 1);
+  c.width = size * d; c.height = size * d; c.style.width = size + 'px'; c.style.height = size + 'px';
+  const x = c.getContext('2d'); x.scale(d, d); drawGlyph(x, k, size / 2, size / 2, size * 0.9, col); return c;
+}
+function cardColor(card) { return Array.isArray(card) ? COL[card[1]] : KC[card]; }
+function buildStart() {
+  const lg = document.getElementById('legend'); lg.innerHTML = '';
+  const legend = [[SF, 'Starfall: lane wiped'], [SW, 'Starwell: +25, mend'], [BZ, 'Blitz: all-in pour'], [EC, 'Eclipse: turrets dark'], [RF, 'Rift: wall opens/shuts'], [CT, 'Comet: ×2 speed']];
+  for (const [k, t] of legend) { const s = document.createElement('span'); s.style.display = 'flex'; s.style.alignItems = 'center'; s.style.gap = '6px';
+    s.appendChild(glyphCanvas(k, KC[k] === '#ff5a6e' ? '#ff5a6e' : KC[k], 18)); s.appendChild(document.createTextNode(t)); lg.appendChild(s); }
+  const box = document.getElementById('seeds'); box.innerHTML = '';
+  const rows = [1, 2, 3, 4, 5, 'random'];
+  for (const r of rows) {
+    const b = document.createElement('button'); b.className = 'seed';
+    const sd = r === 'random' ? null : r;
+    const spec = sd ? deckSpec(sd) : null;
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = sd ? String(sd) : '?'; b.appendChild(n);
+    const gl = document.createElement('span'); gl.className = 'g';
+    if (spec) for (const card of spec.cards.slice(0, 3)) gl.appendChild(glyphCanvas(Array.isArray(card) ? card[0] : card, cardColor(card), 22));
+    b.appendChild(gl);
+    const t = document.createElement('span'); t.className = 't';
+    t.textContent = sd ? 'Seed ' + sd + ': ' + spec.line : 'Random seed: a fresh deck drawn from the sky';
+    b.appendChild(t);
+    b.addEventListener('click', () => startRound(sd || (6 + Math.floor(Math.random() * 9990))));
+    box.appendChild(b);
+  }
+}
+function showStart() { endEl.classList.remove('on'); startEl.classList.add('on'); }
+function showEnd() {
+  const o = over; if (!o) return;
+  document.getElementById('endTitle').textContent = o.win ? 'Won' : 'Lost';
+  document.getElementById('endTitle').style.color = o.win ? '#e6b84a' : '#ff7a7a';
+  document.getElementById('endCause').textContent = o.cause;
+  document.getElementById('endStats').textContent = 'Seed ' + seed + ' · time ' + fmt(o.t) + ' · taps ' + taps + ' · sparks lost ' + lost[YOU] + ' · rivals lost ' + (lost[1] + lost[2]);
+  const lg = document.getElementById('endLog'); lg.innerHTML = '';
+  const lines = pickLog();
+  if (!lines.length) lines.push({ t: o.t, what: 'no taps', note: 'the swarm never left home' });
+  for (const d of lines) {
+    const div = document.createElement('div');
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(d.t); div.appendChild(tm);
+    div.appendChild(document.createTextNode(d.what + ' '));
+    const ev = document.createElement('span'); ev.className = 'ev'; ev.textContent = '· ' + d.note; div.appendChild(ev);
+    lg.appendChild(div);
+  }
+  endEl.classList.add('on');
+}
+function pickLog() {
+  // up to 6 lines: decisions that answered or ignored an event first, then the rest, latest first; plus key outcomes
+  const ds = decisions.slice();
+  const ev = ds.filter(d => d.note !== 'no event in sight');
+  let pick = ev.slice(-5);
+  if (pick.length < 5) pick = pick.concat(ds.filter(d => d.note === 'no event in sight').slice(-(5 - pick.length)));
+  const outcomes = story.filter(s => /Starfall|Starwell/.test(s.text)).slice(-2).map(s => ({ t: s.t, what: s.text, note: 'outcome' }));
+  let all = pick.concat(outcomes).sort((a, b) => a.t - b.t);
+  if (all.length > 6) all = all.slice(-6);
+  return all;
+}
+document.getElementById('bAgain').addEventListener('click', () => startRound(seed));
+document.getElementById('bNext').addEventListener('click', () => startRound(seed >= 1 && seed < 5 ? seed + 1 : 1));
+document.getElementById('bHome').addEventListener('click', () => { running = false; showStart(); });
+
+// =====================================================================
+// Test / sim hooks
+// =====================================================================
+window.__tides = {
+  start(sd) { startRound(sd); return true; },
+  pauseLoop(p) { loopPaused = !!p; },
+  step(seconds) { const n = Math.round(seconds * 60); for (let k = 0; k < n && running; k++) step(1 / 60); return running; },
+  tapWorld(x, y) { tapWorld(x, y); }, tapCore(k) { const co = cores[k]; tapWorld(co.x, co.y); }, recall() { playerOrder('recall', cores[YOU].x, cores[YOU].y, YOU); },
+  move(x, y) { playerOrder('move', x, y, -1); },
+  toScreen(x, y) { return { x: OX + x * S, y: OY + y * S }; },
+  get time() { return time; }, get running() { return running; }, get over() { return over; },
+  get deck() { return deck; }, get cores() { return cores; }, get seam() { return seam; },
+  armyN() { return armyN.slice(); }, home(c) { return homeCount(c); }, centroid(c, f) { return centroid(c, f); },
+  inLane, segCrossesLane, routeCrossesLane, routeLen, speed: T.speed, T,
+  decisions() { return decisions; }, story() { return story; }, lost() { return lost.slice(); },
+  perf() { const s = perf.samples.slice().sort((a, b) => a - b); return { frames: perf.frames, avg: perf.frames ? perf.sum / perf.frames : 0, max: perf.max, p95: s.length ? s[Math.floor(s.length * 0.95)] : 0 }; },
+  resetPerf() { perf.frames = 0; perf.sum = 0; perf.max = 0; perf.samples = []; },
+  deckSpec, ships() { let n = 0; for (let i = 0; i < shipHW; i++) if (salive[i]) n++; return n; },
+};
+
+resize();
+buildStart();
+showStart();
+rafId = requestAnimationFrame(frame);
+</script>
+</body>
+</html>

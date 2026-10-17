@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1e">
+<title>Claims · grey-box</title>
+<style>
+:root{--gold:#e6b84a;--cy:#5ad2e1;--vi:#785ae1;--navy:#0b0f1e;--ink:#e9ecf6;--dim:#97a0c2;--warn:#ff7a5c}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b0f1e;color:var(--ink);overflow:hidden;touch-action:none;overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;
+  font:15px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+canvas{position:fixed;left:0;top:0;touch-action:none;display:block}
+button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer}
+#hud{position:fixed;left:0;right:0;top:0;height:56px;display:flex;align-items:center;gap:6px;padding:0 8px;
+  pointer-events:none;font-size:15px;font-variant-numeric:tabular-nums}
+#hud .clock{font-weight:700;font-size:17px;min-width:44px}
+#hud .clock.surge{color:var(--warn)}
+#hud .me{display:flex;align-items:center;gap:4px;color:var(--gold);font-weight:700;min-width:92px}
+#hud .me small{color:var(--dim);font-weight:400;font-size:14px}
+#hud .riv{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+#hud .riv .top{display:flex;align-items:center;gap:5px;font-size:14px;white-space:nowrap;overflow:hidden}
+#hud .riv .sig{font-weight:800;width:20px;height:20px;border-radius:5px;display:inline-grid;place-items:center;color:#0b0f1e;font-size:14px}
+#hud .riv .bar{height:7px;border-radius:4px;background:#1b2340;overflow:hidden}
+#hud .riv .bar>div{height:100%;width:100%;transition:width .2s}
+#hud .riv.dead{opacity:.35}
+#toast{position:fixed;left:50%;top:62px;transform:translateX(-50%);max-width:94vw;padding:8px 14px;border-radius:12px;
+  background:#141b34ee;border:1px solid #2a3560;font-size:15px;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s}
+#toast.on{opacity:1}
+#toast.warn{border-color:var(--warn);color:#ffd6cc}
+#hint{position:fixed;left:0;right:0;bottom:112px;text-align:center;font-size:14px;color:var(--dim);pointer-events:none;padding:0 12px;text-shadow:0 1px 3px #000}
+#dock{position:fixed;left:0;right:0;bottom:0;height:108px;display:flex;align-items:center;justify-content:center;gap:14px;
+  padding:0 14px calc(env(safe-area-inset-bottom) + 6px)}
+#dock button{height:76px;border-radius:20px;border:2px solid #2c3762;background:#121a33;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;font-weight:700;font-size:16px}
+#dock button span{font-weight:400;font-size:14px;color:var(--dim)}
+#bHome{width:96px}
+#bPlant{flex:1;max-width:220px;border-color:var(--gold)!important;color:var(--gold)}
+#bPlant.off{opacity:.45;border-color:#2c3762!important}
+#bPlant.arm{background:#3a2e10}
+#radial{position:fixed;inset:0;pointer-events:none}
+#radial button{position:absolute;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:2px solid var(--gold);
+  background:#191f38f2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;pointer-events:auto;
+  font-size:14px;font-weight:700;color:var(--gold);box-shadow:0 4px 18px #000a}
+#radial button small{font-weight:400;font-size:12px;color:#d9dcea;line-height:1.05}
+#radial button svg{width:30px;height:30px}
+#radial button.no{opacity:.4}
+#radial .why{position:absolute;transform:translateX(-50%);font-size:14px;color:#ffd6cc;white-space:nowrap;text-shadow:0 1px 3px #000}
+.card{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px 16px 12px;
+  background:#0b0f1ef4;overflow:hidden;gap:10px}
+.card[hidden]{display:none}
+.card h1{margin:4px 0 0;font-size:30px;letter-spacing:.18em;color:var(--gold)}
+.card .lede{margin:0;font-size:15px;color:#cfd5ea;text-align:center;max-width:380px}
+.rules{width:100%;max-width:400px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:#d6dbee}
+.rules div{display:flex;gap:8px;align-items:flex-start}
+.rules svg{flex:0 0 22px;width:22px;height:22px;margin-top:-1px}
+.seeds{display:flex;gap:6px;width:100%;max-width:400px}
+.seeds button{flex:1;height:58px;border-radius:14px;border:2px solid #34407a;background:#141c38;font-size:20px;font-weight:800}
+.seeds button.r{font-size:15px}
+.seedlines{width:100%;max-width:400px;font-size:14px;color:#c4cbe3;display:flex;flex-direction:column;gap:5px}
+.seedlines b{color:var(--gold)}
+.seedlines .c{color:var(--cy)}.seedlines .v{color:#a58cff}
+.try{width:100%;max-width:400px;border:1px dashed #3b4677;border-radius:12px;padding:8px 10px;font-size:14px;color:#d6dbee}
+.try b{color:var(--gold)}
+#end h2{margin:18px 0 0;font-size:34px;letter-spacing:.1em}
+#end .cause{font-size:18px;text-align:center;max-width:380px;line-height:1.35}
+#end .stats{display:flex;gap:14px;font-size:15px;color:var(--dim)}
+#end .stats b{color:var(--ink)}
+#end .log{width:100%;max-width:380px;font-size:14px;line-height:1.45;color:#d6dbee;background:#121931;border-radius:12px;padding:8px 12px}
+#end .log .t{color:var(--dim);display:inline-block;min-width:38px;font-variant-numeric:tabular-nums}
+#end .log .sys{color:var(--dim)}
+#end .btns{display:flex;gap:10px;width:100%;max-width:380px;margin-top:auto}
+#end .btns button{flex:1;height:62px;border-radius:16px;border:2px solid #34407a;background:#141c38;font-weight:700;font-size:16px}
+#end .btns button.main{border-color:var(--gold);color:var(--gold)}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud" hidden>
+  <div class="clock" id="clock">0:00</div>
+  <div class="me"><svg width="14" height="14" viewBox="-1 -1 2 2"><path d="M0,-1 L.85,.8 L-.85,.8Z" fill="#e6b84a"/></svg><b id="army">0</b><small id="cap">/45</small></div>
+  <div class="riv" id="riv1"><div class="top"><span class="sig" style="background:#5ad2e1">C</span><span class="nm"></span></div><div class="bar"><div style="background:#5ad2e1"></div></div></div>
+  <div class="riv" id="riv2"><div class="top"><span class="sig" style="background:#785ae1">S</span><span class="nm"></span></div><div class="bar"><div style="background:#785ae1"></div></div></div>
+</div>
+<div id="toast"></div>
+<div id="hint"></div>
+<div id="dock" hidden>
+  <button id="bHome">HOME<span>recall</span></button>
+  <button id="bPlant">PLANT<span>15 sparks</span></button>
+</div>
+<div id="radial" hidden></div>
+<div id="start" class="card">
+  <h1>CLAIMS</h1>
+  <p class="lede">Your swarm is stardust. Spend it to claim the sky and shape the board, or throw it at their Core.</p>
+  <div class="rules" id="rules"></div>
+  <div class="seeds" id="seedBtns"></div>
+  <div class="seedlines" id="seedLines"></div>
+  <div class="try" id="tryBox"></div>
+</div>
+<div id="end" class="card" hidden>
+  <h2 id="endTitle">WON</h2>
+  <div class="cause" id="endCause"></div>
+  <div class="stats" id="endStats"></div>
+  <div class="log" id="endLog"></div>
+  <div class="btns"><button id="bAgain" class="main">Again</button><button id="bNext">Next seed</button><button id="bMenu">Home</button></div>
+</div>
+<script>
+'use strict';
+(() => {
+// ---------------------------------------------------------------- constants & tuning
+const W = 360, H = 660, CS = 15, GC = 24, GR = 44, NC = GC * GR, MAXS = 300, DT = 1 / 60;
+const COL = ['#e6b84a', '#5ad2e1', '#785ae1'];
+const RGB = [[230, 184, 74], [90, 210, 225], [120, 90, 225]];
+const NAMES = ['You', 'Corsairs', 'Syndicate'];
+const POSS = ['your', "the Corsairs'", "the Syndicate's"];
+const SIG = ['', 'C', 'S'];
+const POST_COST = 15, MAX_POSTS = 4, BUILD_T = 3;
+const T = {
+  speed: 40, shipHp: 3, forgeMul: 1.5, shipRange: 22, shipCd: 0.5, shipDmg: 1, structDmg: 0.25,
+  coreHp: [120, 100, 100], coreR: 18, turretHp: 25, turretRange: 55, turretCd: 0.6, turretDmg: 1, turretDist: 28,
+  prodEvery: 1.0, beaconRate: 0.25, capBase: 45, capPerBeacon: 10, capPerCore: 20,
+  coreRing: 60, beaconRing: 66, captureReach: 16,
+  bastionHp: 140, bastionRange: 62, bastionCd: 0.35, bastionDmg: 2,
+  forgeHp: 60, forgeR: 34, beaconHp: 60, postR: 12,
+  trail: 8, surgeAt: 300, surgeMul: 3,
+};
+const KIND_NAME = { bastion: 'Bastion', forge: 'Forge', beacon: 'Beacon' };
+const STYLE = {
+  bastion: { name: 'Bastion crew', verb: 'walls the choke' },
+  forge: { name: 'Forge crew', verb: 'hits hard down one lane' },
+  beacon: { name: 'Beacon crew', verb: 'out-grows you' },
+};
+
+// ---------------------------------------------------------------- maps (variety engine)
+const TEMPLATES = [
+  { voids: [[70, 320, 78], [230, 330, 48]], chokes: [[165, 326]], well: [60, 468], rivals: [[80, 118], [282, 108]],
+    desc: 'one narrow choke in the centre, an open right flank, the Starwell on your left' },
+  { voids: [[-12, 300, 96], [372, 365, 96]], chokes: [], well: [180, 330], rivals: [[92, 140], [268, 96]],
+    desc: 'no choke: a wide open middle with the Starwell in it' },
+  { voids: [[205, 320, 55], [372, 325, 80]], chokes: [[276, 322]], well: [66, 330], rivals: [[105, 100], [292, 150]],
+    desc: 'one narrow choke on the right, the Starwell out on the open left' },
+  { voids: [[16, 330, 70], [180, 330, 60], [344, 330, 70]], chokes: [[103, 330], [257, 330]], well: [180, 196], rivals: [[66, 110], [294, 118]],
+    desc: 'a wall with two chokes, the Starwell beyond it between the rivals' },
+  { voids: [[180, 330, 94]], chokes: [], well: [180, 92], rivals: [[78, 176], [286, 118]],
+    desc: 'a huge void in the centre, two long open flanks, the Starwell up top' },
+];
+const SEED_STYLES = { 1: ['bastion', 'beacon'], 2: ['forge', 'bastion'], 3: ['beacon', 'forge'], 4: ['bastion', 'forge'], 5: ['forge', 'beacon'] };
+
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function makeMap(seed) {
+  const R = rng(seed * 7919 + 3);
+  let tpl, styles, mirror = false, jit = 0;
+  if (seed >= 1 && seed <= 5) { tpl = TEMPLATES[seed - 1]; styles = SEED_STYLES[seed]; }
+  else {
+    tpl = TEMPLATES[(R() * 5) | 0]; mirror = R() < 0.5; jit = 14;
+    const all = ['bastion', 'forge', 'beacon']; const a = (R() * 3) | 0; let b = (R() * 3) | 0; if (b === a) b = (a + 1) % 3;
+    styles = [all[a], all[b]];
+  }
+  const mx = x => mirror ? W - x : x;
+  const j = () => (R() - 0.5) * jit;
+  let desc = tpl.desc;
+  if (mirror) desc = desc.replace(/left/g, '\u0001').replace(/right/g, 'left').replace(/\u0001/g, 'right');
+  return {
+    voids: tpl.voids.map(([x, y, r]) => ({ x: mx(x), y, r })),
+    chokes: tpl.chokes.map(([x, y]) => ({ x: mx(x), y })),
+    well: { x: mx(tpl.well[0]), y: tpl.well[1] },
+    rivals: tpl.rivals.map(([x, y]) => ({ x: mx(x) + j(), y: y + j() })),
+    home: { x: 180, y: 590 }, styles, desc,
+  };
+}
+function seedLine(seed) {
+  const m = makeMap(seed);
+  return `${m.desc.charAt(0).toUpperCase() + m.desc.slice(1)}. Corsairs: ${STYLE[m.styles[0]].name} (${STYLE[m.styles[0]].verb}). Syndicate: ${STYLE[m.styles[1]].name} (${STYLE[m.styles[1]].verb}).`;
+}
+
+// ---------------------------------------------------------------- geometry helpers
+const d2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+const dist = (a, b) => Math.sqrt(d2(a.x, a.y, b.x, b.y));
+const cellOf = (x, y) => { let i = (x / CS) | 0, j = (y / CS) | 0; if (i < 0) i = 0; if (i >= GC) i = GC - 1; if (j < 0) j = 0; if (j >= GR) j = GR - 1; return j * GC + i; };
+const fmt = t => { t = Math.max(0, t | 0); return `${(t / 60) | 0}:${String(t % 60).padStart(2, '0')}`; };
+function segHitsVoid(ax, ay, bx, by, pad) {
+  const vs = G.map.voids;
+  for (let k = 0; k < vs.length; k++) {
+    const v = vs[k], dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1;
+    let u = ((v.x - ax) * dx + (v.y - ay) * dy) / L; u = u < 0 ? 0 : u > 1 ? 1 : u;
+    const px = ax + dx * u - v.x, py = ay + dy * u - v.y, rr = v.r + pad;
+    if (px * px + py * py < rr * rr) return true;
+  }
+  return false;
+}
+function inVoid(x, y, pad) { for (const v of G.map.voids) if (d2(x, y, v.x, v.y) < (v.r + pad) ** 2) return true; return false; }
+
+// ---------------------------------------------------------------- state
+let G = null;
+const terrCv = document.createElement('canvas'); terrCv.width = GC; terrCv.height = GR;
+const terrCx = terrCv.getContext('2d'); const terrImg = terrCx.createImageData(GC, GR);
+const mineCv = document.createElement('canvas'); mineCv.width = GC; mineCv.height = GR;
+const mineCx = mineCv.getContext('2d'); const mineImg = mineCx.createImageData(GC, GR);
+
+function newGame(seed) {
+  const map = makeMap(seed);
+  const g = {
+    seed, map, R: rng(seed * 9973 + 17), t: 0, over: false, endAt: 0, result: null,
+    ships: [], free: [], structs: [], crews: [], fx: [], shots: [], log: [], taps: 0, actions: 0,
+    ringOwner: new Int8Array(NC), ringDist: new Float32Array(NC), trailOwner: new Int8Array(NC).fill(-1), trailT: new Float32Array(NC),
+    owner: new Int8Array(NC).fill(-1), blocked: new Uint8Array(NC), head: new Int16Array(NC), next: new Int16Array(MAXS),
+    terrT: 0, flow: new Map(), surge: false, kills: [], banner: 4.5,
+  };
+  G = g;
+  for (let i = 0; i < MAXS; i++) { g.ships.push({ i, alive: false }); g.free.push(MAXS - 1 - i); }
+  for (let j = 0; j < GR; j++) for (let i = 0; i < GC; i++) {
+    const x = (i + 0.5) * CS, y = (j + 0.5) * CS;
+    g.blocked[j * GC + i] = inVoid(x, y, 4) || x < 6 || x > W - 6 || y < 6 || y > H - 6 ? 1 : 0;
+  }
+  const pos = [map.home, map.rivals[0], map.rivals[1]];
+  for (let c = 0; c < 3; c++) {
+    const core = addStruct('core', c, pos[c].x, pos[c].y);
+    for (let k = 0; k < 3; k++) {
+      const a = (c === 0 ? -Math.PI / 2 : Math.PI / 2) + k * Math.PI * 2 / 3;
+      const tu = addStruct('turret', c, pos[c].x + Math.cos(a) * T.turretDist, pos[c].y + Math.sin(a) * T.turretDist);
+      tu.core = core; core.turrets.push(tu);
+    }
+    g.crews.push({
+      id: c, alive: true, home: core, cores: [core], count: 0, cap: T.capBase, prodAcc: 0,
+      order: { kind: 'home', x: core.x, y: core.y, ref: null, site: null, via: null },
+      bot: c === 0 ? null : { style: map.styles[c - 1], next: 5 + g.R() * 3, wind: null, stage: 0, waitMove: null, atkStart: 0, threatT: 0 },
+      stats: { made: 0, lost: 0, built: { bastion: 0, forge: 0, beacon: 0 }, bastionKills: 0, lostToBastion: [0, 0, 0], coreDmg: [0, 0, 0], forgedCoreDmg: [0, 0, 0] },
+    });
+  }
+  for (let c = 0; c < 3; c++) for (let k = 0; k < 8; k++) spawn(c, pos[c].x, pos[c].y, 0);
+  recomputeTerritory();
+  return g;
+}
+function addStruct(kind, crew, x, y, extra) {
+  const hp = kind === 'core' ? T.coreHp[crew] : kind === 'turret' ? T.turretHp : kind === 'bastion' ? T.bastionHp : kind === 'forge' ? T.forgeHp : T.beaconHp;
+  const s = { kind, crew, x, y, r: kind === 'core' ? T.coreR : kind === 'turret' ? 5 : T.postR, hp, maxhp: hp, alive: true, build: 0, cd: 0,
+    turrets: [], core: null, kills: 0, well: false, aim: 0, hitT: 0, lastBy: -1 };
+  if (extra) Object.assign(s, extra);
+  G.structs.push(s);
+  return s;
+}
+function spawn(c, x, y, state) {
+  if (!G.free.length) return null;
+  const s = G.ships[G.free.pop()], R = G.R;
+  s.alive = true; s.crew = c; s.x = x + (R() - 0.5) * 8; s.y = y + (R() - 0.5) * 8; s.vx = 0; s.vy = 0;
+  s.hp = s.maxhp = T.shipHp; s.forged = false; s.cd = R() * 0.5; s.state = state; s.slot = 0;
+  s.ang = R() * Math.PI * 2; s.rr = 24 + R() * 18; s.navT = s.i % 6; s.dirx = 0; s.diry = 0; s.los = true; s.viaDone = false; s.tgt = null; s.flash = 0;
+  G.crews[c].count++; G.crews[c].stats.made++;
+  return s;
+}
+function killShip(s, by, spent) {
+  if (!s.alive) return;
+  s.alive = false; G.free.push(s.i); const cr = G.crews[s.crew]; cr.count--;
+  if (spent) { addFx(s.x, s.y, s.crew, 1); return; }
+  cr.stats.lost++;
+  addFx(s.x, s.y, s.crew, 0);
+  if (by && by.kind === 'bastion') { by.kills++; G.crews[by.crew].stats.bastionKills++; cr.stats.lostToBastion[by.crew]++; }
+}
+function addFx(x, y, c, kind) { if (G.fx.length > 140) G.fx.shift(); G.fx.push({ x, y, c, kind, t: 0 }); }
+function addShot(x1, y1, x2, y2, c) { if (G.shots.length > 260) return; G.shots.push({ x1, y1, x2, y2, c, t: 0.14 }); }
+
+// ---------------------------------------------------------------- flow fields (pathing round voids)
+function flowTo(cell) {
+  let f = G.flow.get(cell);
+  if (f) return f;
+  if (G.flow.size > 80) G.flow.clear();
+  f = new Float32Array(NC).fill(1e9);
+  let start = cell;
+  if (G.blocked[start]) { // nearest open cell
+    let best = 1e9; const ci = cell % GC, cj = (cell / GC) | 0;
+    for (let k = 0; k < NC; k++) if (!G.blocked[k]) { const dd = (k % GC - ci) ** 2 + (((k / GC) | 0) - cj) ** 2; if (dd < best) { best = dd; start = k; } }
+  }
+  const q = new Int16Array(NC * 2); let qh = 0, qt = 0; f[start] = 0; q[qt++] = start;
+  while (qh < qt) {
+    const k = q[qh++], i = k % GC, j = (k / GC) | 0, base = f[k];
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      if (!di && !dj) continue;
+      const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= GC || nj >= GR) continue;
+      const n = nj * GC + ni; if (G.blocked[n]) continue;
+      if (di && dj && (G.blocked[j * GC + ni] || G.blocked[nj * GC + i])) continue;
+      const nd = base + (di && dj ? 1.414 : 1);
+      if (nd < f[n]) { f[n] = nd; if (qt < q.length) q[qt++] = n; }
+    }
+  }
+  G.flow.set(cell, f);
+  return f;
+}
+function pathLen(a, b) { const f = flowTo(cellOf(b.x, b.y)); return f[cellOf(a.x, a.y)] * CS; }
+function navigate(s, gx, gy) {
+  if (!segHitsVoid(s.x, s.y, gx, gy, 5)) { s.los = true; return; }
+  s.los = false;
+  const f = flowTo(cellOf(gx, gy)), k = cellOf(s.x, s.y), i = k % GC, j = (k / GC) | 0;
+  let best = f[k], bx = s.x, by = s.y;
+  for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+    const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= GC || nj >= GR) continue;
+    const n = nj * GC + ni; if (f[n] < best) { best = f[n]; bx = (ni + 0.5) * CS; by = (nj + 0.5) * CS; }
+  }
+  const dx = bx - s.x, dy = by - s.y, l = Math.hypot(dx, dy) || 1;
+  s.dirx = dx / l; s.diry = dy / l;
+}
+
+// ---------------------------------------------------------------- territory: Core rings + Beacon rings + thin trails
+function recomputeTerritory() {
+  const g = G; g.ringOwner.fill(-1); g.ringDist.fill(1e9);
+  const src = (x, y, r, c) => {
+    const i0 = Math.max(0, ((x - r) / CS) | 0), i1 = Math.min(GC - 1, ((x + r) / CS) | 0);
+    const j0 = Math.max(0, ((y - r) / CS) | 0), j1 = Math.min(GR - 1, ((y + r) / CS) | 0);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const k = j * GC + i; if (g.blocked[k]) continue;
+      const dd = Math.sqrt(d2((i + 0.5) * CS, (j + 0.5) * CS, x, y));
+      if (dd < r && dd < g.ringDist[k]) { g.ringDist[k] = dd; g.ringOwner[k] = c; }
+    }
+  };
+  for (const s of g.structs) {
+    if (!s.alive) continue;
+    if (s.kind === 'core') src(s.x, s.y, T.coreRing, s.crew);
+    else if (s.kind === 'beacon' && s.build <= 0) src(s.x, s.y, T.beaconRing, s.crew);
+  }
+  const td = terrImg.data, md = mineImg.data;
+  for (let k = 0; k < NC; k++) {
+    let o = g.ringOwner[k], a = 0;
+    if (o >= 0) a = 58;
+    else if (g.trailT[k] > 0 && g.trailOwner[k] >= 0) { o = g.trailOwner[k]; a = 30; }
+    g.owner[k] = o;
+    const p = k * 4;
+    if (o >= 0) { td[p] = RGB[o][0]; td[p + 1] = RGB[o][1]; td[p + 2] = RGB[o][2]; td[p + 3] = a; } else td[p + 3] = 0;
+    md[p] = 255; md[p + 1] = 214; md[p + 2] = 120; md[p + 3] = o === 0 ? 120 : 0;
+  }
+  terrCx.putImageData(terrImg, 0, 0); mineCx.putImageData(mineImg, 0, 0);
+}
+const ownerAt = (x, y) => G.owner[cellOf(x, y)];
+
+// ---------------------------------------------------------------- orders (player and bots share these)
+function liveTurret(core, s) {
+  let best = null, bd = 1e9;
+  for (const t of core.turrets) if (t.alive) { const dd = d2(t.x, t.y, s.x, s.y); if (dd < bd) { bd = dd; best = t; } }
+  return best;
+}
+function postCount(c) {
+  let n = 0; for (const s of G.structs) if (s.alive && s.crew === c && (s.kind === 'bastion' || s.kind === 'forge' || s.kind === 'beacon')) n++;
+  const o = G.crews[c].order; if (o.kind === 'plant' && o.site && !o.site.done) n++;
+  return n;
+}
+function plantCheck(c, x, y) {
+  if (x < 10 || x > W - 10 || y < 10 || y > H - 10 || inVoid(x, y, 8)) return 'void';
+  if (postCount(c) >= MAX_POSTS) return 'max';
+  for (const s of G.structs) if (s.alive && s.kind !== 'turret') { const need = s.kind === 'core' ? 42 : 26; if (d2(s.x, s.y, x, y) < need * need) return 'close'; }
+  if (ownerAt(x, y) !== c) return 'ground';
+  if (G.crews[c].count < POST_COST) return 'ships';
+  return null;
+}
+function snapWell(x, y) { const w = G.map.well; return d2(x, y, w.x, w.y) < 30 * 30 ? [w.x, w.y] : [x, y]; }
+function refund(cr) {
+  const st = cr.order.site; if (!st || st.done || st.delivered <= 0) return;
+  for (let k = 0; k < st.delivered; k++) spawn(cr.id, st.x, st.y, 1);
+  cr.stats.made -= st.delivered; st.delivered = 0;
+}
+function issue(c, kind, x, y, ref, post, via) {
+  const cr = G.crews[c];
+  if (cr.order.kind === 'plant') refund(cr);
+  cr.order = { kind, x, y, ref: ref || null, site: null, via: via || null, t: G.t };
+  if (kind === 'plant') cr.order.site = { x, y, kind: post, delivered: 0, done: false, crew: c };
+  let k = 0;
+  for (const s of G.ships) if (s.alive && s.crew === c) {
+    if (kind === 'home') s.state = 0; else { s.state = 1; s.slot = k++; s.viaDone = false; s.navT = 0; }
+  }
+}
+function finishSite(cr) {
+  const st = cr.order.site; st.done = true;
+  const w = G.map.well, onWell = d2(st.x, st.y, w.x, w.y) < 20 * 20;
+  const p = addStruct(st.kind, cr.id, st.x, st.y, { build: BUILD_T, well: onWell && st.kind === 'beacon' });
+  p.hp = p.maxhp * 0.25;
+  cr.stats.built[st.kind]++;
+  if (cr.id !== 0) toast(`${NAMES[cr.id]} are building a ${KIND_NAME[st.kind]}${placeSuffix(st.x, st.y)}`, false, cr.id);
+}
+
+// ---------------------------------------------------------------- spatial hash
+function buildHash() {
+  const g = G; g.head.fill(-1);
+  for (let i = 0; i < MAXS; i++) { const s = g.ships[i]; if (!s.alive) continue; const k = cellOf(s.x, s.y); g.next[i] = g.head[k]; g.head[k] = i; }
+}
+function nearestEnemy(x, y, crew, R) {
+  const g = G, rc = Math.ceil(R / CS), ci = (x / CS) | 0, cj = (y / CS) | 0;
+  let best = null, bd = R * R;
+  for (let j = Math.max(0, cj - rc), j1 = Math.min(GR - 1, cj + rc); j <= j1; j++)
+    for (let i = Math.max(0, ci - rc), i1 = Math.min(GC - 1, ci + rc); i <= i1; i++)
+      for (let k = g.head[j * GC + i]; k >= 0; k = g.next[k]) {
+        const o = g.ships[k]; if (!o.alive || o.crew === crew) continue;
+        const dd = d2(o.x, o.y, x, y); if (dd < bd) { bd = dd; best = o; }
+      }
+  return best;
+}
+function countNear(x, y, R, pred) {
+  let n = 0; const r2 = R * R;
+  for (const s of G.ships) if (s.alive && pred(s) && d2(s.x, s.y, x, y) < r2) n++;
+  return n;
+}
+
+// ---------------------------------------------------------------- damage
+function dmgShip(e, d, by) { e.hp -= d; if (e.hp <= 0) killShip(e, by, false); }
+function dmgStruct(tg, d, byCrew, forged) {
+  if (!tg.alive) return;
+  if (tg.kind === 'core' && tg.turrets.some(t => t.alive)) return;
+  if ((tg.kind === 'core' || tg.kind === 'turret') && G.surge) d *= T.surgeMul;
+  tg.hp -= d; tg.hitT = 0.25; tg.lastBy = byCrew;
+  if (tg.kind === 'core') { const st = G.crews[byCrew].stats; st.coreDmg[tg.crew] += d; if (forged) st.forgedCoreDmg[tg.crew] += d; }
+  if (tg.hp <= 0) structDie(tg, byCrew);
+}
+function structDie(s, by) {
+  s.alive = false; s.hp = 0;
+  addFx(s.x, s.y, s.crew, 2);
+  if (s.kind === 'core') return coreBroken(s, by);
+  if (s.kind === 'beacon') G.terrT = 0;
+  if (s.kind !== 'turret') {
+    if (s.crew === 0) toast(`Your ${KIND_NAME[s.kind]} fell`, true);
+    else if (by === 0) toast(`You broke ${POSS[s.crew]} ${KIND_NAME[s.kind]}`);
+  }
+}
+function coreBroken(core, by) {
+  const victim = core.crew, vc = G.crews[victim], bc = G.crews[by];
+  let capBy = null;
+  for (const p of G.structs) if (p.alive && p.kind === 'beacon' && p.build <= 0 && p.crew === by && dist(p, core) <= T.beaconRing + T.captureReach) { capBy = p; break; }
+  const st = bc.stats, total = st.coreDmg[victim] || 1;
+  G.kills.push({ t: G.t, victim, by, captured: !!capBy, forgedShare: st.forgedCoreDmg[victim] / total, wasHome: vc.home === core });
+  vc.cores = vc.cores.filter(c => c !== core);
+  if (capBy) {
+    core.alive = true; core.crew = by; core.hp = core.maxhp * 0.5;
+    for (const t of core.turrets) { t.alive = true; t.crew = by; t.hp = T.turretHp * 0.5; }
+    bc.cores.push(core); addFx(core.x, core.y, by, 3);
+  } else {
+    for (const t of core.turrets) t.alive = false;
+  }
+  if (by === 0) G.log.push({ t: G.t, text: capBy ? `captured the ${NAMES[victim]} Core with a Beacon` : `broke the ${NAMES[victim]} Core`, sys: true });
+  else if (victim !== 0) G.log.push({ t: G.t, text: `${NAMES[by]} broke the ${NAMES[victim]}`, sys: true });
+  if (!vc.cores.length) eliminate(victim);
+  else if (vc.home === core) vc.home = vc.cores[0];
+  G.terrT = 0;
+  toast(capBy ? `${by === 0 ? 'You' : NAMES[by]} captured ${victim === 0 ? 'YOUR' : POSS[victim]} Core!` : `${victim === 0 ? 'Your' : NAMES[victim]} Core broken`, victim === 0);
+}
+function eliminate(c) {
+  const cr = G.crews[c]; cr.alive = false;
+  for (const s of G.ships) if (s.alive && s.crew === c) killShip(s, null, true);
+  for (const p of G.structs) if (p.alive && p.crew === c && p.kind !== 'core' && p.kind !== 'turret') { p.alive = false; addFx(p.x, p.y, c, 2); }
+  cr.order = { kind: 'home', x: 0, y: 0, ref: null, site: null };
+}
+
+// ---------------------------------------------------------------- sim step
+function step() {
+  const g = G; g.t += DT;
+  if (!g.surge && g.t >= T.surgeAt) { g.surge = true; toast('SURGE: every Core now takes triple damage', true); }
+  buildHash();
+  // production
+  for (const cr of g.crews) {
+    if (!cr.alive) continue;
+    let beacons = 0, rate = cr.cores.length / T.prodEvery;
+    for (const p of g.structs) if (p.alive && p.crew === cr.id && p.kind === 'beacon' && p.build <= 0) { beacons++; rate += T.beaconRate * (p.well ? 2 : 1); }
+    cr.beacons = beacons; cr.rate = rate;
+    cr.cap = T.capBase + T.capPerBeacon * beacons + T.capPerCore * (cr.cores.length - 1);
+    if (cr.count < cr.cap) {
+      cr.prodAcc += rate * DT;
+      while (cr.prodAcc >= 1) { cr.prodAcc -= 1; const co = cr.cores[(g.R() * cr.cores.length) | 0]; spawn(cr.id, co.x, co.y, 0); }
+    } else cr.prodAcc = 0;
+  }
+  for (const cr of g.crews) { cr.intruder = cr.alive ? nearestEnemy(cr.home.x, cr.home.y, cr.id, 85) : null; }
+  for (const cr of g.crews) { const o = cr.order; if (o.kind === 'attack' && (!o.ref || !o.ref.alive || o.ref.crew === cr.id)) { o.kind = 'move'; if (o.ref) { o.x = o.ref.x; o.y = o.ref.y; } o.ref = null; } }
+  for (let i = 0; i < MAXS; i++) { const s = g.ships[i]; if (s.alive) updateShip(s); }
+  for (const st of g.structs) if (st.alive) updateStruct(st);
+  // bots
+  for (let c = 1; c < 3; c++) if (g.crews[c].alive) botStep(g.crews[c]);
+  // territory
+  g.terrT -= DT;
+  if (g.terrT <= 0) {
+    g.terrT = 0.25;
+    for (let k = 0; k < NC; k++) if (g.trailT[k] > 0) { g.trailT[k] -= 0.25; if (g.trailT[k] <= 0) g.trailOwner[k] = -1; }
+    recomputeTerritory();
+  }
+  for (const s of g.shots) s.t -= DT;
+  if (g.shots.length && g.shots[0].t <= 0) g.shots = g.shots.filter(s => s.t > 0);
+  for (const f of g.fx) f.t += DT;
+  if (g.fx.length && g.fx[0].t > 1.2) g.fx = g.fx.filter(f => f.t <= 1.2);
+  if (g.banner > 0) g.banner -= DT;
+  // end
+  if (!g.over) {
+    if (!g.crews[0].alive) endRound(false);
+    else if (!g.crews[1].alive && !g.crews[2].alive) endRound(true);
+  }
+}
+function shipGoal(s, cr) {
+  if (s.state === 0) {
+    const e = cr.intruder; if (e && e.alive) return [e.x, e.y]; // the home pool rushes anything inside its ring
+    const co = cr.home; return [co.x + Math.cos(s.ang) * s.rr, co.y + Math.sin(s.ang) * s.rr];
+  }
+  const o = cr.order;
+  if (o.via && !s.viaDone) {
+    if (d2(s.x, s.y, o.via.x, o.via.y) < 24 * 24) s.viaDone = true;
+    else return [o.via.x + Math.cos(s.ang) * 10, o.via.y + Math.sin(s.ang) * 10];
+  }
+  if (o.kind === 'attack') {
+    let tg = o.ref;
+    if (!tg || !tg.alive || tg.crew === cr.id) { o.kind = 'move'; o.x = tg ? tg.x : s.x; o.y = tg ? tg.y : s.y; o.ref = null; }
+    else {
+      if (tg.kind === 'core') { const tu = liveTurret(tg, s); if (tu) tg = tu; }
+      s.tgt = tg;
+      let dx = s.x - tg.x, dy = s.y - tg.y; const l = Math.hypot(dx, dy) || 1; const rr = tg.r + 9 + (s.slot % 4) * 2.5;
+      return [tg.x + dx / l * rr, tg.y + dy / l * rr];
+    }
+  }
+  if (o.kind === 'plant' && !o.site.done) return [o.x, o.y];
+  const k = s.slot, rr = 4.3 * Math.sqrt(k + 0.5), a = k * 2.39996;
+  return [o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr];
+}
+function updateShip(s) {
+  const g = G, cr = g.crews[s.crew], o = cr.order;
+  if (s.flash > 0) s.flash -= DT;
+  // planting: spend the ship into the site
+  if (s.state === 1 && o.kind === 'plant' && !o.site.done && (!o.via || s.viaDone) && d2(s.x, s.y, o.x, o.y) < 15 * 15) {
+    o.site.delivered++; killShip(s, null, true);
+    if (o.site.delivered >= POST_COST) finishSite(cr);
+    return;
+  }
+  const [gx, gy] = shipGoal(s, cr);
+  if (--s.navT <= 0) { s.navT = 6; navigate(s, gx, gy); }
+  let dx = gx - s.x, dy = gy - s.y; const d = Math.hypot(dx, dy);
+  let dvx = 0, dvy = 0;
+  if (d > 2) {
+    const sp = T.speed * Math.min(1, d / 14);
+    if (s.los) { dvx = dx / d * sp; dvy = dy / d * sp; } else { dvx = s.dirx * sp; dvy = s.diry * sp; }
+  }
+  // separation
+  let sx = 0, sy = 0; const ci = (s.x / CS) | 0, cj = (s.y / CS) | 0;
+  for (let j = Math.max(0, cj - 1), j1 = Math.min(GR - 1, cj + 1); j <= j1; j++)
+    for (let i = Math.max(0, ci - 1), i1 = Math.min(GC - 1, ci + 1); i <= i1; i++)
+      for (let k = g.head[j * GC + i]; k >= 0; k = g.next[k]) {
+        if (k === s.i) continue; const n = g.ships[k];
+        const ex = s.x - n.x, ey = s.y - n.y, dd = ex * ex + ey * ey;
+        if (dd < 36 && dd > 0.0001) { const l = Math.sqrt(dd), f = (6 - l) / 6 / l; sx += ex * f; sy += ey * f; }
+      }
+  dvx += sx * 28; dvy += sy * 28;
+  const k6 = Math.min(1, 7 * DT);
+  s.vx += (dvx - s.vx) * k6; s.vy += (dvy - s.vy) * k6;
+  s.x += s.vx * DT; s.y += s.vy * DT;
+  // solid voids, walls, bastions
+  for (const v of g.map.voids) { const ex = s.x - v.x, ey = s.y - v.y, dd = ex * ex + ey * ey, rr = v.r + 3; if (dd < rr * rr) { const l = Math.sqrt(dd) || 1; s.x = v.x + ex / l * rr; s.y = v.y + ey / l * rr; } }
+  if (s.x < 6) s.x = 6; else if (s.x > W - 6) s.x = W - 6;
+  if (s.y < 6) s.y = 6; else if (s.y > H - 6) s.y = H - 6;
+  // trail + forge
+  if (s.state === 1) { const kc = cellOf(s.x, s.y); if (g.ringOwner[kc] < 0 && !g.blocked[kc]) { g.trailOwner[kc] = s.crew; g.trailT[kc] = T.trail; } }
+  if (!s.forged) for (const p of g.structs) {
+    if (p.kind === 'forge' && p.alive && p.crew === s.crew && p.build <= 0 && d2(s.x, s.y, p.x, p.y) < T.forgeR * T.forgeR) {
+      s.forged = true; s.maxhp = T.shipHp * T.forgeMul; s.hp = s.maxhp; s.flash = 0.4; break;
+    }
+  }
+  // combat
+  s.cd -= DT;
+  if (s.cd <= 0) {
+    const e = nearestEnemy(s.x, s.y, s.crew, T.shipRange);
+    if (e) { dmgShip(e, T.shipDmg, s); addShot(s.x, s.y, e.x, e.y, s.crew); s.cd = T.shipCd; }
+    else if (s.state === 1 && o.kind === 'attack' && s.tgt && s.tgt.alive) {
+      const tg = s.tgt, rr = T.shipRange + tg.r;
+      if (d2(s.x, s.y, tg.x, tg.y) <= rr * rr) { dmgStruct(tg, T.structDmg, s.crew, s.forged); addShot(s.x, s.y, tg.x, tg.y, s.crew); s.cd = T.shipCd; }
+      else s.cd = 0.1;
+    } else s.cd = 0.12;
+  }
+}
+function updateStruct(st) {
+  if (st.hitT > 0) st.hitT -= DT;
+  if (st.build > 0) {
+    st.build -= DT; st.hp = Math.min(st.maxhp, st.hp + st.maxhp * 0.75 * DT / BUILD_T);
+    if (st.build <= 0) { st.build = 0; if (st.kind === 'beacon') G.terrT = 0; }
+    return;
+  }
+  if (st.kind !== 'turret' && st.kind !== 'bastion') return;
+  st.cd -= DT; if (st.cd > 0) return;
+  const R = st.kind === 'turret' ? T.turretRange : T.bastionRange;
+  const e = nearestEnemy(st.x, st.y, st.crew, R);
+  if (e) {
+    dmgShip(e, st.kind === 'turret' ? T.turretDmg : T.bastionDmg, st);
+    addShot(st.x, st.y, e.x, e.y, st.crew); st.aim = Math.atan2(e.y - st.y, e.x - st.x);
+    st.cd = st.kind === 'turret' ? T.turretCd : T.bastionCd;
+  } else st.cd = 0.2;
+}
+
+// ---------------------------------------------------------------- bots: same rules, seeded style, slow and readable
+function toward(a, b, d) { const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; return { x: a.x + dx / l * d, y: a.y + dy / l * d }; }
+function botTargets(cr) {
+  const out = [];
+  for (const o of G.crews) if (o.id !== cr.id && o.alive) for (const core of o.cores) out.push(core);
+  return out;
+}
+function pickTarget(cr) {
+  // readable, not clever: go for the player, unless another rival's Core is already badly hurt or the player is out of reach
+  let best = null, bs = 1e9;
+  for (const core of botTargets(cr)) {
+    const pl = pathLen(cr.home, core); if (pl > 5000) continue;
+    const tur = core.turrets.reduce((a, t) => a + (t.alive ? t.hp : 0), 0);
+    const frac = (core.hp + tur) / (core.maxhp + T.turretHp * 3);
+    let sc = frac * 100 + pl * 0.05;
+    if (core.crew === 0) sc -= 40;
+    if (sc < bs) { bs = sc; best = core; }
+  }
+  return best;
+}
+function enemyBastionOnLane(cr, from, to) {
+  for (const p of G.structs) {
+    if (!p.alive || p.kind !== 'bastion' || p.crew === cr.id) continue;
+    for (let u = 0.1; u < 0.95; u += 0.1) { if (d2(p.x, p.y, from.x + (to.x - from.x) * u, from.y + (to.y - from.y) * u) < 50 * 50) return p; }
+  }
+  return null;
+}
+function wellFree(c) {
+  const w = G.map.well;
+  for (const s of G.structs) if (s.alive && s.kind !== 'turret' && d2(s.x, s.y, w.x, w.y) < 30 * 30) return false;
+  for (const k of G.crews) if (k.id !== c && k.order.kind === 'plant' && k.order.site && !k.order.site.done && d2(k.order.x, k.order.y, w.x, w.y) < 30 * 30) return false;
+  const ro = G.ringOwner[cellOf(w.x, w.y)]; return ro < 0 || ro === c;
+}
+function legal(c, p) { const r = plantCheck(c, p.x, p.y); return r === null || r === 'ground' || r === 'ships'; }
+function expandSpot(cr) {
+  let best = null, bs = -1e9; const srcs = G.structs.filter(p => p.alive && p.crew === cr.id && (p.kind === 'core' || p.kind === 'beacon'));
+  for (const s of srcs) for (let a = 0; a < 16; a++) {
+    const x = s.x + Math.cos(a * Math.PI / 8) * 104, y = s.y + Math.sin(a * Math.PI / 8) * 104;
+    const p = { x, y }; if (!legal(cr.id, p)) continue;
+    const ow = ownerAt(x, y); if (ow >= 0 && ow !== cr.id && G.ringOwner[cellOf(x, y)] >= 0) continue;
+    let neutral = 0;
+    for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const k = cellOf(x + i * CS, y + j * CS); if (!G.blocked[k] && G.ringOwner[k] < 0 && i * i + j * j <= 18) neutral++; }
+    const sc = neutral - dist(p, cr.home) * 0.04 - Math.abs(y - 330) * 0.02;
+    if (sc > bs) { bs = sc; best = p; }
+  }
+  return best;
+}
+function botPlan(cr) {
+  const b = cr.bot, home = cr.home, you = G.crews[0].alive ? G.crews[0].home : pickTarget(cr) || home, m = G.map;
+  const chokes = m.chokes.slice().sort((p, q) => dist(p, home) - dist(q, home));
+  const wantWell = () => wellFree(cr.id) ? { kind: 'beacon', x: m.well.x, y: m.well.y } : null;
+  const steps = {
+    bastion: [
+      () => chokes[0] ? { kind: 'bastion', x: chokes[0].x, y: chokes[0].y } : { kind: 'bastion', ...toward(home, you, 74) },
+      () => G.t > 70 ? (wantWell() || ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 90)) })) : 'wait',
+      () => G.t > 120 ? (chokes[1] ? { kind: 'bastion', x: chokes[1].x, y: chokes[1].y } : { kind: 'bastion', ...toward(home, you, 56) }) : 'wait',
+    ],
+    forge: [
+      () => G.t > 14 ? { kind: 'forge', ...toward(home, you, 48) } : 'wait',
+      () => G.t > 120 ? { kind: 'bastion', ...toward(home, you, 40) } : 'wait',
+    ],
+    beacon: [
+      () => wantWell() || ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 104)) }),
+      () => G.t > 45 ? ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 104)) }) : 'wait',
+      () => G.t > 90 ? ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 140)) }) : 'wait',
+      () => { const tg = pickTarget(cr); return tg && G.t > 130 ? { kind: 'beacon', ...toward(tg, home, 74), capture: tg } : 'wait'; },
+    ],
+  }[b.style];
+  // once its style is planted, every crew keeps claiming: one more Beacon every so often (so idling never wins)
+  steps.push(() => G.t > 150 ? ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 104)) }) : 'wait');
+  steps.push(() => G.t > 210 ? ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 120)) }) : 'wait');
+  while (b.stage < steps.length) {
+    const want = steps[b.stage]();
+    if (want === 'wait') return 'wait';
+    if (want && legal(cr.id, want) && !inVoid(want.x, want.y, 10)) return want;
+    b.stage++; // spot gone (taken, void, enemy ground): skip that post
+  }
+  return null;
+}
+const ATTACK_AT = { bastion: [42, 95], forge: [24, 42], beacon: [50, 150] };
+const attackNeed = (style, t) => style === 'forge' && t > 110 ? 38 : ATTACK_AT[style][0];
+function startWind(cr, w) {
+  cr.bot.wind = Object.assign({ t: 3 }, w);
+  if (w.kind === 'attack' && w.ref && w.ref.crew === 0) toast(`${NAMES[cr.id]} will strike YOUR ${w.ref.kind === 'core' ? 'Core' : KIND_NAME[w.ref.kind]} in 3`, true, cr.id);
+  else if (w.kind === 'plant') toast(`${NAMES[cr.id]} will plant a ${KIND_NAME[w.post]}${placeSuffix(w.x, w.y)}`, false, cr.id);
+}
+function botStep(cr) {
+  const b = cr.bot, home = cr.home;
+  if (b.wind) {
+    b.wind.t -= DT;
+    if (b.wind.t <= 0) {
+      const w = b.wind; b.wind = null;
+      if (w.kind === 'attack') { if (w.ref && w.ref.alive && w.ref.crew !== cr.id) { issue(cr.id, 'attack', w.ref.x, w.ref.y, w.ref, null, w.via); b.atkStart = cr.count; } }
+      else if (w.kind === 'plant') { if (plantCheck(cr.id, w.x, w.y) === null) { issue(cr.id, 'plant', w.x, w.y, null, w.post); b.stage++; } }
+      else if (w.kind === 'move') { issue(cr.id, 'move', w.x, w.y); b.waitMove = { x: w.x, y: w.y }; }
+    }
+    return;
+  }
+  // fast defensive check (every 1 s): recall when the home Core is under attack
+  b.threatT -= DT;
+  if (b.threatT <= 0) {
+    b.threatT = 1;
+    const foes = countNear(home.x, home.y, 85, s => s.crew !== cr.id);
+    const mine = countNear(home.x, home.y, 85, s => s.crew === cr.id);
+    if (foes >= 6 && foes > mine && cr.order.kind !== 'home' && cr.count > mine + 4) { issue(cr.id, 'home', home.x, home.y); b.next = G.t + 4; return; }
+  }
+  if (G.t < b.next) return;
+  b.next = G.t + 4 + G.R() * 2;
+  const n = cr.count, o = cr.order;
+  // retreat a spent assault
+  if (o.kind === 'attack' && n < Math.max(7, b.atkStart * 0.25)) { issue(cr.id, 'home', home.x, home.y); return; }
+  if (o.kind === 'attack') return; // keep pushing
+  if (o.kind === 'plant' && !o.site.done) return; // still delivering
+  // plant the next post of its style
+  const want = botPlan(cr);
+  if (want && want !== 'wait' && n >= POST_COST + 3) {
+    if (ownerAt(want.x, want.y) === cr.id && plantCheck(cr.id, want.x, want.y) === null) { startWind(cr, { kind: 'plant', x: want.x, y: want.y, post: want.kind }); return; }
+    if (!(o.kind === 'move' && b.waitMove && d2(b.waitMove.x, b.waitMove.y, want.x, want.y) < 20 * 20)) { startWind(cr, { kind: 'move', x: want.x, y: want.y, post: want.kind }); return; }
+    return; // walking there; the trail will make it ground
+  }
+  // strike
+  const need = attackNeed(b.style, G.t), after = ATTACK_AT[b.style][1];
+  if (n >= need && G.t >= after) {
+    let tg = pickTarget(cr); if (!tg) return;
+    const bas = enemyBastionOnLane(cr, home, tg); if (bas && b.style !== 'beacon') tg = bas;
+    let via = null;
+    const forge = G.structs.find(p => p.alive && p.kind === 'forge' && p.crew === cr.id && p.build <= 0);
+    if (forge && dist(forge, tg) < dist(home, tg) + 20) via = { x: forge.x, y: forge.y };
+    startWind(cr, { kind: 'attack', x: tg.x, y: tg.y, ref: tg, via });
+    return;
+  }
+  // otherwise gather at home (a parked swarm guards its posts)
+  if (o.kind === 'move' && b.waitMove && G.t - o.t > 25) issue(cr.id, 'home', home.x, home.y);
+}
+
+// ---------------------------------------------------------------- player actions
+function placeName(x, y) {
+  const m = G.map;
+  if (d2(x, y, m.well.x, m.well.y) < 32 * 32) return 'the Starwell';
+  for (const c of m.chokes) if (d2(x, y, c.x, c.y) < 36 * 36) return 'the choke';
+  if (d2(x, y, m.home.x, m.home.y) < 70 * 70) return 'your Core';
+  const side = x < 120 ? 'left' : x > 240 ? 'right' : 'centre';
+  const band = y < 230 ? 'far' : y > 440 ? 'near' : 'mid';
+  return side === 'centre' ? (band === 'mid' ? 'the centre' : `the ${band} centre`) : `the ${band} ${side}`;
+}
+function placeSuffix(x, y) { const p = placeName(x, y); return p === 'your Core' ? ' near your Core' : ` at ${p}`; }
+function structAt(x, y) {
+  let best = null, bd = 1e9;
+  for (const s of G.structs) {
+    if (!s.alive || s.kind === 'turret') continue;
+    const r = s.kind === 'core' ? 34 : 22, dd = d2(s.x, s.y, x, y);
+    if (dd < r * r && dd < bd) { bd = dd; best = s; }
+  }
+  return best;
+}
+function playerOrder(kind, x, y, post) {
+  if (!G || G.over) return false;
+  const tag = fmt(G.t);
+  if (kind === 'tap') {
+    const s = structAt(x, y);
+    if (s && s.crew === 0 && s.kind === 'core') { issue(0, 'home', s.x, s.y); G.log.push({ t: G.t, text: 'recalled the swarm home' }); }
+    else if (s && s.crew !== 0) { issue(0, 'attack', s.x, s.y, s); G.log.push({ t: G.t, text: `struck ${POSS[s.crew]} ${s.kind === 'core' ? 'Core' : KIND_NAME[s.kind]}${s.kind === 'core' ? '' : placeSuffix(s.x, s.y)}` }); }
+    else {
+      if (inVoid(x, y, 6)) { for (const v of G.map.voids) { const dx = x - v.x, dy = y - v.y, l = Math.hypot(dx, dy) || 1; if (l < v.r + 8) { x = v.x + dx / l * (v.r + 8); y = v.y + dy / l * (v.r + 8); } } }
+      x = Math.max(10, Math.min(W - 10, x)); y = Math.max(10, Math.min(H - 10, y));
+      issue(0, 'move', x, y); G.log.push({ t: G.t, text: `sent the swarm to ${placeName(x, y)}` });
+    }
+  } else if (kind === 'home') { issue(0, 'home', G.crews[0].home.x, G.crews[0].home.y); G.log.push({ t: G.t, text: 'recalled the swarm home' }); }
+  else if (kind === 'plant') {
+    [x, y] = snapWell(x, y);
+    if (plantCheck(0, x, y) !== null) return false;
+    issue(0, 'plant', x, y, null, post);
+    const onWell = d2(x, y, G.map.well.x, G.map.well.y) < 20 * 20;
+    G.log.push({ t: G.t, text: `planted a ${KIND_NAME[post]} ${onWell ? 'on the Starwell' : placeSuffix(x, y).trim()}` });
+  }
+  G.actions++;
+  return tag;
+}
+
+// ---------------------------------------------------------------- end of round
+function endRound(won) {
+  const g = G; g.over = true; g.result = won; g.endAt = g.t;
+  g.cause = won ? winCause() : loseCause();
+  setTimeout(showEnd, 1300);
+}
+function winCause() {
+  const g = G, me = g.crews[0].stats;
+  const mine = g.kills.filter(k => k.by === 0), last = mine[mine.length - 1];
+  const t = fmt(g.endAt);
+  const other = g.kills.find(k => k.by !== 0 && k.victim !== 0);
+  const tail = other ? ` (the ${NAMES[other.by]} broke the ${NAMES[other.victim]} for you)` : '';
+  if (!last) return `Won: the rivals broke each other at ${t}.`;
+  const nm = NAMES[last.victim];
+  if (last.captured) return `Won: your Beacon swallowed the ${nm} Core at ${t}${tail}.`;
+  if (last.forgedShare >= 0.4) return `Won: your Forge lane cracked the ${nm} at ${t}${tail}.`;
+  if (me.bastionKills >= 12) return `Won: your Bastion held (${me.bastionKills} kills) while you broke the ${nm} at ${t}${tail}.`;
+  if ((g.crews[0].beacons || 0) >= 2) return `Won: your ${g.crews[0].beacons} Beacons out-grew them; the ${nm} fell at ${t}${tail}.`;
+  return `Won: your swarm broke the ${nm} at ${t}${tail}.`;
+}
+function loseCause() {
+  const g = G, k = g.kills.find(x => x.victim === 0 && x.wasHome) || g.kills.filter(x => x.victim === 0).pop();
+  const t = fmt(g.endAt);
+  if (!k) return `Lost at ${t}.`;
+  const by = g.crews[k.by], nm = NAMES[k.by], poss = POSS[k.by];
+  const myB = g.crews[0].stats.built.beacon, theirB = by.stats.built.beacon;
+  const lostB = g.crews[0].stats.lostToBastion;
+  const bOwner = lostB[1] >= lostB[2] ? 1 : 2;
+  if (k.captured) return `Lost: ${poss} Beacon swallowed your Core at ${t}. A Beacon ring touching your Core is the tell.`;
+  if (by.bot.style === 'beacon' && theirB >= myB + 2) return `Lost: ${poss} Beacons out-grew you (${theirB} Beacons to ${myB}).`;
+  if (k.forgedShare >= 0.4) return `Lost: ${poss} Forge lane broke your Core at ${t} (forged sparks did ${Math.round(k.forgedShare * 100)}% of it).`;
+  if (lostB[bOwner] >= 15) return `Lost: ${lostB[bOwner]} of your sparks died to ${POSS[bOwner]} Bastion, then the ${nm} broke you at ${t}.`;
+  if (theirB >= myB + 2) return `Lost: ${poss} Beacons out-grew you (${theirB} Beacons to ${myB}).`;
+  if (g.actions <= 1) return `Lost: you never moved. The ${nm} broke your Core at ${t}.`;
+  return `Lost: the ${nm} broke your Core at ${t} while your swarm was ${g.crews[0].order.kind === 'home' ? 'home but outnumbered' : 'away at ' + placeName(g.crews[0].order.x, g.crews[0].order.y)}.`;
+}
+
+// ---------------------------------------------------------------- rendering
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let dpr = 1, VW = 390, VH = 844, BX = 0, BY = 60, SC = 1;
+const HUD_H = 58, DOCK_H = 128;
+function resize() {
+  VW = innerWidth; VH = innerHeight; dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr); cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+  const bw = VW - 8, bh = VH - HUD_H - DOCK_H;
+  SC = Math.min(bw / W, bh / H); BX = (VW - W * SC) / 2; BY = HUD_H + (bh - H * SC) / 2;
+}
+addEventListener('resize', resize);
+const toScreen = (x, y) => [BX + x * SC, BY + y * SC];
+const toWorld = (sx, sy) => [(sx - BX) / SC, (sy - BY) / SC];
+const HEX = new Path2D(); for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + k * Math.PI / 3; k ? HEX.lineTo(Math.cos(a), Math.sin(a)) : HEX.moveTo(Math.cos(a), Math.sin(a)); } HEX.closePath();
+const ICON = {
+  bastion: 'M-.45,.45 L-.45,-.18 L-.3,-.18 L-.3,-.42 L-.1,-.42 L-.1,-.18 L.1,-.18 L.1,-.42 L.3,-.42 L.3,-.18 L.45,-.18 L.45,.45 Z',
+  forge: 'M-.58,-.32 L.58,-.32 L.42,-.08 L.16,-.08 L.16,.16 L.36,.42 L-.36,.42 L-.16,.16 L-.16,-.08 L-.42,-.08 Z',
+  beacon: 'M0,-.58 L.3,0 L0,.58 L-.3,0 Z M-.62,0 L-.42,0 M.42,0 L.62,0',
+};
+const ICONP = { bastion: new Path2D(ICON.bastion), forge: new Path2D(ICON.forge), beacon: new Path2D('M0,-.58 L.3,0 L0,.58 L-.3,0 Z') };
+const HEXD = 'M0,-1 L.866,-.5 L.866,.5 L0,1 L-.866,.5 L-.866,-.5 Z';
+function svgIcon(kind, col) {
+  return `<svg viewBox="-1.1 -1.1 2.2 2.2"><path d="${HEXD}" fill="#0b0f1e" stroke="${col}" stroke-width=".14"/><path d="${ICON[kind]}" fill="${col}" stroke="${col}" stroke-width="${kind === 'beacon' ? .1 : 0}"/></svg>`;
+}
+const SHIPP = [
+  new Path2D('M4.5,0 L-3,2.8 L-3,-2.8 Z'),             // you: plain triangle
+  new Path2D('M4.5,0 L-3.2,3.2 L-1.2,0 L-3.2,-3.2 Z'),  // Corsairs: chevron
+  new Path2D('M5,0 L-1,2.2 L-3.4,0 L-1,-2.2 Z'),        // Syndicate: dart
+];
+let press = null, radial = null, plantArm = false, frameStats = { n: 0, sum: 0, max: 0, last: 0 };
+
+function render() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#0b0f1e'; ctx.fillRect(0, 0, VW, VH);
+  if (!G) return;
+  const g = G, now = g.t;
+  ctx.setTransform(dpr * SC, 0, 0, dpr * SC, dpr * BX, dpr * BY);
+  // arena
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 24); ctx.fillStyle = '#0f152b'; ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(terrCv, 0, 0, W, H);
+  const showMine = plantArm || radial || (press && !press.moved && performance.now() - press.t > 120);
+  if (showMine) { ctx.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 160); ctx.drawImage(mineCv, 0, 0, W, H); ctx.globalAlpha = 1; }
+  ctx.restore();
+  ctx.strokeStyle = '#25305a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(0, 0, W, H, 24); ctx.stroke();
+  // voids
+  for (const v of g.map.voids) {
+    ctx.beginPath(); ctx.arc(v.x, v.y, v.r, 0, 7); ctx.fillStyle = '#04060d'; ctx.fill();
+    ctx.strokeStyle = '#33406f'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // chokes
+  ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const c of g.map.chokes) {
+    ctx.strokeStyle = '#ffffff22'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 20, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ffffff55'; ctx.fillText('CHOKE', c.x, c.y + 30);
+  }
+  // starwell: circle, inscribed hexagram, pulse
+  { const w = g.map.well, p = 0.5 + 0.5 * Math.sin(now * 2.4);
+    ctx.strokeStyle = `rgba(255,236,170,${0.35 + 0.3 * p})`; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(w.x, w.y, 18, 0, 7); ctx.stroke();
+    for (let t = 0; t < 2; t++) { ctx.beginPath(); for (let k = 0; k < 3; k++) { const a = -Math.PI / 2 + t * Math.PI / 3 + k * 2 * Math.PI / 3; const x = w.x + Math.cos(a) * 18, y = w.y + Math.sin(a) * 18; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.stroke(); }
+    ctx.fillStyle = '#fff2c4aa'; ctx.fillText('STARWELL ×2', w.x, w.y + 31); }
+  // rings: beacons (claim), forges (lane), bastions (reach)
+  for (const s of g.structs) {
+    if (!s.alive) continue;
+    const col = COL[s.crew];
+    if (s.kind === 'beacon' && s.build <= 0) { ctx.strokeStyle = col + 'aa'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(s.x, s.y, T.beaconRing, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+    else if (s.kind === 'forge' && s.build <= 0) { ctx.strokeStyle = col + '66'; ctx.lineWidth = 3; ctx.setLineDash([2, 6]); ctx.lineDashOffset = -now * 12; ctx.beginPath(); ctx.arc(s.x, s.y, T.forgeR, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0; }
+    else if (s.kind === 'bastion' && s.build <= 0) { ctx.fillStyle = col + '12'; ctx.beginPath(); ctx.arc(s.x, s.y, T.bastionRange, 0, 7); ctx.fill(); ctx.strokeStyle = col + '44'; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+  // capture tells: a Beacon whose ring touches a rival Core
+  for (const b of g.structs) if (b.alive && b.kind === 'beacon' && b.build <= 0) for (const c of g.structs) if (c.alive && c.kind === 'core' && c.crew !== b.crew && dist(b, c) <= T.beaconRing + T.captureReach) {
+    ctx.strokeStyle = COL[b.crew]; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(c.x, c.y, 40 + 3 * Math.sin(now * 6), 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // pending plant sites
+  for (const cr of g.crews) { const o = cr.order; if (o.kind !== 'plant' || !o.site || o.site.done) continue;
+    ctx.save(); ctx.translate(o.x, o.y); ctx.scale(T.postR, T.postR); ctx.setLineDash([0.3, 0.3]); ctx.lineWidth = 0.12; ctx.strokeStyle = COL[cr.id]; ctx.stroke(HEX); ctx.restore(); ctx.setLineDash([]);
+    ctx.fillStyle = COL[cr.id]; ctx.font = '700 13px system-ui'; ctx.fillText(`${o.site.delivered}/${POST_COST}`, o.x, o.y - 20);
+  }
+  // structures
+  for (const s of g.structs) if (s.alive) drawStruct(s, now);
+  // ships (batched per crew)
+  for (let c = 0; c < 3; c++) {
+    ctx.fillStyle = COL[c];
+    for (const s of g.ships) {
+      if (!s.alive || s.crew !== c) continue;
+      const a = Math.atan2(s.vy, s.vx), k = s.forged ? 1.45 : 1, co = Math.cos(a) * k, si = Math.sin(a) * k;
+      ctx.setTransform(dpr * SC * co, dpr * SC * si, -dpr * SC * si, dpr * SC * co, dpr * (BX + s.x * SC), dpr * (BY + s.y * SC));
+      ctx.fill(SHIPP[c]);
+      if (s.forged) { ctx.strokeStyle = s.flash > 0 ? '#fff' : '#ffffffaa'; ctx.lineWidth = 0.9; ctx.stroke(SHIPP[c]); }
+    }
+  }
+  ctx.setTransform(dpr * SC, 0, 0, dpr * SC, dpr * BX, dpr * BY);
+  // shots
+  ctx.lineWidth = 1;
+  for (let c = 0; c < 3; c++) { ctx.strokeStyle = COL[c]; ctx.beginPath(); for (const s of g.shots) if (s.c === c) { ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); } ctx.stroke(); }
+  // fx
+  for (const f of g.fx) {
+    const big = f.kind >= 2, life = big ? 1.2 : 0.4; if (f.t > life) continue; const u = f.t / life;
+    ctx.strokeStyle = f.kind === 1 ? '#fff6d0' : COL[f.c]; ctx.globalAlpha = 1 - u; ctx.lineWidth = big ? 3 : 1;
+    ctx.beginPath(); ctx.arc(f.x, f.y, big ? 10 + 50 * u : f.kind === 1 ? 6 * (1 - u) : 2 + 7 * u, 0, 7); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // bot telegraphs: growing ring at the Core + dotted line to the target
+  for (let c = 1; c < 3; c++) {
+    const cr = g.crews[c], w = cr.bot && cr.bot.wind; if (!w || !cr.alive) continue;
+    const u = 1 - w.t / 3, h = cr.home;
+    ctx.strokeStyle = COL[c]; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.5 + 0.5 * u;
+    ctx.beginPath(); ctx.arc(h.x, h.y, 22 + 34 * u, 0, 7); ctx.stroke();
+    ctx.setLineDash([3, 5]); ctx.lineDashOffset = -now * 30; ctx.lineWidth = w.ref && w.ref.crew === 0 ? 3 : 1.8;
+    ctx.beginPath(); ctx.moveTo(h.x, h.y); if (w.via) ctx.lineTo(w.via.x, w.via.y); ctx.lineTo(w.x, w.y); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    ctx.save(); ctx.translate(w.x, w.y);
+    if (w.kind === 'attack') { ctx.beginPath(); ctx.arc(0, 0, 14, 0, 7); ctx.moveTo(-20, 0); ctx.lineTo(20, 0); ctx.moveTo(0, -20); ctx.lineTo(0, 20); ctx.stroke(); }
+    else { ctx.scale(11, 11); ctx.lineWidth = 0.15; ctx.stroke(HEX); if (w.post) ctx.stroke(ICONP[w.post]); }
+    ctx.restore(); ctx.globalAlpha = 1;
+    ctx.fillStyle = COL[c]; ctx.font = '700 14px system-ui';
+    ctx.fillText(w.kind === 'attack' ? Math.ceil(w.t) + '' : w.kind === 'plant' ? KIND_NAME[w.post] : 'moving', h.x, h.y - 46);
+  }
+  // your order marker
+  { const o = g.crews[0].order; if (g.crews[0].alive && (o.kind === 'move' || o.kind === 'attack')) {
+    ctx.strokeStyle = '#e6b84acc'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.arc(o.ref ? o.ref.x : o.x, o.ref ? o.ref.y : o.y, o.kind === 'attack' ? 30 : 10, 0, 7); ctx.stroke(); ctx.setLineDash([]); } }
+  // hold-to-plant progress ring
+  if (press && !press.long && !press.moved) {
+    const u = (performance.now() - press.t) / 350;
+    if (u > 0.3) { const [wx, wy] = toWorld(press.x, press.y); ctx.strokeStyle = '#e6b84a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(wx, wy, 22, -Math.PI / 2, -Math.PI / 2 + Math.min(1, u) * Math.PI * 2); ctx.stroke(); }
+  }
+  // banners
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.textAlign = 'center';
+  if (g.banner > 0 && !g.over) {
+    ctx.globalAlpha = Math.min(1, g.banner);
+    ctx.fillStyle = '#0b0f1ecc'; ctx.fillRect(0, VH * 0.42 - 34, VW, 68);
+    ctx.fillStyle = '#e6b84a'; ctx.font = '700 17px system-ui'; ctx.fillText(`Seed ${g.seed}`, VW / 2, VH * 0.42 - 13);
+    ctx.fillStyle = '#e9ecf6'; ctx.font = '15px system-ui'; wrapText(g.map.desc, VW / 2, VH * 0.42 + 10, VW - 30, 18);
+    ctx.globalAlpha = 1;
+  }
+}
+function wrapText(t, x, y, mw, lh) {
+  const words = t.split(' '); let line = '', yy = y;
+  for (const w of words) { const test = line ? line + ' ' + w : w; if (ctx.measureText(test).width > mw && line) { ctx.fillText(line, x, yy); line = w; yy += lh; } else line = test; }
+  ctx.fillText(line, x, yy);
+}
+function drawStruct(s, now) {
+  const col = COL[s.crew];
+  if (s.kind === 'turret') {
+    ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, 7); ctx.fillStyle = '#0b0f1e'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(s.x, s.y, 2, 0, 7); ctx.fillStyle = col; ctx.fill(); return;
+  }
+  if (s.kind === 'core') {
+    const c = G.crews[s.crew];
+    if (s.crew === 0) { // crown ring with six points (circumscribed)
+      ctx.strokeStyle = '#e6b84a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(s.x, s.y, T.turretDist, 0, 7); ctx.stroke();
+      ctx.fillStyle = '#e6b84a'; for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + k * Math.PI / 3; ctx.beginPath(); ctx.arc(s.x + Math.cos(a) * T.turretDist, s.y + Math.sin(a) * T.turretDist, 1.8, 0, 7); ctx.fill(); }
+    }
+    ctx.save(); ctx.translate(s.x, s.y); ctx.scale(s.r, s.r);
+    ctx.fillStyle = s.hitT > 0 ? '#ffffff' : '#141b36'; ctx.fill(HEX); ctx.lineWidth = 0.16; ctx.strokeStyle = col; ctx.stroke(HEX);
+    ctx.restore();
+    // hp arc
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, s.hp / s.maxhp)); ctx.stroke();
+    ctx.fillStyle = col; ctx.font = '800 15px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.crew === 0 ? '★' : SIG[s.crew], s.x, s.y + 1);
+    if (s !== c.home) { ctx.font = '600 12px system-ui'; ctx.fillText('captured', s.x, s.y + 32); }
+    return;
+  }
+  // posts: hex + silhouette icon
+  const building = s.build > 0, u = building ? 1 - s.build / BUILD_T : 1;
+  ctx.save(); ctx.translate(s.x, s.y); ctx.scale(s.r, s.r);
+  ctx.fillStyle = s.hitT > 0 ? '#ffffff' : '#0b0f1e'; ctx.globalAlpha = building ? 0.6 : 1; ctx.fill(HEX); ctx.globalAlpha = 1;
+  ctx.lineWidth = s.kind === 'bastion' ? 0.24 : 0.15; ctx.strokeStyle = col;
+  if (building) { ctx.setLineDash([6 * u + 0.01, 7]); ctx.stroke(HEX); ctx.setLineDash([]); } else ctx.stroke(HEX);
+  ctx.globalAlpha = building ? 0.35 + 0.65 * u : 1;
+  if (s.kind === 'bastion') { ctx.save(); ctx.rotate(s.aim + Math.PI / 2); ctx.fillStyle = col; ctx.fill(ICONP.bastion); ctx.restore(); }
+  else if (s.kind === 'forge') { ctx.fillStyle = col; ctx.fill(ICONP.forge); }
+  else { ctx.fillStyle = col; ctx.fill(ICONP.beacon); ctx.strokeStyle = col; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.moveTo(-0.66, 0); ctx.lineTo(-0.42, 0); ctx.moveTo(0.42, 0); ctx.lineTo(0.66, 0); ctx.moveTo(0, -0.72); ctx.lineTo(0, -0.62); ctx.stroke(); }
+  ctx.globalAlpha = 1; ctx.restore();
+  if (building) { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 7 + 3 * Math.sin(now * 10), -Math.PI / 2, -Math.PI / 2 + u * Math.PI * 2); ctx.stroke(); }
+  if (s.well) { ctx.fillStyle = col; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×2', s.x + 17, s.y - 13); }
+  if (s.hp < s.maxhp && !building) { ctx.fillStyle = '#000a'; ctx.fillRect(s.x - 12, s.y + 15, 24, 3.5); ctx.fillStyle = col; ctx.fillRect(s.x - 12, s.y + 15, 24 * s.hp / s.maxhp, 3.5); }
+}
+
+// ---------------------------------------------------------------- DOM: HUD, dock, toasts, radial, cards
+const $ = id => document.getElementById(id);
+let toastT = 0, toastPri = false;
+function toast(msg, warn, crew) {
+  if (!G || (G.fast && !G.fastToasts)) return;
+  if (toastPri && toastT > 0.8 && !warn) return;
+  const el = $('toast'); el.textContent = msg; el.className = 'on' + (warn ? ' warn' : '');
+  el.style.color = crew ? COL[crew] : ''; toastT = 2.8; toastPri = !!warn;
+}
+let hudT = 0;
+function updateHud(dt) {
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').className = ''; }
+  hudT -= dt; if (hudT > 0 || !G) return; hudT = 0.2;
+  const g = G, me = g.crews[0];
+  const ck = $('clock'); ck.textContent = fmt(g.t); ck.className = 'clock' + (g.surge ? ' surge' : '');
+  $('army').textContent = me.count; $('cap').textContent = '/' + me.cap;
+  for (let c = 1; c < 3; c++) {
+    const cr = g.crews[c], el = $('riv' + c), h = cr.home;
+    el.className = 'riv' + (cr.alive ? '' : ' dead');
+    const posts = g.structs.filter(p => p.alive && p.crew === c && p.kind !== 'core' && p.kind !== 'turret');
+    el.querySelector('.nm').innerHTML = `${KIND_NAME[cr.bot.style]} crew <span style="color:#97a0c2">· ${cr.count}${posts.length ? ' · ' + posts.map(p => p.kind[0].toUpperCase() + p.kind.slice(1, 2)).join('') : ''}</span>`;
+    el.querySelector('.bar>div').style.width = (cr.alive ? Math.max(0, h.hp / h.maxhp) * 100 : 0) + '%';
+  }
+  const bp = $('bPlant'), can = me.count >= POST_COST && postCount(0) < MAX_POSTS;
+  bp.className = (can ? '' : 'off') + (plantArm ? ' arm' : '');
+  bp.querySelector('span').textContent = postCount(0) >= MAX_POSTS ? '4 / 4 posts' : plantArm ? 'tap gold ground' : `15 sparks · ${postCount(0)}/4`;
+  let hint = '';
+  if (plantArm) hint = 'Tap your gold ground to place a post (or tap PLANT to cancel).';
+  else if (radial) hint = 'Pick a post. Tap elsewhere to cancel.';
+  else if (g.t < 25 && postCount(0) === 0) hint = 'Tap = send swarm. Hold your gold ground = plant a post.';
+  else if (me.count < POST_COST && postCount(0) < MAX_POSTS && g.t < 60) hint = `Saving sparks: ${me.count}/15 to plant.`;
+  $('hint').textContent = hint;
+}
+
+function openRadial(wx, wy) {
+  [wx, wy] = snapWell(wx, wy);
+  const why = plantCheck(0, wx, wy);
+  const msg = { void: "Can't plant in a void.", max: 'You already have 4 posts.', close: 'Too close to another post or Core.',
+    ground: 'Not your ground. Send the swarm there first: its trail makes gold ground.', ships: `Need 15 sparks (you have ${G.crews[0].count}).` }[why];
+  if (why) { toast(msg, true); return false; }
+  const [sx, sy] = toScreen(wx, wy); const onWell = d2(wx, wy, G.map.well.x, G.map.well.y) < 20 * 20;
+  radial = { wx, wy };
+  const el = $('radial'); el.hidden = false; el.innerHTML = '';
+  const up = sy > 260; const R = 92; const kinds = ['bastion', 'forge', 'beacon'];
+  const sub = { bastion: 'shoots', forge: 'passers +50% hp', beacon: onWell ? 'claims · ×2 ships' : 'claims · +ships' };
+  kinds.forEach((k, i) => {
+    const a = (up ? -Math.PI / 2 : Math.PI / 2) + (i - 1) * 0.95;
+    let bx = sx + Math.cos(a) * R, by = sy + Math.sin(a) * R;
+    bx = Math.max(46, Math.min(VW - 46, bx)); by = Math.max(HUD_H + 44, Math.min(VH - DOCK_H - 10, by));
+    const b = document.createElement('button'); b.style.left = bx + 'px'; b.style.top = by + 'px'; b.dataset.kind = k;
+    b.innerHTML = svgIcon(k, '#e6b84a') + `<span>${KIND_NAME[k]}</span><small>${sub[k]}</small>`;
+    b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); G.taps++; choosePost(k); });
+    el.appendChild(b);
+  });
+  return true;
+}
+function closeRadial() { radial = null; const el = $('radial'); el.hidden = true; el.innerHTML = ''; }
+function choosePost(k) { if (!radial) return; const r = radial; closeRadial(); if (!playerOrder('plant', r.wx, r.wy, k)) toast('Could not plant there any more.', true); }
+
+cv.addEventListener('pointerdown', e => {
+  if (!G || G.over) return; e.preventDefault();
+  press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), long: false, moved: false };
+});
+cv.addEventListener('pointermove', e => { if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 14) press.moved = true; });
+cv.addEventListener('pointerup', e => {
+  if (!press || e.pointerId !== press.id) return;
+  const p = press; press = null;
+  if (p.long || !G || G.over) return;
+  if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 40) return;
+  G.taps++;
+  if (radial) { closeRadial(); return; }
+  const [wx, wy] = toWorld(p.x, p.y);
+  if (plantArm) { plantArm = false; openRadial(wx, wy); return; }
+  playerOrder('tap', wx, wy);
+});
+cv.addEventListener('pointercancel', () => { press = null; });
+function checkLongPress() {
+  if (!press || press.long || press.moved || !G || G.over) return;
+  if (performance.now() - press.t >= 350) { press.long = true; G.taps++; if (radial) closeRadial(); const [wx, wy] = toWorld(press.x, press.y); plantArm = false; openRadial(wx, wy); }
+}
+$('bHome').addEventListener('click', () => { if (!G || G.over) return; G.taps++; closeRadial(); plantArm = false; playerOrder('home'); });
+$('bPlant').addEventListener('click', () => {
+  if (!G || G.over) return; G.taps++; closeRadial();
+  if (plantArm) { plantArm = false; return; }
+  if (postCount(0) >= MAX_POSTS) { toast('You already have 4 posts.', true); return; }
+  if (G.crews[0].count < POST_COST) { toast(`Need 15 sparks (you have ${G.crews[0].count}).`, true); return; }
+  plantArm = true; hudT = 0;
+});
+
+// start card
+const TRY = [
+  '<b>1.</b> Plant a Beacon on the Starwell before anyone does (send the swarm there, then hold on it).',
+  '<b>2.</b> Bastion the choke, then strike the other way.',
+  '<b>3.</b> Play seeds 1 and 2 back to back: same rules, different board, different plan.',
+];
+function buildStart() {
+  $('rules').innerHTML = [
+    `<div><svg viewBox="-1 -1 2 2"><path d="M.9,0 L-.6,.56 L-.6,-.56Z" fill="#e6b84a"/></svg><span><b>Tap</b> the board: your whole swarm flies there. Tap a rival Core or post: strike it. Tap your Core: home.</span></div>`,
+    `<div>${svgIcon('bastion', '#e6b84a')}<span><b>Hold</b> your gold ground (or PLANT): spend 15 sparks on a post. <b>Bastion</b> shoots and walls a lane.</span></div>`,
+    `<div>${svgIcon('forge', '#e6b84a')}<span><b>Forge</b>: every spark that flies past gets +50% hp. Put it on your attack lane.</span></div>`,
+    `<div>${svgIcon('beacon', '#e6b84a')}<span><b>Beacon</b>: claims ground and +1 spark / 4 s (×2 on the Starwell). Break a Core its ring touches and you take it.</span></div>`,
+  ].join('');
+  const sb = $('seedBtns'); sb.innerHTML = '';
+  for (let s = 1; s <= 5; s++) { const b = document.createElement('button'); b.textContent = s; b.onclick = () => startGame(s); sb.appendChild(b); }
+  const r = document.createElement('button'); r.className = 'r'; r.textContent = 'random'; r.onclick = () => startGame(6 + ((Math.random() * 9000) | 0)); sb.appendChild(r);
+  $('seedLines').innerHTML = [1, 2, 3, 4, 5].map(s => { const m = makeMap(s); return `<div><b>${s}</b> · ${m.desc}. <span class="c">C ${KIND_NAME[m.styles[0]]}</span> · <span class="v">S ${KIND_NAME[m.styles[1]]}</span></div>`; }).join('');
+  $('tryBox').innerHTML = '<b>What to try</b><br>' + TRY.join('<br>');
+}
+function startGame(seed) {
+  newGame(seed); closeRadial(); plantArm = false; press = null;
+  $('start').hidden = true; $('end').hidden = true; $('hud').hidden = false; $('dock').hidden = false; $('hint').hidden = false;
+  hudT = 0; last = performance.now(); acc = 0;
+}
+function showEnd() {
+  const g = G; if (!g || !g.over) return;
+  $('endTitle').textContent = g.result ? 'WON' : 'LOST'; $('endTitle').style.color = g.result ? '#e6b84a' : '#ff7a5c';
+  $('endCause').textContent = g.cause;
+  const me = g.crews[0].stats, b = me.built;
+  $('endStats').innerHTML = `<span>time <b>${fmt(g.endAt)}</b></span><span>taps <b>${g.taps}</b></span><span>orders <b>${g.actions}</b></span><span>posts <b>${b.bastion + b.forge + b.beacon}</b></span>`;
+  let lines = g.log.slice();
+  if (lines.length > 10) lines = lines.slice(0, 4).concat([{ t: -1, text: `… ${lines.length - 9} more …`, sys: true }], lines.slice(-5));
+  $('endLog').innerHTML = '<div style="color:#97a0c2;margin-bottom:2px">Decision log · seed ' + g.seed + '</div>' + (lines.length ? lines.map(l => `<div class="${l.sys ? 'sys' : ''}"><span class="t">${l.t >= 0 ? fmt(l.t) : ''}</span>${l.text}</div>`).join('') : '<div class="sys">no orders given</div>');
+  $('end').hidden = false; $('hud').hidden = true; $('dock').hidden = true; $('hint').hidden = true; closeRadial();
+}
+$('bAgain').onclick = () => startGame(G.seed);
+$('bNext').onclick = () => startGame(G.seed >= 5 ? 1 : G.seed + 1);
+$('bMenu').onclick = () => { $('end').hidden = true; $('start').hidden = false; G = null; };
+
+// ---------------------------------------------------------------- loop
+let last = performance.now(), acc = 0, raf = 0, running = true;
+function frame(now) {
+  raf = 0; if (!running) return;
+  const t0 = performance.now();
+  let dt = Math.min(0.1, (now - last) / 1000); last = now;
+  checkLongPress();
+  if (G && !G.paused) {
+    acc += dt; let n = 0;
+    while (acc >= DT && n < 4) { if (!G.over || G.t < G.endAt + 1.3) step(); acc -= DT; n++; }
+    if (n === 4) acc = 0;
+  }
+  render(); updateHud(dt);
+  const ft = performance.now() - t0;
+  if (G && !G.over && G.t > 2) { frameStats.n++; frameStats.sum += ft; if (ft > frameStats.max) frameStats.max = ft; }
+  frameStats.last = ft;
+  raf = requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', () => {
+  running = !document.hidden;
+  if (running && !raf) { last = performance.now(); acc = 0; raf = requestAnimationFrame(frame); }
+});
+resize(); buildStart(); raf = requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- test hooks (Playwright)
+window.__claims = {
+  start: s => { startGame(s); return true; },
+  state: () => {
+    if (!G) return null; const g = G;
+    return { seed: g.seed, t: +g.t.toFixed(2), over: g.over, won: g.result, cause: g.cause || null, taps: g.taps, actions: g.actions,
+      crews: g.crews.map(c => ({ alive: c.alive, count: c.count, cap: c.cap, hp: c.alive ? Math.round(c.home.hp) : 0, cores: c.cores.length, beacons: c.beacons || 0, built: c.stats.built, lost: c.stats.lost, style: c.bot ? c.bot.style : null, order: c.order.kind })),
+      posts: g.structs.filter(p => p.alive && p.kind !== 'core' && p.kind !== 'turret').map(p => ({ kind: p.kind, crew: p.crew, x: Math.round(p.x), y: Math.round(p.y), hp: Math.round(p.hp), build: +p.build.toFixed(1) })),
+      log: g.log.map(l => fmt(l.t) + ' ' + l.text), kills: g.kills };
+  },
+  map: () => G && G.map,
+  order: (kind, x, y, post) => playerOrder(kind, x, y, post),
+  ownerAt: (x, y) => ownerAt(x, y),
+  plantCheck: (x, y) => plantCheck(0, x, y),
+  w2s: (x, y) => toScreen(x, y),
+  // run the sim without rendering; policy(api) is called every 0.5 s of sim time
+  fast: (sec, policySrc) => {
+    if (!G) return null; G.fast = true;
+    const policy = policySrc ? new Function('api', 'G', policySrc) : null; const api = window.__claims;
+    const end = G.t + sec; let pt = 0;
+    while (G.t < end && !(G.over && G.t > G.endAt + 0.1)) { step(); pt -= DT; if (policy && pt <= 0 && !G.over) { pt = 0.5; policy(api, G); } }
+    G.fast = false; return api.state();
+  },
+  perf: () => ({ frames: frameStats.n, avg: frameStats.n ? +(frameStats.sum / frameStats.n).toFixed(3) : 0, max: +frameStats.max.toFixed(2) }),
+  resetPerf: () => { frameStats = { n: 0, sum: 0, max: 0, last: 0 }; },
+  pause: p => { if (G) G.paused = p; },
+  T,
+};
+})();
+</script>
+</body>
+</html>
