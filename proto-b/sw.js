@@ -8,7 +8,7 @@
 // background as soon as the page asks ('music-fill', every launch until they're all in), so the first download stays small
 // and the full variety is there long before a player goes offline. <audio> asks for byte ranges: those are cut from
 // the saved file.
-const VERSION = '2cd228c1acca';
+const VERSION = '5a54a81dd4f6';
 const CACHE = `army-lab-${VERSION}`;
 const MUSIC = 'stars-music';
 

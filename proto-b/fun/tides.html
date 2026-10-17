@@ -36,6 +36,11 @@
   .log div{margin:2px 0}
   .log .tm{color:#e6b84a;font-variant-numeric:tabular-nums;margin-right:6px}
   .log .ev{color:#9aa4c4}
+  .sky{margin-top:10px;font-size:14px;color:#9aa4c4}
+  .sky .row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .sky .ev{display:flex;flex-direction:column;align-items:center;width:44px;padding:4px 0;border-radius:8px;background:#121833;border:1px solid #2a3560;font-size:14px;color:#c9d0e6;font-variant-numeric:tabular-nums}
+  .sky .ev.dim{opacity:.35}
+  .sky .ev.hit{border-color:#e6b84a}
   .btns{display:flex;gap:8px;margin-top:auto;padding-top:12px}
   .btn{flex:1;min-height:60px;border-radius:14px;border:1px solid #3a4780;background:#1b2448;color:#e8ecf8;font-size:17px;font-weight:700;cursor:pointer}
   .btn.main{background:#e6b84a;color:#1a1408;border-color:#e6b84a}
@@ -64,6 +69,7 @@
   <div class="cause" id="endCause"></div>
   <div class="stats" id="endStats"></div>
   <div class="log" id="endLog"></div>
+  <div class="sky" id="endSky"></div>
   <div class="btns">
     <button class="btn main" id="bAgain">Again</button>
     <button class="btn" id="bNext">Next seed</button>
@@ -87,12 +93,12 @@ const HOME = 0, MOVE = 1, ASSAULT = 2;
 // --- tuning ---
 const T = {
   speed: 52, shipHp: 2, fireCd: 0.5, range: 24, sense: 54,
-  turretRange: 62, turretCd: 0.8, turretHp: 20, turretDmg: 2,
+  turretRange: 52, turretCd: 1.0, turretHp: 20, turretDmg: 2,
   coreHp: [120, 100, 100], prod: 0.8, cap: 50, overcap: 90, startArmy: 10,
-  dmgTurret: 0.5, dmgCoreWarded: 0.16, dmgCoreOpen: 0.6, dmgCoreFury: 0.3, surgeMul: 2.5,
+  dmgTurret: 0.5, dmgCoreWarded: 0.04, dmgCoreOpen: 0.35, dmgCoreFury: 0.2, blitzOpen: 20, surgeMul: 5,
   wellR: 46, wellBonus: 25, wellMend: 0.2, laneHW: 36, cometHW: 26,
   tell: 8, botTele: 3, fury: 25, surgeAt: 300, hardEnd: 390,
-  firstEvent: 14, gapMin: 11, gapMax: 15,
+  firstEvent: 14, gapMin: 11, gapMax: 15, botOutnumber: 0, homeBoost: 1.5, botRest: 15,
 };
 
 // --- event kinds ---
@@ -118,8 +124,8 @@ const DECKS = {
 
 // --- bots: same rules, different temperaments ---
 const BOTDEF = {
-  1: { pourAt: 20, wellLove: 0.4, eclLove: 0.85, dodge: 0.3, react: 6.0, careful: 0.6, youBias: -10 }, // Corsairs: reckless raiders
-  2: { pourAt: 28, wellLove: 0.9, eclLove: 0.6, dodge: 0.9, react: 3.0, careful: 1.0, youBias: 4 },    // Veil: cautious, loves wells
+  1: { pourAt: 22, wellLove: 0.4, eclLove: 0.7, dodge: 0.3, react: 6.0, careful: 0.6, youBias: -10 }, // Corsairs: reckless raiders
+  2: { pourAt: 34, wellLove: 0.9, eclLove: 0.45, dodge: 0.9, react: 3.0, careful: 1.0, youBias: 4 },    // Veil: cautious, loves wells
 };
 
 // =====================================================================
@@ -159,7 +165,7 @@ let ripples = [];    // {x,y,life,col}
 // =====================================================================
 let seed = 1, time = 0, deck = [], cores = [], bots = {}, voids = [], seam = null, eclipse = false, surge = false;
 let running = false, over = null, taps = 0, decisions = [], story = [], banner = null, moveMark = null, deckLine = '';
-let lastTerr = 0;
+let lastTerr = 0, surgeAt = 300, hardEnd = 390;
 
 function fmt(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -249,6 +255,8 @@ function buildRound(sd) {
     deck.push(e);
     t += T.gapMin + mr() * (T.gapMax - T.gapMin);
   }
+  surgeAt = Math.min(T.surgeAt, Math.round(deck[deck.length - 1].t + 15));   // the Surge closes the deck
+  hardEnd = surgeAt + 90;
 }
 
 function makeLane(mr, hw, along) {
@@ -399,18 +407,25 @@ function endRound(win, cause) {
 // decisions (player taps) and their event context
 // ---------------------------------------------------------------------
 function eventsNear() { return deck.filter(e => (e.st === 1) || (e.st === 2) || (e.st === 3 && time - e.t < 6 && time >= e.t)); }
+let lastClassified = null;
 function classify(kind, tx, ty, k) {
+  lastClassified = null;
+  const r = classify0(kind, tx, ty, k);
+  if (lastClassified && !/^ignored|^risked|^late|^early|^passed/.test(r)) lastClassified.answered = true;
+  return r;
+}
+function classify0(kind, tx, ty, k) {
   const me = centroid(YOU, false);
   const travel = routeLen(me.x, me.y, tx, ty) / T.speed;
   const near = eventsNear();
   // 1. blitz on you
-  for (const e of near) if (e.k === BZ && e.tg === YOU && cores[e.by].alive) {
+  for (const e of near) if ((lastClassified = e) && e.k === BZ && e.tg === YOU && cores[e.by].alive) {
     const when = e.t - time;
     if (kind === 'recall') return 'answered ⚔ ' + NAME[e.by] + ' Blitz on you' + (when > 0 ? ' (' + Math.ceil(when) + ' s out)' : '');
     return 'ignored ⚔ ' + NAME[e.by] + ' Blitz on you' + (when > 0 ? ' (lands in ' + Math.ceil(when) + ' s)' : '');
   }
   // 2. starfall
-  for (const e of near) if (e.k === SF && e.st === 1) {
+  for (const e of near) if ((lastClassified = e) && e.k === SF && e.st === 1) {
     const crosses = routeCrossesLane(e.lane, me.x, me.y, tx, ty) && travel > (e.t - time) * 0.4;
     if (kind !== 'recall' && inLane(e.lane, tx, ty)) return 'ignored ☄ Starfall: sent into the marked lane';
     if (kind !== 'recall' && crosses) return 'risked ☄ Starfall: path crosses the lane (' + Math.ceil(e.t - time) + ' s)';
@@ -418,10 +433,10 @@ function classify(kind, tx, ty, k) {
     if (inside > 0) return 'dodged ☄ Starfall: pulled ' + inside + ' sparks out';
   }
   // 3. punish a blitzer
-  for (const e of near) if (e.k === BZ && e.tg !== YOU && kind === 'assault' && k === e.by)
+  for (const e of near) if ((lastClassified = e) && e.k === BZ && e.tg !== YOU && kind === 'assault' && k === e.by)
     return 'punished ⚔ ' + NAME[e.by] + ' Blitz: hit its emptied Core';
   // 4. eclipse
-  for (const e of near) if (e.k === EC) {
+  for (const e of near) if ((lastClassified = e) && e.k === EC) {
     const start = e.t, end = e.t + e.dur, arrive = time + travel;
     if (kind === 'assault') {
       if (arrive >= start - 1.5 && arrive <= end - 2) return 'timed for ◐ Eclipse (lands ' + (arrive < start ? 'as it starts' : 'inside it') + ')';
@@ -431,13 +446,14 @@ function classify(kind, tx, ty, k) {
     if (kind === 'recall') return 'held home through ◐ Eclipse';
   }
   // 5. well
-  for (const e of near) if (e.k === SW && e.st !== 3) {
+  for (const e of near) if ((lastClassified = e) && e.k === SW && e.st !== 3) {
     if (kind === 'move' && dist(tx, ty, e.well.x, e.well.y) < e.well.r + 25) return 'committed to ◎ Starwell';
     return 'passed on ◎ Starwell';
   }
-  for (const e of near) if (e.k === CT && e.st === 2 && kind !== 'recall' && segCrossesLane(e.lane, me.x, me.y, tx, ty)) return 'rode ✧ Comet tail';
-  for (const e of near) if (e.k === RF) return 'around ╱ Rift (' + (seam && seam.closed ? 'wall up' : 'lane open') + ')';
-  for (const e of near) if (e.k === BZ && e.tg !== YOU) return 'watched ⚔ ' + NAME[e.by] + ' Blitz on ' + NAME[e.tg];
+  for (const e of near) if ((lastClassified = e) && e.k === CT && e.st === 2 && kind !== 'recall' && segCrossesLane(e.lane, me.x, me.y, tx, ty)) return 'rode ✧ Comet tail';
+  for (const e of near) if ((lastClassified = e) && e.k === RF) return 'around ╱ Rift (' + (seam && seam.closed ? 'wall up' : 'lane open') + ')';
+  for (const e of near) if ((lastClassified = e) && e.k === BZ && e.tg !== YOU) return 'watched ⚔ ' + NAME[e.by] + ' Blitz on ' + NAME[e.tg];
+  lastClassified = null;
   return 'no event in sight';
 }
 function playerOrder(kind, tx, ty, k) {
@@ -488,11 +504,14 @@ function botThink(c) {
   const pool = homeCount(c);
   const well = deck.find(e => e.k === SW && ((e.st === 2 && e.t + e.dur - time > 4) || (e.st === 1 && e.t - time < 7)));
   if (well && pool >= 8 && rng() < b.wellLove) { b.plan = { kind: 'move', k: -1, x: well.well.x, y: well.well.y, at: time + T.botTele, why: 'well' }; return; }
-  const ecl = deck.find(e => e.k === EC && ((e.st === 2 && e.t + e.dur - time > 5) || (e.st === 1 && e.t - time < 7)));
-  if (ecl && pool >= 12 && rng() < b.eclLove) { const k = bestTarget(c); if (k >= 0 && pool >= homeCount(k) * 0.8 + 6) { b.plan = { kind: 'assault', k, at: time + T.botTele, why: 'eclipse' }; return; } }
-  if (pool >= b.pourAt) {
-    const k = bestTarget(c); if (k < 0) return;
-    if (pool < homeCount(k) * 1.3 + 4) return;       // readable: only pours when it outnumbers the guard
+  const ecl = deck.find(e => e.k === EC && e.st === 2 && e.t + e.dur - time > 5);   // bots are slow: they only start once it is dark
+  if (ecl && pool >= 15 && rng() < b.eclLove) { const k = bestTarget(c); if (k >= 0 && pool >= homeCount(k) * 0.8 + 6) { b.plan = { kind: 'assault', k, at: time + T.botTele, why: 'eclipse' }; return; } }
+  if (deck.some(e => e.k === EC && (e.st === 1 || e.st === 2))) return;   // rivals hold their breath for the dark
+  const pourAt = homeCount(YOU) < 8 ? Math.round(b.pourAt * 0.6) : b.pourAt;   // an empty crown tempts them
+  if (pool >= pourAt && time >= (b.restUntil || 0)) {
+    const k = surge ? bestTarget(c) : YOU;           // regular pours go at the crown; rival-on-rival only when the sky says
+    if (k < 0) return;
+    if (T.botOutnumber && pool < homeCount(k) * T.botOutnumber + 4) return;
     const sfe = toldStarfallOnPath(c, cores[k].x, cores[k].y);
     if (sfe && rng() < b.dodge) return;              // careful crews wait for the Starfall
     b.plan = { kind: 'assault', k, at: time + T.botTele, why: 'pour' };
@@ -506,9 +525,17 @@ function botLaunch(c) {
     if (!cores[k].alive) k = bestTarget(c);
     if (k < 0) return;
     order(c, ASSAULT, cores[k].x, cores[k].y, k, false, true);
+    b.raidUntil = time + T.fury;
     return;
   }
-  if (p.kind === 'assault') { if (!cores[p.k].alive) return; order(c, ASSAULT, cores[p.k].x, cores[p.k].y, p.k, true); }
+  if (p.kind === 'assault') {
+    if (!cores[p.k].alive) return;
+    if (p.why === 'pour' && deck.some(e => e.k === EC && e.st === 1)) return;   // hesitates: the dark is coming
+    order(c, ASSAULT, cores[p.k].x, cores[p.k].y, p.k, true);
+    const ec = deck.find(e => e.k === EC && e.st === 2);
+    b.raidUntil = ec ? ec.t + ec.dur + 3 : time + 18;          // the tide goes out
+    if (p.why === 'pour') b.restUntil = time + T.botRest;
+  }
   else order(c, MOVE, p.x, p.y, -1, true);
 }
 function botDodge(c, e) {
@@ -534,7 +561,7 @@ function onTell(e) {
   if (e.k === RF) showBanner(RF, 'Rift in 8 s: the wall ' + (seam && seam.closed ? 'opens' : 'closes') + ' for 20 s, changing the way to the ' + NAME[seam ? seam.rival : 1] + '.', KC[RF]);
   if (e.k === BZ) {
     if (!cores[e.by].alive) { e.void = true; return; }
-    showBanner(BZ, NAME[e.by] + ' will Blitz ' + (e.tg === YOU ? 'YOUR Core' : 'the ' + NAME[e.tg]) + ' in 8 s with everything. Blitz sparks hit Cores at full damage.', COL[e.by]);
+    showBanner(BZ, NAME[e.by] + ' will Blitz ' + (e.tg === YOU ? 'YOUR Core' : 'the ' + NAME[e.tg]) + ' in 8 s with everything. Hold home, or hit their Core: it is open while they are out.', COL[e.by]);
     order(e.by, HOME, 0, 0, -1, false);             // the blitzer gathers
     // the target, if a bot, may brace
     if (e.tg !== YOU && bots[e.tg] && rng() < bots[e.tg].careful) order(e.tg, HOME, 0, 0, -1, false);
@@ -623,7 +650,9 @@ function updateEvents() {
     if (e.st === 2 && time >= e.t + e.dur) { e.st = 3; onEnd(e); }
   }
   eclipse = deck.some(e => e.k === EC && e.st === 2);
-  surge = time >= T.surgeAt;
+  if (!surge && time >= surgeAt) showBanner(SU, 'Surge! The wards are gone: once its turrets fall, any Core breaks fast.', KC[SU], 3);
+  if (!surge && time >= surgeAt - T.tell && time < surgeAt - T.tell + 1 / 59) showBanner(SU, 'Surge in 8 s: the sky is out of events. The wards will go and Cores will fall.', KC[SU], 3);
+  surge = time >= surgeAt;
 }
 function activeComets() { return deck.filter(e => e.k === CT && e.st === 2); }
 
@@ -657,7 +686,7 @@ function loseCause(by) {
   if (sf) return 'Lost: your army was in the Starfall lane at ' + fmt(sf.t) + ', and ' + who + ' found your Core open.';
   const away = fieldCount(YOU) > homeCount(YOU);
   if (cores[YOU].inEclipse) return 'Lost: ' + who + ' hit your Core in the Eclipse at ' + fmt(T0) + (away ? ' while your army was out.' : '.');
-  if (cores[YOU].inSurge) return 'Lost: the Surge at 5:00 let ' + who + ' break your Core at ' + fmt(T0) + '.';
+  if (cores[YOU].inSurge) return 'Lost: the Surge at ' + fmt(surgeAt) + ' let ' + who + ' break your Core at ' + fmt(T0) + '.';
   return 'Lost: ' + who + ' broke your Core at ' + fmt(T0) + (away ? ' while your army was out.' : '.');
 }
 function winCause(k) {
@@ -720,7 +749,7 @@ function step(dt) {
     if (sord[i] === HOME) {
       const co = cores[c], it = co.intr;
       if (it >= 0) { gx = sx[it]; gy = sy[it]; }
-      else { const a = sang[i] + time * 0.35, r = 18 + srad[i] * 1.1; gx = co.x + Math.cos(a) * r; gy = co.y + Math.sin(a) * r * 0.85; }
+      else { const a = sang[i] + time * 0.35, r = 42 + srad[i]; gx = co.x + Math.cos(a) * r; gy = co.y + Math.sin(a) * r * 0.9; }
     } else if (sord[i] === MOVE) {
       if (foeOk && dist(sx[f], sy[f], stx[i], sty[i]) < 64) { gx = sx[f]; gy = sy[f]; }
       else { gx = stx[i] + Math.cos(sang[i]) * srad[i]; gy = sty[i] + Math.sin(sang[i]) * srad[i]; }
@@ -731,6 +760,7 @@ function step(dt) {
     route(sx[i], sy[i], gx, gy);
     let dx = RX - sx[i], dy = RY - sy[i]; const d = Math.sqrt(dx * dx + dy * dy) + 1e-4;
     let sp = T.speed;
+    if (sord[i] === HOME && cores[c].intr < 0) sp *= T.homeBoost;     // the tide pulls sparks home
     for (let n = 0; n < comets.length; n++) if (inLane(comets[n].lane, sx[i], sy[i])) { sp *= 2; break; }
     if (d < 12) sp *= d / 12;
     let dvx = dx / d * sp, dvy = dy / d * sp;
@@ -796,18 +826,27 @@ function step(dt) {
   for (const c of [1, 2]) {
     const b = bots[c]; if (!cores[c].alive) continue;
     if (b.plan && time >= b.plan.at) botLaunch(c);
+    if (b.raidUntil && time > b.raidUntil) {
+      b.raidUntil = 0;
+      for (let i = 0; i < shipHW; i++) if (salive[i] && screw[i] === c && sord[i] === ASSAULT) sord[i] = HOME;
+    }
     b.think -= dt;
     if (b.think <= 0) { b.think = 4 + rng() * 2; botThink(c); }
   }
-  if (time >= T.hardEnd && running) {
+  if (time >= hardEnd && running) {
     const alive = [1, 2].filter(c => cores[c].alive).map(c => NAME[c]);
-    endRound(false, 'Lost: the sky closed at ' + fmt(T.hardEnd) + ' with the ' + alive.join(' and the ') + ' still standing' + (taps === 0 ? ': you never committed your swarm.' : '.'));
+    endRound(false, 'Lost: the sky closed at ' + fmt(hardEnd) + ' with the ' + alive.join(' and the ') + ' still standing' + (taps === 0 ? ': you never committed your swarm.' : '.'));
   }
+}
+function coreOpen(k) {
+  // a crew that is mid-Blitz has poured its ward out with its army
+  for (const e of deck) if (e.k === BZ && e.by === k && e.st === 3 && !e.void && time >= e.t && time - e.t < T.blitzOpen) return true;
+  return false;
 }
 function hitStructure(i, c, k) {
   const co = cores[k];
-  const fury = sfury[i] > time;
-  const mul = surge ? T.surgeMul : 1;
+  const fury = sfury[i] > time || coreOpen(k);
+  const mul = 1;
   if (!eclipse && !fury) {
     let tb = null, bd = 1e9;
     for (const tu of co.turr) if (tu.hp > 0) { const d = dist(sx[i], sy[i], tu.x, tu.y); if (d < bd) { bd = d; tb = tu; } }
@@ -818,10 +857,10 @@ function hitStructure(i, c, k) {
       return;
     }
     addTracer(sx[i], sy[i], co.x, co.y, c);
-    damageCore(k, T.dmgCoreWarded * mul, c, i);
+    damageCore(k, surge ? T.dmgCoreOpen : T.dmgCoreWarded, c, i);
   } else {
     addTracer(sx[i], sy[i], co.x, co.y, c);
-    damageCore(k, (eclipse ? T.dmgCoreOpen : T.dmgCoreFury) * mul, c, i);
+    damageCore(k, (eclipse || coreOpen(k) ? T.dmgCoreOpen : T.dmgCoreFury) * mul, c, i);
   }
 }
 
@@ -1016,7 +1055,20 @@ function drawEventLabels(ctx) {
     }
     if (e.k === CT && e.st === 1) boardLabel(ctx, e.lane.cx, e.lane.cy, CT, 'Comet ' + Math.ceil(left), KC[CT]);
     if (e.k === RF && e.st === 1 && seam) boardLabel(ctx, (seam.ax + seam.bx) / 2, (seam.ay + seam.by) / 2 - 18, RF, (seam.closed ? 'opens ' : 'closes ') + Math.ceil(left), KC[RF]);
-    if (e.k === EC && e.st === 1) for (const co of cores) if (co.alive) boardLabel(ctx, co.x, co.y + 46, EC, 'dark in ' + Math.ceil(left), KC[EC]);
+    if (e.k === EC && (e.st === 1 || e.st === 2)) {
+      // launch helper: when would your swarm land at each rival Core?
+      const me = centroid(YOU, false);
+      for (const co of cores) {
+        if (!co.alive) continue;
+        if (co.c === YOU) continue;                    // the track and the shade carry the countdown
+        const ly = co.y - 54;
+        const eta = routeLen(me.x, me.y, co.x, co.y) / T.speed + 0.8;
+        const wait = e.st === 1 ? left - eta + 1 : -1, tooLate = (e.t + e.dur - time) - eta < 3;
+        if (tooLate) boardLabel(ctx, co.x, ly, EC, 'too late', '#9aa4c4');
+        else if (wait > 0.5) boardLabel(ctx, co.x, ly, EC, 'go in ' + Math.ceil(wait), KC[EC]);
+        else boardLabel(ctx, co.x, ly, EC, 'GO now', '#ffffff');
+      }
+    }
     if (e.k === BZ && e.st === 1 && !e.void && cores[e.by].alive && cores[e.tg].alive) {
       const a = cores[e.by], b = cores[e.tg];
       ctx.setLineDash([2, 7]); ctx.lineDashOffset = -time * 30; ctx.strokeStyle = COL[e.by]; ctx.globalAlpha = 0.75; ctx.lineWidth = 3 / S;
@@ -1035,8 +1087,8 @@ function drawCores(ctx) {
       continue;
     }
     if (co.c === YOU) { // crown ring + corner anchors
-      ctx.strokeStyle = 'rgba(230,184,74,0.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(co.x, co.y, 38, 0, 7); ctx.stroke();
-      ctx.fillStyle = col; for (let n = 0; n < 3; n++) { const a = -Math.PI / 2 + (n - 1) * 0.35; const px = co.x + Math.cos(a) * 38, py = co.y + Math.sin(a) * 38;
+      ctx.strokeStyle = 'rgba(230,184,74,0.55)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(co.x, co.y, 36, 0, 7); ctx.stroke();
+      ctx.fillStyle = col; for (let n = 0; n < 3; n++) { const a = -Math.PI / 2 + (n - 1) * 0.35; const px = co.x + Math.cos(a) * 36, py = co.y + Math.sin(a) * 36;
         ctx.beginPath(); ctx.moveTo(px + Math.cos(a) * 7, py + Math.sin(a) * 7); ctx.lineTo(px + Math.cos(a + 1.6) * 3, py + Math.sin(a + 1.6) * 3); ctx.lineTo(px + Math.cos(a - 1.6) * 3, py + Math.sin(a - 1.6) * 3); ctx.fill(); }
     }
     // hp ring
@@ -1054,6 +1106,21 @@ function drawCores(ctx) {
     }
     const fs = 15 / S; ctx.font = '800 ' + fs + 'px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = col; ctx.fillText(SIG[co.c], co.x, co.y + 1);
+  }
+}
+function drawPiles(ctx) {
+  const fs = 15 / S; ctx.font = '800 ' + fs + 'px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const co of cores) {
+    if (!co.alive) continue;
+    // sigil on top of the swarm
+    ctx.fillStyle = '#141a33'; ctx.beginPath(); ctx.arc(co.x, co.y, 10, 0, 7); ctx.fill();
+    ctx.fillStyle = COL[co.c]; ctx.fillText(SIG[co.c], co.x, co.y + 1);
+    const n = homeCount(co.c), below = co.y < H / 2;
+    const y = co.y + (below ? 66 : -66);
+    const txt = (co.c === YOU ? 'home ' : '') + n;
+    const w = ctx.measureText(txt).width + fs;
+    ctx.fillStyle = 'rgba(8,10,22,0.75)'; roundRect(ctx, co.x - w / 2, y - fs * 0.7, w, fs * 1.4, fs * 0.7); ctx.fill();
+    ctx.fillStyle = COL[co.c]; ctx.fillText(txt, co.x, y + 1);
   }
 }
 function hexPath(ctx, x, y, r) { ctx.beginPath(); for (let n = 0; n < 6; n++) { const a = Math.PI / 6 + n * Math.PI / 3; n ? ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } ctx.closePath(); }
@@ -1118,7 +1185,7 @@ function drawFx(ctx, dt) {
 function trackItems() {
   const act = deck.filter(e => e.st === 2), up = deck.filter(e => e.st < 2 && !e.void);
   const list = act.concat(up).slice(0, 3);
-  if (list.length < 3 && time < T.surgeAt) list.push({ k: SU, t: T.surgeAt, st: 0, dur: 0 });
+  if (list.length < 3 && time < surgeAt) list.push({ k: SU, t: surgeAt, st: time >= surgeAt - T.tell ? 1 : 0, dur: 0 });
   return list;
 }
 function drawHud(ctx) {
@@ -1127,19 +1194,14 @@ function drawHud(ctx) {
   ctx.fillStyle = '#0d1226'; ctx.fillRect(0, 0, VW, TOPH);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
   ctx.font = '800 20px system-ui,sans-serif'; ctx.fillStyle = surge ? '#ff6a6a' : '#e8ecf8'; ctx.fillText(fmt(time), 12, TOPH / 2);
-  // your army
-  ctx.fillStyle = COL[0]; ctx.beginPath(); ctx.moveTo(74, 14); ctx.lineTo(82, 32); ctx.lineTo(66, 32); ctx.closePath(); ctx.fill();
-  ctx.font = '800 18px system-ui,sans-serif'; ctx.fillText(String(armyN[YOU]), 88, TOPH / 2);
-  // your core hp
-  const yb = cores[YOU]; drawBar(ctx, 118, 18, 50, 12, yb.hp / yb.max, COL[0]);
-  // rivals
-  let x = VW - 12;
-  for (const c of [2, 1]) {
-    const co = cores[c], bw = Math.min(64, (VW - 200) / 2 - 30);
-    x -= bw; drawBar(ctx, x, 18, bw, 12, co.alive ? co.hp / co.max : 0, COL[c]);
-    ctx.font = '800 16px system-ui,sans-serif'; ctx.fillStyle = COL[c]; ctx.textAlign = 'right';
-    ctx.fillText(co.alive ? SIG[c] + ' ' + armyN[c] : SIG[c] + ' ✕', x - 6, TOPH / 2); ctx.textAlign = 'left';
-    x -= 52;
+  // three crew blocks: silhouette + army count over a Core hp bar
+  const bx0 = 74, bwk = (VW - bx0 - 6) / 3;
+  for (let c = 0; c < 3; c++) {
+    const co = cores[c], x0 = bx0 + c * bwk;
+    shipGlyph(ctx, c, x0 + 10, 17, 9);
+    ctx.font = '800 16px system-ui,sans-serif'; ctx.fillStyle = COL[c]; ctx.textAlign = 'left';
+    ctx.fillText((c === YOU ? '' : SIG[c] + ' ') + (co.alive ? armyN[c] : '✕'), x0 + 22, 17);
+    drawBar(ctx, x0 + 2, 31, bwk - 12, 8, co.alive ? co.hp / co.max : 0, COL[c]);
   }
   // track
   const ty = TOPH; ctx.fillStyle = '#111733'; ctx.fillRect(0, ty, VW, TRACKH);
@@ -1159,7 +1221,7 @@ function drawHud(ctx) {
     if (e.k === RF) name = 'Rift ' + (act ? (seam && seam.closed ? 'wall' : 'open') : (seam && seam.closed ? 'opens' : 'closes'));
     ctx.fillText(name, x0 + 40, ty + 20);
     ctx.font = (act || told ? '800 ' : '600 ') + '15px system-ui,sans-serif'; ctx.fillStyle = act ? col : told ? '#fff' : '#9aa4c4';
-    ctx.fillText(act ? 'NOW ' + fmt(e.t + e.dur - time) : fmt(left), x0 + 40, ty + 39);
+    ctx.fillText(act ? 'NOW ' + fmt(Math.ceil(e.t + e.dur - time)) : fmt(Math.ceil(left)), x0 + 40, ty + 39);
     if (e.k === BZ && n === 0 || (e.k === BZ && told)) {} // colour already marks the rival
   }
   // dock
@@ -1189,7 +1251,12 @@ function drawHud(ctx) {
     lines.forEach((l, n) => ctx.fillText(l, 56, by0 + 16 + n * 19));
     ctx.globalAlpha = 1;
   }
-  if (surge) { ctx.fillStyle = 'rgba(255,74,74,0.85)'; ctx.font = '800 14px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✹ SURGE: Cores take ×2.5 damage', VW / 2, VH - DOCKH - 12); }
+  if (surge) { ctx.fillStyle = 'rgba(255,74,74,0.85)'; ctx.font = '800 14px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✹ SURGE: no wards, Cores break once turrets fall', VW / 2, VH - DOCKH - 12); }
+}
+function shipGlyph(ctx, c, x, y, r) {
+  ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.75, y + r * 0.7);
+  if (c === 1) ctx.lineTo(x, y + r * 0.2); else if (c === 2) ctx.lineTo(x, y + r * 1.1);
+  ctx.lineTo(x - r * 0.75, y + r * 0.7); ctx.closePath(); ctx.fillStyle = COL[c]; ctx.fill();
 }
 function drawBar(ctx, x, y, w, h, f, col) {
   roundRect(ctx, x, y, w, h, 4); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
@@ -1216,6 +1283,7 @@ function render(dt) {
   drawTelegraphs(g);
   drawShips(g);
   drawFx(g, dt);
+  drawPiles(g);
   drawEventLabels(g);
   if (eclipse) { const e = deck.find(e => e.k === EC && e.st === 2); boardLabel(g, W / 2, 330, EC, 'ECLIPSE ' + Math.ceil(e.t + e.dur - time) + ' s: Cores open', KC[EC]); }
   drawHud(g);
@@ -1320,6 +1388,15 @@ function showEnd() {
     const ev = document.createElement('span'); ev.className = 'ev'; ev.textContent = '· ' + d.note; div.appendChild(ev);
     lg.appendChild(div);
   }
+  const sk = document.getElementById('endSky'); sk.innerHTML = '';
+  const head = document.createElement('div'); head.textContent = 'This sky (gold = you answered it):'; sk.appendChild(head);
+  const row = document.createElement('div'); row.className = 'row';
+  for (const e of deck) {
+    const d = document.createElement('div'); d.className = 'ev' + (e.t > o.t ? ' dim' : '') + (e.answered ? ' hit' : '');
+    d.appendChild(glyphCanvas(e.k, e.k === BZ ? COL[e.by] : KC[e.k], 20));
+    const tt = document.createElement('span'); tt.textContent = fmt(e.t); d.appendChild(tt); row.appendChild(d);
+  }
+  sk.appendChild(row);
   endEl.classList.add('on');
 }
 function pickLog() {
@@ -1354,6 +1431,10 @@ window.__tides = {
   decisions() { return decisions; }, story() { return story; }, lost() { return lost.slice(); },
   perf() { const s = perf.samples.slice().sort((a, b) => a - b); return { frames: perf.frames, avg: perf.frames ? perf.sum / perf.frames : 0, max: perf.max, p95: s.length ? s[Math.floor(s.length * 0.95)] : 0 }; },
   resetPerf() { perf.frames = 0; perf.sum = 0; perf.max = 0; perf.samples = []; },
+  plans() { return [1, 2].map(c => bots[c] && bots[c].plan ? Object.assign({ c }, bots[c].plan) : null).filter(Boolean); },
+  dev: { spawn: (c, x, y) => spawn(c, x, y), order: (c, o, x, y, t) => order(c, o, x, y, t, false), clear() { salive.fill(0); shipHW = 0; armyN.fill(0); },
+    freeze() { deck.forEach(e => { e.st = 3; }); for (const c of [1, 2]) bots[c].think = 1e9; }, setEclipse(on) { deck.push({ k: EC, t: time - 0.01, dur: on ? 999 : 0, st: on ? 2 : 3, kills: [0,0,0], dodged: [] }); },
+    homeN: c => homeCount(c), cap(v) { T.cap = v; } },
   deckSpec, ships() { let n = 0; for (let i = 0; i < shipHW; i++) if (salive[i]) n++; return n; },
 };
 
