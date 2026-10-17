@@ -8,6 +8,7 @@
 <style>
 :root{--gold:#e6b84a;--cy:#5ad2e1;--vi:#785ae1;--navy:#0b0f1e;--ink:#e9ecf6;--dim:#97a0c2;--warn:#ff7a5c}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;background:#0b0f1e;color:var(--ink);overflow:hidden;touch-action:none;overscroll-behavior:none;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;
   font:15px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -43,7 +44,7 @@ button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer}
 #radial button{position:absolute;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:2px solid var(--gold);
   background:#191f38f2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;pointer-events:auto;
   font-size:14px;font-weight:700;color:var(--gold);box-shadow:0 4px 18px #000a}
-#radial button small{font-weight:400;font-size:12px;color:#d9dcea;line-height:1.05}
+#radial button small{font-weight:400;font-size:13px;color:#d9dcea;line-height:1.05}
 #radial button svg{width:30px;height:30px}
 #radial button.no{opacity:.4}
 #radial .why{position:absolute;transform:translateX(-50%);font-size:14px;color:#ffd6cc;white-space:nowrap;text-shadow:0 1px 3px #000}
@@ -73,6 +74,12 @@ button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer}
 #end .btns{display:flex;gap:10px;width:100%;max-width:380px;margin-top:auto}
 #end .btns button{flex:1;height:62px;border-radius:16px;border:2px solid #34407a;background:#141c38;font-weight:700;font-size:16px}
 #end .btns button.main{border-color:var(--gold);color:var(--gold)}
+#start{overflow-y:auto;touch-action:pan-y}
+@media (max-height:760px){
+  .card{gap:6px;padding-top:8px}.card h1{font-size:24px;margin:0}.card .lede{display:none}
+  .rules{gap:3px}.seeds button{height:52px}.try{padding:6px 10px}.seedlines{gap:3px}
+  #dock{height:80px}#dock button{height:60px}#hint{bottom:82px}
+}
 </style>
 </head>
 <body>
@@ -119,11 +126,11 @@ const POST_COST = 15, MAX_POSTS = 4, BUILD_T = 3;
 const T = {
   speed: 40, shipHp: 6, forgeMul: 1.5, shipRange: 22, shipCd: 0.6, shipDmg: 1, structDmg: 0.6,
   coreHp: [120, 100, 100], coreR: 18, turretHp: 20, turretRange: 55, turretCd: 0.6, turretDmg: 2, turretDist: 28,
-  prodEvery: 1.0, beaconRate: 0.25, capBase: 45, capPerBeacon: 10, capPerCore: 20,
+  prodEvery: 1.0, beaconRate: 0.25, capBase: 45, capPerBeacon: 6, capPerCore: 20,
   coreRing: 60, beaconRing: 66, captureReach: 16,
-  bastionHp: 220, bastionRange: 62, bastionCd: 0.45, bastionDmg: 2, bastionShots: 3,
+  bastionHp: 400, bastionRange: 62, bastionCd: 0.45, bastionDmg: 2, bastionShots: 3,
   forgeHp: 60, forgeR: 34, beaconHp: 60, postR: 12,
-  trail: 8, surgeAt: 300, surgeMul: 3,
+  trail: 8, surgeAt: 300, surgeMul: 3, bleedBase: 0.5, bleedK: 2.0,
 };
 const KIND_NAME = { bastion: 'Bastion', forge: 'Forge', beacon: 'Beacon' };
 const STYLE = {
@@ -208,7 +215,7 @@ function newGame(seed) {
     ships: [], free: [], structs: [], crews: [], fx: [], shots: [], log: [], taps: 0, actions: 0,
     ringOwner: new Int8Array(NC), ringDist: new Float32Array(NC), trailOwner: new Int8Array(NC).fill(-1), trailT: new Float32Array(NC),
     owner: new Int8Array(NC).fill(-1), blocked: new Uint8Array(NC), head: new Int16Array(NC), next: new Int16Array(MAXS),
-    terrT: 0, flow: new Map(), surge: false, kills: [], banner: 4.5,
+    terrT: 0, flow: new Map(), surge: false, kills: [], banner: 4.5, share: [0.33, 0.33, 0.33],
   };
   G = g;
   for (let i = 0; i < MAXS; i++) { g.ships.push({ i, alive: false }); g.free.push(MAXS - 1 - i); }
@@ -320,7 +327,9 @@ function recomputeTerritory() {
     if (s.kind === 'core') src(s.x, s.y, T.coreRing, s.crew);
     else if (s.kind === 'beacon' && s.build <= 0) src(s.x, s.y, T.beaconRing, s.crew);
   }
-  const td = terrImg.data, md = mineImg.data;
+  const td = terrImg.data, md = mineImg.data, cnt = [0, 0, 0]; let tot = 0;
+  for (let k = 0; k < NC; k++) if (g.ringOwner[k] >= 0) { cnt[g.ringOwner[k]]++; tot++; }
+  for (let c = 0; c < 3; c++) g.share[c] = tot ? cnt[c] / tot : 0;
   for (let k = 0; k < NC; k++) {
     let o = g.ringOwner[k], a = 0;
     if (o >= 0) a = 58;
@@ -328,7 +337,9 @@ function recomputeTerritory() {
     g.owner[k] = o;
     const p = k * 4;
     if (o >= 0) { td[p] = RGB[o][0]; td[p + 1] = RGB[o][1]; td[p + 2] = RGB[o][2]; td[p + 3] = a; } else td[p + 3] = 0;
-    md[p] = 255; md[p + 1] = 214; md[p + 2] = 120; md[p + 3] = o === 0 ? 120 : 0;
+    let plantable = o === 0;
+    if (plantable) { const x = (k % GC + 0.5) * CS, y = (((k / GC) | 0) + 0.5) * CS; for (const co of g.crews[0].cores) if (co.alive && d2(x, y, co.x, co.y) < (T.coreRing + 4) ** 2) plantable = false; }
+    md[p] = 255; md[p + 1] = 214; md[p + 2] = 120; md[p + 3] = plantable ? 150 : 0;
   }
   terrCx.putImageData(terrImg, 0, 0); mineCx.putImageData(mineImg, 0, 0);
 }
@@ -348,6 +359,7 @@ function postCount(c) {
 function plantCheck(c, x, y) {
   if (x < 10 || x > W - 10 || y < 10 || y > H - 10 || inVoid(x, y, 8)) return 'void';
   if (postCount(c) >= MAX_POSTS) return 'max';
+  for (const s of G.structs) if (s.alive && s.kind === 'core' && s.crew === c && d2(s.x, s.y, x, y) < (T.coreRing + 4) ** 2) return 'home';
   for (const s of G.structs) if (s.alive && s.kind !== 'turret') { const need = s.kind === 'core' ? 42 : 26; if (d2(s.x, s.y, x, y) < need * need) return 'close'; }
   if (ownerAt(x, y) !== c) return 'ground';
   if (G.crews[c].count < POST_COST) return 'ships';
@@ -433,11 +445,12 @@ function structDie(s, by) {
   }
 }
 function coreBroken(core, by) {
-  const victim = core.crew, vc = G.crews[victim], bc = G.crews[by];
+  const victim = core.crew, vc = G.crews[victim], bc = by >= 0 ? G.crews[by] : null;
   let capBy = null;
-  for (const p of G.structs) if (p.alive && p.kind === 'beacon' && p.build <= 0 && p.crew === by && dist(p, core) <= T.beaconRing + T.captureReach) { capBy = p; break; }
-  const st = bc.stats, total = st.coreDmg[victim] || 1;
-  G.kills.push({ t: G.t, victim, by, captured: !!capBy, forgedShare: st.forgedCoreDmg[victim] / total, wasHome: vc.home === core });
+  if (bc) for (const p of G.structs) if (p.alive && p.kind === 'beacon' && p.build <= 0 && p.crew === by && dist(p, core) <= T.beaconRing + T.captureReach) { capBy = p; break; }
+  const st = bc ? bc.stats : null, total = st ? st.coreDmg[victim] || 1 : 1;
+  G.kills.push({ t: G.t, victim, by, captured: !!capBy, forgedShare: st ? st.forgedCoreDmg[victim] / total : 0, wasHome: vc.home === core, share: G.share.slice() });
+  const hadMore = vc.cores.length > 1;
   vc.cores = vc.cores.filter(c => c !== core);
   if (capBy) {
     core.alive = true; core.crew = by; core.hp = core.maxhp * 0.5;
@@ -446,12 +459,13 @@ function coreBroken(core, by) {
   } else {
     for (const t of core.turrets) t.alive = false;
   }
-  if (by === 0) G.log.push({ t: G.t, text: capBy ? `captured the ${NAMES[victim]} Core with a Beacon` : `broke the ${NAMES[victim]} Core`, sys: true });
-  else if (victim !== 0) G.log.push({ t: G.t, text: `${NAMES[by]} broke the ${NAMES[victim]}`, sys: true });
+  if (by < 0) G.log.push({ t: G.t, text: `the Surge cracked ${victim === 0 ? (hadMore ? 'one of your Cores' : 'your Core') : (hadMore ? 'one ' + NAMES[victim] + ' Core' : POSS[victim] + ' Core')}`, sys: true });
+  else if (by === 0) G.log.push({ t: G.t, text: capBy ? `captured ${POSS[victim]} Core with a Beacon` : `broke ${POSS[victim]} Core`, sys: true });
+  else if (victim !== 0) G.log.push({ t: G.t, text: `${NAMES[by]} ${capBy ? 'captured' : 'broke'} ${POSS[victim]} Core`, sys: true });
   if (!vc.cores.length) eliminate(victim);
   else if (vc.home === core) vc.home = vc.cores[0];
   G.terrT = 0;
-  toast(capBy ? `${by === 0 ? 'You' : NAMES[by]} captured ${victim === 0 ? 'YOUR' : POSS[victim]} Core!` : `${victim === 0 ? 'Your' : NAMES[victim]} Core broken`, victim === 0);
+  if (by < 0) toast(`The Surge cracked ${victim === 0 ? 'YOUR' : POSS[victim]} Core`, victim === 0); else toast(capBy ? `${by === 0 ? 'You' : NAMES[by]} captured ${victim === 0 ? 'YOUR' : POSS[victim]} Core!` : `${victim === 0 ? 'Your' : NAMES[victim]} Core broken`, victim === 0);
 }
 function eliminate(c) {
   const cr = G.crews[c]; cr.alive = false;
@@ -463,7 +477,11 @@ function eliminate(c) {
 // ---------------------------------------------------------------- sim step
 function step() {
   const g = G; g.t += DT;
-  if (!g.surge && g.t >= T.surgeAt) { g.surge = true; toast('SURGE: every Core now takes triple damage', true); }
+  if (!g.surge && g.t >= T.surgeAt) { g.surge = true; toast('SURGE: Cores crack by themselves, faster with less ground', true); }
+  if (g.surge && !g.over) {
+    // in the Surge every Core cracks on its own; the less ground your claims hold, the faster it cracks
+    for (const cr of g.crews) if (cr.alive) { const b = (T.bleedBase + T.bleedK * (1 - (g.share[cr.id] || 0))) * DT; for (const core of cr.cores) if (core.alive) { core.hp -= b; core.bleedT = 0.2; if (core.hp <= 0) { core.hp = 0; structDie(core, -1); break; } } }
+  }
   buildHash();
   // production
   for (const cr of g.crews) {
@@ -600,7 +618,7 @@ function updateStruct(st) {
 }
 
 // ---------------------------------------------------------------- bots: same rules, seeded style, slow and readable
-function toward(a, b, d) { const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; return { x: a.x + dx / l * d, y: a.y + dy / l * d }; }
+function toward(a, b, d, rot) { let dx = b.x - a.x, dy = b.y - a.y; const l = Math.hypot(dx, dy) || 1; if (rot) { const c = Math.cos(rot), s = Math.sin(rot); [dx, dy] = [dx * c - dy * s, dx * s + dy * c]; } return { x: a.x + dx / l * d, y: a.y + dy / l * d }; }
 function botTargets(cr) {
   const out = [];
   for (const o of G.crews) if (o.id !== cr.id && o.alive) for (const core of o.cores) out.push(core);
@@ -654,11 +672,11 @@ function botPlan(cr) {
     bastion: [
       () => chokes[0] ? { kind: 'bastion', x: chokes[0].x, y: chokes[0].y } : { kind: 'bastion', ...toward(home, you, 74) },
       () => G.t > 70 ? (wantWell() || ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 90)) })) : 'wait',
-      () => G.t > 120 ? (chokes[1] ? { kind: 'bastion', x: chokes[1].x, y: chokes[1].y } : { kind: 'bastion', ...toward(home, you, 56) }) : 'wait',
+      () => G.t > 120 ? (chokes[1] ? { kind: 'bastion', x: chokes[1].x, y: chokes[1].y } : { kind: 'bastion', ...toward(home, you, 84, 0.5) }) : 'wait',
     ],
     forge: [
-      () => G.t > 14 ? { kind: 'forge', ...toward(home, you, 48) } : 'wait',
-      () => G.t > 120 ? { kind: 'bastion', ...toward(home, you, 40) } : 'wait',
+      () => G.t > 14 ? { kind: 'forge', ...toward(home, you, 82) } : 'wait',
+      () => G.t > 120 ? { kind: 'bastion', ...toward(home, you, 84, -0.6) } : 'wait',
     ],
     beacon: [
       () => wantWell() || ({ kind: 'beacon', ...(expandSpot(cr) || toward(home, you, 104)) }),
@@ -679,7 +697,7 @@ function botPlan(cr) {
   return null;
 }
 const ATTACK_AT = { bastion: [42, 95], forge: [28, 60], beacon: [50, 150] };
-const attackNeed = (style, t) => style === 'forge' && t > 120 ? 38 : ATTACK_AT[style][0];
+const attackNeed = (style, t) => t >= T.surgeAt ? 20 : style === 'forge' && t > 120 ? 38 : ATTACK_AT[style][0]; // in the Surge every crew goes all-in
 function startWind(cr, w) {
   cr.bot.wind = Object.assign({ t: 3 }, w);
   if (w.kind === 'attack' && w.ref && w.ref.crew === 0) toast(`${NAMES[cr.id]} will strike YOUR ${w.ref.kind === 'core' ? 'Core' : KIND_NAME[w.ref.kind]} in 3`, true, cr.id);
@@ -697,17 +715,16 @@ function botStep(cr) {
     }
     return;
   }
-  // fast defensive check (every 1 s): recall when the home Core is under attack
-  b.threatT -= DT;
-  if (b.threatT <= 0) {
-    b.threatT = 1;
-    const foes = countNear(home.x, home.y, 85, s => s.crew !== cr.id);
-    const mine = countNear(home.x, home.y, 85, s => s.crew === cr.id);
-    if (foes >= 6 && foes > mine && cr.order.kind !== 'home' && cr.count > mine + 4) { issue(cr.id, 'home', home.x, home.y); b.next = G.t + 4; return; }
-  }
   if (G.t < b.next) return;
   b.next = G.t + 4 + G.R() * 2;
   const n = cr.count, o = cr.order;
+  // slow defence: on its normal think, recall if its home is being hit (unless its own strike is about to land)
+  {
+    const foes = countNear(home.x, home.y, 85, s => s.crew !== cr.id);
+    const mine = countNear(home.x, home.y, 85, s => s.crew === cr.id);
+    const landing = o.kind === 'attack' && o.ref && o.ref.kind === 'core' && o.ref.hp < o.ref.maxhp * 0.5;
+    if (foes >= 6 && foes > mine && o.kind !== 'home' && n > mine + 4 && !landing) { issue(cr.id, 'home', home.x, home.y); return; }
+  }
   // a wave is spent when few of its sparks are still out: pull back, the next wave starts from home
   if (o.kind === 'attack') {
     let out = 0; for (const s of G.ships) if (s.alive && s.crew === cr.id && s.state === 1) out++;
@@ -794,6 +811,8 @@ function winCause() {
   const t = fmt(g.endAt);
   const other = g.kills.find(k => k.by !== 0 && k.victim !== 0);
   const tail = other ? ` (the ${NAMES[other.by]} broke the ${NAMES[other.victim]} for you)` : '';
+  const lastAny = g.kills[g.kills.length - 1];
+  if (lastAny && lastAny.by < 0) return `Won in the Surge: ${POSS[lastAny.victim]} Core cracked first at ${t} (ground: you ${Math.round(lastAny.share[0] * 100)}%, them ${Math.round(lastAny.share[lastAny.victim] * 100)}%).`;
   if (!last) return `Won: the rivals broke each other at ${t}.`;
   const nm = NAMES[last.victim];
   if (last.captured) return `Won: your Beacon swallowed the ${nm} Core at ${t}${tail}.`;
@@ -806,25 +825,27 @@ function loseCause() {
   const g = G, k = g.kills.find(x => x.victim === 0 && x.wasHome) || g.kills.filter(x => x.victim === 0).pop();
   const t = fmt(g.endAt);
   if (!k) return `Lost at ${t}.`;
+  if (k.by < 0) { let top = 1; if (k.share[2] > k.share[1]) top = 2; return `Lost in the Surge: your Core cracked first. You held ${Math.round(k.share[0] * 100)}% of the ground, ${POSS[top]} claims ${Math.round(k.share[top] * 100)}%.`; }
   const by = g.crews[k.by], nm = NAMES[k.by], poss = POSS[k.by];
   const myB = g.crews[0].stats.built.beacon, theirB = by.stats.built.beacon;
   const lostB = g.crews[0].stats.lostToBastion;
   const bOwner = lostB[1] >= lostB[2] ? 1 : 2;
+  if (g.actions === 0) return `Lost: you never gave an order, and ${poss} ${by.bot.style === 'forge' ? 'Forge lane' : by.bot.style === 'beacon' ? 'Beacons' : 'swarm'} broke your Core at ${t}.`;
   if (k.captured) return `Lost: ${poss} Beacon swallowed your Core at ${t}. A Beacon ring touching your Core is the tell.`;
   if (by.bot.style === 'beacon' && theirB >= myB + 2) return `Lost: ${poss} Beacons out-grew you (${theirB} Beacons to ${myB}).`;
   if (k.forgedShare >= 0.4) return `Lost: ${poss} Forge lane broke your Core at ${t} (forged sparks did ${Math.round(k.forgedShare * 100)}% of it).`;
   if (lostB[bOwner] >= 15) return `Lost: ${lostB[bOwner]} of your sparks died to ${POSS[bOwner]} Bastion, then the ${nm} broke you at ${t}.`;
   if (theirB >= myB + 2) return `Lost: ${poss} Beacons out-grew you (${theirB} Beacons to ${myB}).`;
-  if (g.actions <= 1) return `Lost: you never moved. The ${nm} broke your Core at ${t}.`;
   return `Lost: the ${nm} broke your Core at ${t} while your swarm was ${g.crews[0].order.kind === 'home' ? 'home but outnumbered' : 'away at ' + placeName(g.crews[0].order.x, g.crews[0].order.y)}.`;
 }
 
 // ---------------------------------------------------------------- rendering
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 let dpr = 1, VW = 390, VH = 844, BX = 0, BY = 60, SC = 1;
-const HUD_H = 58, DOCK_H = 128;
+const HUD_H = 58; let DOCK_H = 128;
 function resize() {
   VW = innerWidth; VH = innerHeight; dpr = Math.min(2, devicePixelRatio || 1);
+  DOCK_H = VH <= 760 ? 100 : 128;
   cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr); cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
   const bw = VW - 8, bh = VH - HUD_H - DOCK_H;
   SC = Math.min(bw / W, bh / H); BX = (VW - W * SC) / 2; BY = HUD_H + (bh - H * SC) / 2;
@@ -871,7 +892,7 @@ function render() {
     ctx.strokeStyle = '#33406f'; ctx.lineWidth = 2; ctx.stroke();
   }
   // chokes
-  ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '600 14px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const c of g.map.chokes) {
     ctx.strokeStyle = '#ffffff22'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(c.x, c.y, 20, 0, 7); ctx.stroke(); ctx.setLineDash([]);
@@ -978,11 +999,12 @@ function drawStruct(s, now) {
     ctx.save(); ctx.translate(s.x, s.y); ctx.scale(s.r, s.r);
     ctx.fillStyle = s.hitT > 0 ? '#ffffff' : '#141b36'; ctx.fill(HEX); ctx.lineWidth = 0.16; ctx.strokeStyle = col; ctx.stroke(HEX);
     ctx.restore();
+    if (G.surge) { ctx.strokeStyle = '#ff7a5c'; ctx.globalAlpha = 0.4 + 0.4 * Math.sin(now * 8); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y - 12); ctx.lineTo(s.x - 2, s.y - 3); ctx.lineTo(s.x - 7, s.y + 4); ctx.lineTo(s.x + 3, s.y + 13); ctx.stroke(); ctx.globalAlpha = 1; }
     // hp arc
     ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, s.hp / s.maxhp)); ctx.stroke();
     ctx.fillStyle = col; ctx.font = '800 15px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(s.crew === 0 ? '★' : SIG[s.crew], s.x, s.y + 1);
-    if (s !== c.home) { ctx.font = '600 12px system-ui'; ctx.fillText('captured', s.x, s.y + 32); }
+    if (s !== c.home) { ctx.font = '600 14px system-ui'; ctx.fillText('captured', s.x, s.y + 32); }
     return;
   }
   // posts: hex + silhouette icon
@@ -997,7 +1019,7 @@ function drawStruct(s, now) {
   else { ctx.fillStyle = col; ctx.fill(ICONP.beacon); ctx.strokeStyle = col; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.moveTo(-0.66, 0); ctx.lineTo(-0.42, 0); ctx.moveTo(0.42, 0); ctx.lineTo(0.66, 0); ctx.moveTo(0, -0.72); ctx.lineTo(0, -0.62); ctx.stroke(); }
   ctx.globalAlpha = 1; ctx.restore();
   if (building) { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 7 + 3 * Math.sin(now * 10), -Math.PI / 2, -Math.PI / 2 + u * Math.PI * 2); ctx.stroke(); }
-  if (s.well) { ctx.fillStyle = col; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×2', s.x + 17, s.y - 13); }
+  if (s.well) { ctx.fillStyle = col; ctx.font = '700 14px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×2', s.x + 17, s.y - 13); }
   if (s.hp < s.maxhp && !building) { ctx.fillStyle = '#000a'; ctx.fillRect(s.x - 12, s.y + 15, 24, 3.5); ctx.fillStyle = col; ctx.fillRect(s.x - 12, s.y + 15, 24 * s.hp / s.maxhp, 3.5); }
 }
 
@@ -1016,21 +1038,21 @@ function updateHud(dt) {
   hudT -= dt; if (hudT > 0 || !G) return; hudT = 0.2;
   const g = G, me = g.crews[0];
   const ck = $('clock'); ck.textContent = fmt(g.t); ck.className = 'clock' + (g.surge ? ' surge' : '');
-  $('army').textContent = me.count; $('cap').textContent = '/' + me.cap;
+  $('army').textContent = me.count; $('cap').textContent = g.surge ? ` ${Math.round(g.share[0] * 100)}% gnd` : '/' + me.cap;
   for (let c = 1; c < 3; c++) {
     const cr = g.crews[c], el = $('riv' + c), h = cr.home;
     el.className = 'riv' + (cr.alive ? '' : ' dead');
     const posts = g.structs.filter(p => p.alive && p.crew === c && p.kind !== 'core' && p.kind !== 'turret');
-    el.querySelector('.nm').innerHTML = `${KIND_NAME[cr.bot.style]} crew <span style="color:#97a0c2">· ${cr.count}${posts.length ? ' · ' + posts.map(p => p.kind[0].toUpperCase() + p.kind.slice(1, 2)).join('') : ''}</span>`;
+    el.querySelector('.nm').innerHTML = `${KIND_NAME[cr.bot.style]} <span style="color:#97a0c2">${g.surge ? Math.round(g.share[c] * 100) + '% gnd' : '▲' + cr.count}</span>`;
     el.querySelector('.bar>div').style.width = (cr.alive ? Math.max(0, h.hp / h.maxhp) * 100 : 0) + '%';
   }
   const bp = $('bPlant'), can = me.count >= POST_COST && postCount(0) < MAX_POSTS;
   bp.className = (can ? '' : 'off') + (plantArm ? ' arm' : '');
   bp.querySelector('span').textContent = postCount(0) >= MAX_POSTS ? '4 / 4 posts' : plantArm ? 'tap gold ground' : `15 sparks · ${postCount(0)}/4`;
   let hint = '';
-  if (plantArm) hint = 'Tap your gold ground to place a post (or tap PLANT to cancel).';
+  if (plantArm) hint = 'Tap glowing gold ground. PLANT again cancels.';
   else if (radial) hint = 'Pick a post. Tap elsewhere to cancel.';
-  else if (g.t < 25 && postCount(0) === 0) hint = 'Tap = send swarm. Hold your gold ground = plant a post.';
+  else if (g.t < 25 && postCount(0) === 0) hint = 'Tap = send the swarm. Hold where it flies = plant a post.';
   else if (me.count < POST_COST && postCount(0) < MAX_POSTS && g.t < 60) hint = `Saving sparks: ${me.count}/15 to plant.`;
   $('hint').textContent = hint;
 }
@@ -1039,17 +1061,21 @@ function openRadial(wx, wy) {
   [wx, wy] = snapWell(wx, wy);
   const why = plantCheck(0, wx, wy);
   const msg = { void: "Can't plant in a void.", max: 'You already have 4 posts.', close: 'Too close to another post or Core.',
-    ground: 'Not your ground. Send the swarm there first: its trail makes gold ground.', ships: `Need 15 sparks (you have ${G.crews[0].count}).` }[why];
+    ground: 'Not your ground. Send the swarm there first: its trail makes gold ground.',
+    home: "Posts go up beyond your Core's ring. Send the swarm out, then hold where it flies.", ships: `Need 15 sparks (you have ${G.crews[0].count}).` }[why];
   if (why) { toast(msg, true); return false; }
   const [sx, sy] = toScreen(wx, wy); const onWell = d2(wx, wy, G.map.well.x, G.map.well.y) < 20 * 20;
   radial = { wx, wy };
   const el = $('radial'); el.hidden = false; el.innerHTML = '';
-  const up = sy > 260; const R = 92; const kinds = ['bastion', 'forge', 'beacon'];
-  const sub = { bastion: 'shoots', forge: 'passers +50% hp', beacon: onWell ? 'claims · ×2 ships' : 'claims · +ships' };
+  // three big buttons in a shallow arc above the spot (below it near the top), the whole group kept on screen
+  const up = sy > HUD_H + 150, gap = 92;
+  const cx = Math.max(gap + 46, Math.min(VW - gap - 46, sx));
+  const kinds = ['bastion', 'forge', 'beacon'];
+  const sub = { bastion: 'walls a lane', forge: '+50% hp lane', beacon: onWell ? 'ground ×2' : 'ground +sparks' };
   kinds.forEach((k, i) => {
-    const a = (up ? -Math.PI / 2 : Math.PI / 2) + (i - 1) * 0.95;
-    let bx = sx + Math.cos(a) * R, by = sy + Math.sin(a) * R;
-    bx = Math.max(46, Math.min(VW - 46, bx)); by = Math.max(HUD_H + 44, Math.min(VH - DOCK_H - 10, by));
+    const bx = cx + (i - 1) * gap;
+    let by = up ? sy - 88 + (i === 1 ? -14 : 0) : sy + 88 + (i === 1 ? 14 : 0);
+    by = Math.max(HUD_H + 46, Math.min(VH - DOCK_H - 30, by));
     const b = document.createElement('button'); b.style.left = bx + 'px'; b.style.top = by + 'px'; b.dataset.kind = k;
     b.innerHTML = svgIcon(k, '#e6b84a') + `<span>${KIND_NAME[k]}</span><small>${sub[k]}</small>`;
     b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); G.taps++; choosePost(k); });
@@ -1099,7 +1125,7 @@ const TRY = [
 function buildStart() {
   $('rules').innerHTML = [
     `<div><svg viewBox="-1 -1 2 2"><path d="M.9,0 L-.6,.56 L-.6,-.56Z" fill="#e6b84a"/></svg><span><b>Tap</b> the board: your whole swarm flies there. Tap a rival Core or post: strike it. Tap your Core: home.</span></div>`,
-    `<div>${svgIcon('bastion', '#e6b84a')}<span><b>Hold</b> your gold ground (or PLANT): spend 15 sparks on a post. <b>Bastion</b> shoots and walls a lane.</span></div>`,
+    `<div>${svgIcon('bastion', '#e6b84a')}<span><b>Hold</b> gold ground beyond your Core's ring (or tap PLANT): spend 15 sparks on a post. <b>Bastion</b> shoots and walls a lane.</span></div>`,
     `<div>${svgIcon('forge', '#e6b84a')}<span><b>Forge</b>: every spark that flies past gets +50% hp. Put it on your attack lane.</span></div>`,
     `<div>${svgIcon('beacon', '#e6b84a')}<span><b>Beacon</b>: claims ground and +1 spark / 4 s (×2 on the Starwell). Break a Core its ring touches and you take it.</span></div>`,
   ].join('');
@@ -1121,8 +1147,8 @@ function showEnd() {
   const me = g.crews[0].stats, b = me.built;
   $('endStats').innerHTML = `<span>time <b>${fmt(g.endAt)}</b></span><span>taps <b>${g.taps}</b></span><span>orders <b>${g.actions}</b></span><span>posts <b>${b.bastion + b.forge + b.beacon}</b></span>`;
   let lines = g.log.slice();
-  if (lines.length > 10) lines = lines.slice(0, 4).concat([{ t: -1, text: `… ${lines.length - 9} more …`, sys: true }], lines.slice(-5));
-  $('endLog').innerHTML = '<div style="color:#97a0c2;margin-bottom:2px">Decision log · seed ' + g.seed + '</div>' + (lines.length ? lines.map(l => `<div class="${l.sys ? 'sys' : ''}"><span class="t">${l.t >= 0 ? fmt(l.t) : ''}</span>${l.text}</div>`).join('') : '<div class="sys">no orders given</div>');
+  if (lines.length > 14) lines = lines.slice(0, 6).concat([{ t: -1, text: `… ${lines.length - 13} more …`, sys: true }], lines.slice(-7));
+  $('endLog').innerHTML = '<div style="color:#97a0c2;margin-bottom:2px">Decision log · seed ' + g.seed + '</div>' + lines.map(l => `<div class="${l.sys ? 'sys' : ''}"><span class="t">${l.t >= 0 ? fmt(l.t) : ''}</span>${l.text}</div>`).join('') + (g.log.some(l => !l.sys) ? '' : '<div class="sys">no orders given</div>');
   $('end').hidden = false; $('hud').hidden = true; $('dock').hidden = true; $('hint').hidden = true; closeRadial();
 }
 $('bAgain').onclick = () => startGame(G.seed);
