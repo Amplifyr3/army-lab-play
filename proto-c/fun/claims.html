@@ -117,11 +117,11 @@ const POSS = ['your', "the Corsairs'", "the Syndicate's"];
 const SIG = ['', 'C', 'S'];
 const POST_COST = 15, MAX_POSTS = 4, BUILD_T = 3;
 const T = {
-  speed: 40, shipHp: 3, forgeMul: 1.5, shipRange: 22, shipCd: 0.5, shipDmg: 1, structDmg: 0.25,
-  coreHp: [120, 100, 100], coreR: 18, turretHp: 25, turretRange: 55, turretCd: 0.6, turretDmg: 1, turretDist: 28,
+  speed: 40, shipHp: 6, forgeMul: 1.5, shipRange: 22, shipCd: 0.6, shipDmg: 1, structDmg: 0.6,
+  coreHp: [120, 100, 100], coreR: 18, turretHp: 20, turretRange: 55, turretCd: 0.6, turretDmg: 2, turretDist: 28,
   prodEvery: 1.0, beaconRate: 0.25, capBase: 45, capPerBeacon: 10, capPerCore: 20,
   coreRing: 60, beaconRing: 66, captureReach: 16,
-  bastionHp: 140, bastionRange: 62, bastionCd: 0.35, bastionDmg: 2,
+  bastionHp: 220, bastionRange: 62, bastionCd: 0.45, bastionDmg: 2, bastionShots: 3,
   forgeHp: 60, forgeR: 34, beaconHp: 60, postR: 12,
   trail: 8, surgeAt: 300, surgeMul: 3,
 };
@@ -227,7 +227,7 @@ function newGame(seed) {
     g.crews.push({
       id: c, alive: true, home: core, cores: [core], count: 0, cap: T.capBase, prodAcc: 0,
       order: { kind: 'home', x: core.x, y: core.y, ref: null, site: null, via: null },
-      bot: c === 0 ? null : { style: map.styles[c - 1], next: 5 + g.R() * 3, wind: null, stage: 0, waitMove: null, atkStart: 0, threatT: 0 },
+      bot: c === 0 ? null : { style: map.styles[c - 1], next: 5 + g.R() * 3, wind: null, stage: 0, waitMove: null, atkStart: 0, threatT: 0, walkT: 0 },
       stats: { made: 0, lost: 0, built: { bastion: 0, forge: 0, beacon: 0 }, bastionKills: 0, lostToBastion: [0, 0, 0], coreDmg: [0, 0, 0], forgedCoreDmg: [0, 0, 0] },
     });
   }
@@ -393,6 +393,18 @@ function nearestEnemy(x, y, crew, R) {
         const dd = d2(o.x, o.y, x, y); if (dd < bd) { bd = dd; best = o; }
       }
   return best;
+}
+// a few random sparks in reach other than the first target (cheap: sample the hash around the post)
+function nearestEnemyExcept(st, R, skip) {
+  const g = G, rc = Math.ceil(R / CS), ci = (st.x / CS) | 0, cj = (st.y / CS) | 0, r2 = R * R;
+  const pick = (g.R() * 9) | 0; let n = 0, found = null;
+  for (let j = Math.max(0, cj - rc), j1 = Math.min(GR - 1, cj + rc); j <= j1; j++)
+    for (let i = Math.max(0, ci - rc), i1 = Math.min(GC - 1, ci + rc); i <= i1; i++)
+      for (let k = g.head[j * GC + i]; k >= 0; k = g.next[k]) {
+        const o = g.ships[k]; if (!o.alive || o.crew === st.crew || o === skip) continue;
+        if (d2(o.x, o.y, st.x, st.y) < r2) { found = o; if (n++ >= pick) return o; }
+      }
+  return found;
 }
 function countNear(x, y, R, pred) {
   let n = 0; const r2 = R * R;
@@ -578,9 +590,12 @@ function updateStruct(st) {
   const R = st.kind === 'turret' ? T.turretRange : T.bastionRange;
   const e = nearestEnemy(st.x, st.y, st.crew, R);
   if (e) {
-    dmgShip(e, st.kind === 'turret' ? T.turretDmg : T.bastionDmg, st);
-    addShot(st.x, st.y, e.x, e.y, st.crew); st.aim = Math.atan2(e.y - st.y, e.x - st.x);
-    st.cd = st.kind === 'turret' ? T.turretCd : T.bastionCd;
+    st.aim = Math.atan2(e.y - st.y, e.x - st.x);
+    if (st.kind === 'turret') { dmgShip(e, T.turretDmg, st); addShot(st.x, st.y, e.x, e.y, st.crew); st.cd = T.turretCd; return; }
+    // a Bastion fires a volley at the three nearest sparks in reach
+    const ex = e.x, ey = e.y; dmgShip(e, T.bastionDmg, st); addShot(st.x, st.y, ex, ey, st.crew);
+    for (let k = 1; k < T.bastionShots; k++) { const o = nearestEnemyExcept(st, R, e); if (!o) break; addShot(st.x, st.y, o.x, o.y, st.crew); dmgShip(o, T.bastionDmg, st); }
+    st.cd = T.bastionCd;
   } else st.cd = 0.2;
 }
 
@@ -598,8 +613,8 @@ function pickTarget(cr) {
     const pl = pathLen(cr.home, core); if (pl > 5000) continue;
     const tur = core.turrets.reduce((a, t) => a + (t.alive ? t.hp : 0), 0);
     const frac = (core.hp + tur) / (core.maxhp + T.turretHp * 3);
-    let sc = frac * 100 + pl * 0.05;
-    if (core.crew === 0) sc -= 40;
+    let sc = frac * 100 + pl * 0.05 + (G.R() - 0.5) * 50; // disorganised: sometimes they go for each other
+    if (core.crew === 0) sc -= 20;
     if (sc < bs) { bs = sc; best = core; }
   }
   return best;
@@ -663,8 +678,8 @@ function botPlan(cr) {
   }
   return null;
 }
-const ATTACK_AT = { bastion: [42, 95], forge: [24, 42], beacon: [50, 150] };
-const attackNeed = (style, t) => style === 'forge' && t > 110 ? 38 : ATTACK_AT[style][0];
+const ATTACK_AT = { bastion: [42, 95], forge: [28, 60], beacon: [50, 150] };
+const attackNeed = (style, t) => style === 'forge' && t > 120 ? 38 : ATTACK_AT[style][0];
 function startWind(cr, w) {
   cr.bot.wind = Object.assign({ t: 3 }, w);
   if (w.kind === 'attack' && w.ref && w.ref.crew === 0) toast(`${NAMES[cr.id]} will strike YOUR ${w.ref.kind === 'core' ? 'Core' : KIND_NAME[w.ref.kind]} in 3`, true, cr.id);
@@ -693,15 +708,19 @@ function botStep(cr) {
   if (G.t < b.next) return;
   b.next = G.t + 4 + G.R() * 2;
   const n = cr.count, o = cr.order;
-  // retreat a spent assault
-  if (o.kind === 'attack' && n < Math.max(7, b.atkStart * 0.25)) { issue(cr.id, 'home', home.x, home.y); return; }
-  if (o.kind === 'attack') return; // keep pushing
+  // a wave is spent when few of its sparks are still out: pull back, the next wave starts from home
+  if (o.kind === 'attack') {
+    let out = 0; for (const s of G.ships) if (s.alive && s.crew === cr.id && s.state === 1) out++;
+    if (out >= Math.max(6, b.atkStart * 0.25)) return; // keep pushing
+    issue(cr.id, 'home', home.x, home.y); return;
+  }
   if (o.kind === 'plant' && !o.site.done) return; // still delivering
   // plant the next post of its style
   const want = botPlan(cr);
   if (want && want !== 'wait' && n >= POST_COST + 3) {
     if (ownerAt(want.x, want.y) === cr.id && plantCheck(cr.id, want.x, want.y) === null) { startWind(cr, { kind: 'plant', x: want.x, y: want.y, post: want.kind }); return; }
-    if (!(o.kind === 'move' && b.waitMove && d2(b.waitMove.x, b.waitMove.y, want.x, want.y) < 20 * 20)) { startWind(cr, { kind: 'move', x: want.x, y: want.y, post: want.kind }); return; }
+    if (!(o.kind === 'move' && b.waitMove && d2(b.waitMove.x, b.waitMove.y, want.x, want.y) < 20 * 20)) { startWind(cr, { kind: 'move', x: want.x, y: want.y, post: want.kind }); b.walkT = G.t; return; }
+    if (G.t - b.walkT > 22) { b.stage++; b.waitMove = null; } // could not claim it: give that post up
     return; // walking there; the trail will make it ground
   }
   // strike
@@ -1160,6 +1179,7 @@ window.__claims = {
   perf: () => ({ frames: frameStats.n, avg: frameStats.n ? +(frameStats.sum / frameStats.n).toFixed(3) : 0, max: +frameStats.max.toFixed(2) }),
   resetPerf: () => { frameStats = { n: 0, sum: 0, max: 0, last: 0 }; },
   pause: p => { if (G) G.paused = p; },
+  _g: () => G,
   T,
 };
 })();
