@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#080b18">
+<title>Flight · Take the Stars prototype</title>
+<style>
+  html,body{margin:0;height:100%;background:#080b18;overflow:hidden;touch-action:none;overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#e8ecf8}
+  button{font-family:inherit}
+  canvas#c{position:fixed;left:0;top:0;display:block;touch-action:none}
+  #sab{position:fixed;left:0;bottom:0;width:1px;height:env(safe-area-inset-bottom);pointer-events:none;visibility:hidden}
+  .card{position:fixed;inset:0;display:none;flex-direction:column;justify-content:flex-end;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-sizing:border-box;background:rgba(6,9,20,.78)}
+  .card.on{display:flex}
+  .box{background:#11172f;border:1px solid #2a3560;border-radius:18px;padding:14px 16px 12px;margin-bottom:10px}
+  h1{margin:0 0 6px;font-size:28px;letter-spacing:.04em;font-weight:800}
+  .cause{font-size:17px;line-height:1.35;margin:0 0 10px;color:#fff}
+  .stats{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:15px;color:#9aa4c4;line-height:1.45}
+  .stats b{color:#e8ecf8;text-align:right}
+  .btns{display:flex;gap:8px}
+  .btn{flex:1;min-height:60px;border-radius:14px;border:1px solid #3a4780;background:#1b2448;color:#e8ecf8;font-size:18px;font-weight:700;cursor:pointer}
+  .btn.main{background:#62c8ff;color:#06121c;border-color:#62c8ff}
+  .home{display:block;text-align:center;color:#9aa4c4;font-size:14px;padding:12px 0 2px}
+  .link{display:block;width:100%;background:none;border:0;color:#9aa4c4;font-size:15px;padding:14px 0 4px;min-height:44px;cursor:pointer}
+  .tip{font-size:15px;line-height:1.35;margin:0 0 10px;color:#ffc9b0}
+  .tip:empty{display:none}
+  .lede{font-size:15px;line-height:1.4;color:#9aa4c4;margin:0 0 12px}
+  .lede b{color:#ffc9b0;font-weight:700}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;min-height:48px;border-radius:12px;border:1px solid #3a4780;background:#141a33;color:#9aa4c4;font-size:16px;font-weight:700}
+  .seg button.on{background:#2a3560;color:#fff;border-color:#62c8ff}
+  .rcard{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;text-align:left;margin:0 0 8px;padding:12px 16px;min-height:76px;
+    border-radius:16px;border:1px solid #6a3a2a;border-left:6px solid #f08a5d;background:#1a1426;color:#e8ecf8;cursor:pointer}
+  .rcard b{font-size:22px;font-weight:800;color:#f08a5d;letter-spacing:.02em}
+  .rcard span{font-size:15px;line-height:1.3;color:#e8ecf8}
+  .rcard:active{background:#2a1a24}
+  @media (max-height:700px){ h1{font-size:24px} .cause,.tip,.lede{font-size:14px} .stats{font-size:13px;line-height:1.35} .btn{min-height:56px} .box{padding:12px 14px 10px} .rcard{min-height:64px;padding:9px 14px} .rcard b{font-size:20px} .seg button{min-height:44px} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="sab"></div>
+<div class="card" id="end">
+  <div class="box">
+    <h1 id="endTitle">Rival destroyed</h1>
+    <div class="cause" id="endCause"></div>
+    <div class="tip" id="endTip"></div>
+    <div class="stats" id="endStats"></div>
+  </div>
+  <div class="btns"><button class="btn main" id="bAgain">Again</button><button class="btn" id="bSame">Same seed</button></div>
+  <button class="link" id="bRivals">Pick another rival</button>
+</div>
+<div class="card" id="start">
+  <div class="box">
+    <h1>Pick a rival</h1>
+    <div class="lede">Same dice, Focus and Strain as you. It plans before you draw and never sees your path.
+      <b>Watch its engine:</b> in Plan it leans the way it will turn. Mostly.</div>
+    <div class="seg" id="lvl"><button data-l="easy">Easy</button><button data-l="medium" class="on">Medium</button><button data-l="hard">Hard</button></div>
+  </div>
+  <button class="rcard" data-r="ram"><b>Ram</b><span>Noses straight at you and jousts. Never looks back.</span></button>
+  <button class="rcard" data-r="kite"><b>Kite</b><span>Holds Mid range and circles. Always the same way.</span></button>
+  <button class="rcard" data-r="wisp"><b>Wisp</b><span>Slips out of your Sights. Flips when you get behind it.</span></button>
+  <a class="home" href="index.html">All prototypes</a>
+</div>
+<script>
+'use strict';
+// =====================================================================
+// Flight: a drawn-path starfighter duel for one thumb, prototype E (grey box)
+// World 400 x 840: board y 0-560 (top two thirds), panel y 560-840 (the pad, the dice, the buttons)
+// =====================================================================
+const W = 400, BH = 560, H = 840, B = 32;
+const K = 0.9;                                   // pad scale: 1 board px = 0.9 pad px (speed 3 = 137 pad px)
+const PO = { x: 200, y: 712 };                    // the pad Craft's centre
+const PAD = { x: 4, y: 564, w: 392, h: 188 };
+const BTN = { x: 8, y: 758, w: 384, h: 76 };
+const C_CRAFT = '#62c8ff', C_HUSK = '#f08a5d', C_SHIELD = '#5b8cff', C_HULL = '#f0f0f0', C_STRAIN = '#ffc53d', C_GOLD = '#e6b84a';
+const HEX = { green: '#6fe3a3', white: '#f0f0f0', red: '#ff5a6a' };
+const WORD = { green: 'Easy', white: 'Steady', red: 'Hard' };
+const DEG = Math.PI / 180, UP = -Math.PI / 2;
+const T = { thr1: 83, thr2: 119, tapPx: 12, tapMs: 250, flyMs: 700, revealMs: 300, tumbleMs: 800, settleGap: 80, popMs: 120, autoPassMs: 600 };
+const STRIKE = ['Hit', 'Hit', 'Hit', 'Burst', 'Spirit', 'Spirit', 'Blank', 'Blank'];
+const DODGE = ['Dodge', 'Dodge', 'Dodge', 'Spirit', 'Spirit', 'Blank', 'Blank', 'Blank'];
+const PHASES = ['Plan', 'Fly', 'Act', 'Shoot'];
+
+// ---------------------------------------------------------------- rng + helpers
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let rng = mulberry32(1);
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function angN(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+function smooth(t) { return t * t * (3 - 2 * t); }
+function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+
+// ---------------------------------------------------------------- manoeuvres: one constant-curvature arc, centre to centre
+const lenOf = s => B + 40 * s;                    // 72 / 112 / 152
+function colourOf(shape, speed) { if (shape === 'Flip') return 'red'; if (shape === 'Turn') return speed >= 3 ? 'red' : 'white'; return speed >= 3 ? 'white' : 'green'; }
+function man(shape, speed, side) {
+  side = shape === 'Straight' ? 0 : (side || 1);
+  const colour = colourOf(shape, speed);
+  return { shape, speed, side, colour, label: shape + ' ' + speed + ' · ' + WORD[colour] };
+}
+function clampStrained(m, strain) {
+  if (!m || strain < 1 || m.colour !== 'red') return m;
+  const c = man('Turn', 2, m.side || 1); c.clamped = true; c.from = m.label; return c;
+}
+function theta(m) { return m.shape === 'Bank' ? m.side * Math.PI / 4 : m.shape === 'Turn' ? m.side * Math.PI / 2 : 0; }
+function poseAt(p0, m, u, sc) {
+  const l = lenOf(m.speed) * (sc || 1), th = theta(m);
+  if (!th) return { x: p0.x + Math.cos(p0.h) * l * u, y: p0.y + Math.sin(p0.h) * l * u, h: p0.h };
+  const R = l / th, hh = p0.h + th * u;
+  return { x: p0.x + R * (Math.sin(hh) - Math.sin(p0.h)), y: p0.y - R * (Math.cos(hh) - Math.cos(p0.h)), h: hh };
+}
+function endAt(p0, l, th) {
+  if (Math.abs(th) < 1e-6) return { x: p0.x + Math.cos(p0.h) * l, y: p0.y + Math.sin(p0.h) * l };
+  const R = l / th, hh = p0.h + th;
+  return { x: p0.x + R * (Math.sin(hh) - Math.sin(p0.h)), y: p0.y - R * (Math.cos(hh) - Math.cos(p0.h)) };
+}
+const onBoard = (x, y) => x >= B / 2 && x <= W - B / 2 && y >= B / 2 && y <= BH - B / 2;
+// the executed move: stops at the edge of the board if the path leaves it
+function execPath(p0, m) {
+  const N = 48; let last = 0;
+  for (let i = 1; i <= N; i++) {
+    const u = i / N, q = poseAt(p0, m, u);
+    if (!onBoard(q.x, q.y)) {
+      let a = last, b = u;
+      for (let k = 0; k < 16; k++) { const mid = (a + b) / 2, r = poseAt(p0, m, mid); if (onBoard(r.x, r.y)) a = mid; else b = mid; }
+      // stopped at the edge; the heading reflects off the void so the ship always faces back in (never stuck facing out)
+      const e = poseAt(p0, m, a), o = poseAt(p0, m, b);
+      let vx = Math.cos(e.h), vy = Math.sin(e.h);
+      if (o.x < B / 2 || o.x > W - B / 2) vx = -vx;
+      if (o.y < B / 2 || o.y > BH - B / 2) vy = -vy;
+      return { uEnd: a, clipped: true, end: { x: e.x, y: e.y, h: Math.atan2(vy, vx) }, faced: e.h };
+    }
+    last = u;
+  }
+  const e = poseAt(p0, m, 1); if (m.shape === 'Flip') e.h = angN(e.h + Math.PI);
+  return { uEnd: 1, clipped: false, end: e };
+}
+const ALL15 = [];
+for (const sp of [1, 2, 3]) { ALL15.push(man('Straight', sp, 0)); for (const sd of [-1, 1]) { ALL15.push(man('Bank', sp, sd)); ALL15.push(man('Turn', sp, sd)); } }
+function padEnd(m) { const e = poseAt({ x: 0, y: 0, h: UP }, m, 1, K); return { x: e.x, y: e.y }; }
+
+// ---------------------------------------------------------------- stroke -> manoeuvre
+function resample(pts, step) {
+  const out = [{ x: pts[0].x, y: pts[0].y }]; let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    let a = pts[i - 1]; const b = pts[i]; let seg = Math.hypot(b.x - a.x, b.y - a.y);
+    while (acc + seg >= step && seg > 0) {
+      const t = (step - acc) / seg, p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      out.push(p); a = p; seg = Math.hypot(b.x - a.x, b.y - a.y); acc = 0;
+    }
+    acc += seg;
+  }
+  const L = pts[pts.length - 1], o = out[out.length - 1];
+  if (Math.hypot(L.x - o.x, L.y - o.y) > 0.5) out.push({ x: L.x, y: L.y });
+  return out;
+}
+function smooth5(p) {
+  const n = p.length, o = new Array(n);
+  for (let i = 0; i < n; i++) { let sx = 0, sy = 0, c = 0; for (let j = i - 2; j <= i + 2; j++) if (j >= 0 && j < n) { sx += p[j].x; sy += p[j].y; c++; } o[i] = { x: sx / c, y: sy / c }; }
+  o[0] = p[0]; o[n - 1] = p[n - 1]; return o;
+}
+function analyse(raw) {
+  if (!raw || raw.length < 2) return null;
+  const a = raw[0], z = raw[raw.length - 1];
+  let L = 0; for (let i = 1; i < raw.length; i++) L += Math.hypot(raw[i].x - raw[i - 1].x, raw[i].y - raw[i - 1].y);
+  const sm = smooth5(resample(raw, 3)), s = resample(sm, 6);
+  if (s.length < 2) return null;
+  // initial heading from the first ~14 px; the bend counts from the nose (a stroke that starts sideways has already turned)
+  let k = 1; const want = Math.min(14, L / 4);
+  while (k < s.length - 1 && Math.hypot(s[k].x - s[0].x, s[k].y - s[0].y) < want) k++;
+  const h0 = Math.atan2(s[k].y - s[0].y, s[k].x - s[0].x);
+  let bend = angN(h0 - UP), prev = h0;
+  for (let i = k + 1; i < s.length; i++) { const h = Math.atan2(s[i].y - s[i - 1].y, s[i].x - s[i - 1].x); bend += angN(h - prev); prev = h; }
+  const dx = z.x - a.x, dy = z.y - a.y, disp = Math.hypot(dx, dy);
+  let reach = 0; for (const p of sm) reach = Math.max(reach, Math.hypot(p.x - a.x, p.y - a.y));
+  const ab = Math.abs(bend);
+  const shape = (ab > 112.5 * DEG || dy > 6) ? 'Flip' : ab < 22.5 * DEG ? 'Straight' : ab < 67.5 * DEG ? 'Bank' : 'Turn';
+  const side = bend > 0.02 ? 1 : bend < -0.02 ? -1 : (dx >= 0 ? 1 : -1);
+  const tq = shape === 'Bank' ? Math.PI / 4 : shape === 'Turn' ? Math.PI / 2 : 0;
+  const lest = shape === 'Flip' ? reach : disp * (tq ? tq / (2 * Math.sin(tq / 2)) : 1);   // the arc length the chord implies
+  const speed = lest < T.thr1 ? 1 : lest < T.thr2 ? 2 : 3;
+  return { m: man(shape, speed, side), bend: bend / DEG, disp, lest, L };
+}
+function tapPick(p) {
+  if (p.y > 10) return man('Flip', 2, p.x >= 0 ? 1 : -1);      // behind the Craft: the Flip
+  let best = null, bd = 1e9;
+  for (const m of ALL15) { const e = padEnd(m), d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; best = m; } }
+  return best;
+}
+
+// ---------------------------------------------------------------- game state
+let seed = 1, round = 0, phase = 'plan', sub = '', clock = 0, ANIM = true, timeScale = 1;
+let craft, husk, planRaw = null, plan = null, hp = null, lastAnalysis = null;
+let SK = null, shownStroke = null, tapMark = null, revealed = false;
+let tgt = null, huskTgt = null, picked = false, tray = [], noTarget = false;
+let tasks = [], toasts = [], fanT0 = 0, sightsT0 = 0, flash = 0, shake = { t0: -1e9, amp: 0 };
+let stats = null, over = null, shotFired = false, readHit = null;
+function newShip(kind, x, y, h) { return { kind, x, y, h, shields: 2, hull: 3, strain: 0, focus: false, clipped: false, fl: null }; }
+const pose = s => ({ x: s.x, y: s.y, h: s.h });
+function newStats() { return { strainTaken: 0, huskStrain: 0, bestShot: 0, arcDodges: 0, landed: 0, missed: 0, inHuskSights: 0, huskLanded: 0, huskShots: 0, killBurst: false, killHits: 0, clips: 0, focuses: 0, flips: 0, lastHuskDmg: 0,
+  readRight: 0, reads: 0, huskFlips: 0, huskClips: 0, huskFocuses: 0, handTurns: 0, offTurns: 0, strainedHits: 0, behindIt: 0, learned: 0, desperate: 0, bold: 0, dmgTaken: 0, dmgDealt: 0 }; }
+
+function after(ms, fn) { if (!ANIM) { fn(); return; } tasks.push({ at: clock + ms, fn }); }
+function runTasks() {
+  for (let guard = 0; guard < 64; guard++) {
+    let idx = -1, at = 1e18;
+    for (let i = 0; i < tasks.length; i++) if (tasks[i].at <= clock && tasks[i].at < at) { idx = i; at = tasks[i].at; }
+    if (idx < 0) return;
+    tasks.splice(idx, 1)[0].fn();
+  }
+}
+function toast(text, col, ms) { toasts.push({ text, col: col || '#fff', t0: clock, ms: ms || 1600 }); if (toasts.length > 3) toasts.shift(); }
+
+function restart(sd, opts) {
+  opts = opts || {};
+  if (opts.rival && RIVALS[opts.rival]) rivalKey = opts.rival;
+  if (opts.level && LEVELS[opts.level]) level = opts.level;
+  if (opts.fresh) habits = {};     // a rematch keeps what it learned about you; the test API starts fresh
+  seed = sd | 0 || 1; rng = mulberry32(seed * 31 + 7); rv = newRival(seed);
+  const r = mulberry32(seed * 7919 + 3);
+  craft = newShip('craft', 200, 470, UP);
+  husk = newShip('husk', 120 + r() * 160, 92 + r() * 20, Math.PI / 2 + (r() - 0.5) * 50 * DEG);
+  round = 0; tasks = []; toasts = []; stats = newStats(); over = null; tray = []; buildBg();
+  document.getElementById('end').classList.remove('on');
+  document.getElementById('start').classList.remove('on');
+  try { history.replaceState(null, '', location.pathname + '?seed=' + seed + '&rival=' + rivalKey + '&level=' + level); } catch (e) { /* file:// may refuse */ }
+  try { localStorage.setItem('flight.rival', rivalKey); localStorage.setItem('flight.level', level); } catch (e) { /* storage off */ }
+  startRound();
+}
+function startRound() {
+  round++; phase = 'plan'; sub = '';
+  craft.focus = false; husk.focus = false; craft.clipped = false; husk.clipped = false; craft.flown = husk.flown = false; shotFired = false;
+  planRaw = plan = null; lastAnalysis = null; shownStroke = null; tapMark = null; SK = null; revealed = false;
+  tray = []; tgt = huskTgt = null; picked = false; noTarget = false;
+  hp = huskChoose(); fanT0 = clock;
+}
+// ---------------------------------------------------------------- the rival: your rules, your dice, an honest plan
+// It plans at round start from what is on the board (both poses, Strain, health) and freezes the plan before the pad is
+// touched. It never reads your stroke. It searches its legal moves against a weighted model of all of yours, scored in
+// expected hull. Personalities are weight sets; each has one weakness you can learn to punish.
+const RIVALS = {
+  ram: { key: 'ram', name: 'Ram', line: 'Noses straight at you and jousts. Never looks back.',
+    A: 1.0, D: 0.5, P: 0, R: 0.3, dStar: 90, K: 0.8, E: 1.2, N: 0.3, S: 0.15, lam: -0.1, T: 0.32, Dl: 0.7,
+    bias: 'nose', biasW: 0.15, mix: { naive: 0.3 },
+    tip: 'Let it rush past, then turn in behind it. It never checks its tail.' },
+  kite: { key: 'kite', name: 'Kite', line: 'Holds Mid range and circles. Always the same way.',
+    A: 0.88, D: 0.9, P: 0.6, R: 0.4, dStar: 200, K: 0.6, E: 1.6, N: 0.9, S: 0.4, lam: 0.25, T: 0.1, Dl: 0.3,
+    bias: 'hand', biasW: 0.12, mix: {},
+    tip: 'It circles one way. Turn the same way, inside its circle, and meet it nose-on.' },
+  wisp: { key: 'wisp', name: 'Wisp', line: 'Slips out of your Sights. Flips when you get behind it.',
+    A: 0.6, D: 1.4, P: 0.9, R: 0.2, dStar: 240, K: 0.5, E: 1.5, N: 0.6, S: 0.1, lam: 0.4, T: 0.11, Dl: 0.35,
+    bias: 'flip', biasW: 0.35, mix: { habit: 0.15 },
+    tip: 'A Flip strains it: next round it can only fly gently, with no Focus. Close in then.' },
+};
+const LEVELS = {
+  easy: { name: 'Easy', naive: 1, reason: 0, tau: 0.45, habit: 0, tMul: 1.6, dMul: 1.4, lean: 0.85 },
+  medium: { name: 'Medium', naive: 0.3, reason: 0.7, tau: 0.45, habit: 0.3, tMul: 1, dMul: 1, lean: 0.75 },
+  hard: { name: 'Hard', naive: 0.15, reason: 0.6, tau: 0.4, habit: 0.45, tMul: 0.4, dMul: 0.5, lean: 0.65 },
+};
+let rivalKey = 'ram', level = 'medium', tune = {};
+const RV = () => Object.assign({}, RIVALS[rivalKey], tune);
+const MOVES18 = ALL15.concat([man('Flip', 1, 1), man('Flip', 2, 1), man('Flip', 3, 1)]);
+const ESCAPES = [man('Straight', 1, 0), man('Turn', 1, -1), man('Turn', 1, 1)];
+const NAIVE = { 'Straight 2 0': 0.75, 'Bank 2 -1': 0.125, 'Bank 2 1': 0.125 };
+const mkey = m => m.shape + ' ' + m.speed + ' ' + (m.shape === 'Flip' ? 0 : m.side);
+// exact damage odds for every Sights band and Focus pair (binomial convolution, built once)
+function binom(n, p) { const o = []; for (let k = 0; k <= n; k++) { let c = 1; for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1); o.push(c * Math.pow(p, k) * Math.pow(1 - p, n - k)); } return o; }
+const EDT = [];
+for (const nA of [3, 4]) for (const nD of [2, 3]) for (const aF of [0, 1]) for (const dF of [0, 1]) {
+  const X = binom(nA, aF ? 6 / 8 : 4 / 8), Y = binom(nD, dF ? 5 / 8 : 3 / 8), P = new Array(nA + 1).fill(0);
+  for (let x = 0; x <= nA; x++) for (let y = 0; y <= nD; y++) P[Math.max(0, x - y)] += X[x] * Y[y];
+  let ed = 0; for (let k = 0; k <= nA; k++) ed += k * P[k];
+  const ge = []; for (let r = 0; r <= 6; r++) { let s = 0; for (let k = r; k <= nA; k++) s += P[k]; ge.push(s); }
+  EDT[(nA - 3) * 8 + (nD - 2) * 4 + aF * 2 + dF] = { ed, ge };
+}
+const edOf = (d, aF, dF) => EDT[(d <= 100 ? 8 : 0) + (d > 200 ? 4 : 0) + (aF ? 2 : 0) + (dF ? 1 : 0)];
+function strainAfter(strain, m, clipped) { return clipped ? strain + (m.colour === 'red' ? 1 : 0) + 1 : m.colour === 'red' ? strain + 1 : m.colour === 'green' ? Math.max(0, strain - 1) : strain; }
+// every point of an arc of length L lies within L/2 of one of its ends, so if both ends sit L/2 clear of the edge it cannot clip
+const clear = (x, y, r) => x - r >= B / 2 && x + r <= W - B / 2 && y - r >= B / 2 && y + r <= BH - B / 2;
+function execFast(p0, m) {
+  const e = poseAt(p0, m, 1), r = lenOf(m.speed) / 2;
+  if (!clear(p0.x, p0.y, r) || !clear(e.x, e.y, r)) return execPath(p0, m);
+  if (m.shape === 'Flip') e.h = angN(e.h + Math.PI);
+  return { uEnd: 1, clipped: false, end: e };
+}
+function clipsSoon(p0, m) { if (clear(p0.x, p0.y, lenOf(m.speed))) return false; for (let i = 1; i <= 12; i++) { const q = poseAt(p0, m, i / 12); if (!onBoard(q.x, q.y)) return true; } return false; }
+const inArc = (s, x, y) => { const dx = x - s.x, dy = y - s.y; return dx * dx + dy * dy <= 90000 && Math.abs(angN(Math.atan2(dy, dx) - s.h)) <= Math.PI / 4 + 1e-9; };
+// the situation the rival files your habits under: where it sits from your nose, how far, and whether you are strained
+function situation(you, me, strained) {
+  const dx = me.x - you.x, dy = me.y - you.y, d = Math.hypot(dx, dy), a = angN(Math.atan2(dy, dx) - you.h), aa = Math.abs(a);
+  const sector = aa <= Math.PI / 4 ? 'ahead' : aa >= 3 * Math.PI / 4 ? 'behind' : 'beside';
+  const band = d <= 300 ? 'in range' : 'far off';
+  return { key: sector + '|' + band, sign: a >= 0 ? 1 : -1, sector, band, strained };
+}
+// a move as you see it relative to the rival: Bank toward it, Turn away from it
+const relKey = (m, sign) => m.shape + ' ' + m.speed + ' ' + (m.shape === 'Straight' || m.shape === 'Flip' ? 0 : m.side === sign ? 'T' : 'A');
+// a habit can be relative ("you Bank toward it") or plain ("you Bank left"): both are filed, the clearer one is used
+const absKey = m => m.shape + ' ' + m.speed + ' ' + (m.shape === 'Straight' || m.shape === 'Flip' ? 0 : m.side > 0 ? 'R' : 'L');
+const famKey = k => k.split(' ')[0] + ' ' + k.split(' ')[2];
+function famWords(f) { const [s, r] = f.split(' '); return s === 'Straight' ? 'fly Straight' : s === 'Flip' ? 'Flip' : s + ' ' + (r === 'T' ? 'toward it' : r === 'A' ? 'away from it' : r === 'L' ? 'left' : 'right'); }
+let habits = {};
+function habitOf(key) {
+  const b = habits[key]; if (!b || b.n < 3) return null;
+  let best = null;
+  for (const frame of ['c', 'a']) {
+    let tot = 0; const fam = {}; for (const k in b[frame]) { tot += b[frame][k]; fam[famKey(k)] = (fam[famKey(k)] || 0) + b[frame][k]; }
+    for (const f in fam) if (fam[f] / tot >= 0.5 && (!best || fam[f] / tot > best.share)) best = { b, c: b[frame], frame, tot, fav: f, share: fam[f] / tot };
+  }
+  return best;
+}
+function recordHabit(sit, m) {
+  const b = habits[sit.key] || (habits[sit.key] = { n: 0, c: {}, a: {}, told: false });
+  for (const k in b.c) b.c[k] *= 0.8;
+  for (const k in b.a) b.a[k] *= 0.8;
+  const k = relKey(m, sit.sign); b.c[k] = (b.c[k] || 0) + 1; b.n++;
+  const ka = absKey(m); b.a[ka] = (b.a[ka] || 0) + 1;
+  const h = habitOf(sit.key);
+  if (h && !b.told) { b.told = true; if (!habits._told) habits._told = {}; if (!habits._told[h.fav]) { habits._told[h.fav] = 1; return h; } }
+  return null;
+}
+// your 18 moves weighted: "you keep going" + "you play it sensibly" + "you do what you did last time"
+function playerModel(J, ej, me, you, myStrain, sit, Lv, cfg) {
+  const n = J.length, p = new Float64Array(n), tw = cfg.tweak || {};
+  let wn = Lv.naive + (cfg.mix.naive || 0), wr = Lv.reason, wh = Lv.habit ? Lv.habit + (cfg.mix.habit || 0) : 0;
+  const hb = wh ? habitOf(sit.key) : null; if (!hb) wh = 0;
+  const g = execFast(me, man('Straight', 2, 0)), gF = !g.clipped && strainAfter(myStrain, man('Straight', 2, 0), false) === 0;
+  const V = new Float64Array(n); let vmax = -1e9;
+  for (let j = 0; j < n; j++) {
+    const e = ej[j].end, fj = !ej[j].clipped && strainAfter(craft.strain, J[j], false) === 0;
+    const dx = g.end.x - e.x, dy = g.end.y - e.y, d = Math.hypot(dx, dy);
+    let v = 0;
+    if (inArc(e, g.end.x, g.end.y)) v += edOf(d, fj, gF).ed;
+    if (inArc(g.end, e.x, e.y)) v -= 0.8 * edOf(d, gF, fj).ed;
+    if (ej[j].clipped) v -= 1; if (J[j].colour === 'red') v -= 0.25;
+    V[j] = v; if (v > vmax) vmax = v;
+  }
+  let zs = 0; const soft = new Float64Array(n);
+  if (wr) { for (let j = 0; j < n; j++) { soft[j] = Math.exp((V[j] - vmax) / Lv.tau); zs += soft[j]; } }
+  const wsum = wn + wr + wh;
+  for (let j = 0; j < n; j++) {
+    let q = 0;
+    if (wn) q += wn * (NAIVE[mkey(J[j])] || 0);
+    if (wr) q += wr * soft[j] / zs;
+    if (wh) { const k = hb.frame === 'c' ? relKey(J[j], sit.sign) : absKey(J[j]); let c = hb.c[k] || 0; for (const kk in hb.c) if (kk !== k && famKey(kk) === famKey(k)) c += 0.3 * hb.c[kk]; q += wh * c / hb.tot; }
+    p[j] = 0.02 + q / wsum;
+  }
+  let z = 0; for (let j = 0; j < n; j++) z += p[j]; for (let j = 0; j < n; j++) p[j] /= z;
+  return { p, habit: !!hb };
+}
+// one decision: every legal move of its own against every move of yours (<= 18 x 18 pairs), closed form
+function rivalPlan(rs) {
+  const t0 = performance.now(), cfg = RV(), Lv = LEVELS[level];
+  const me = pose(husk), you = pose(craft), myHp = husk.shields + husk.hull, yourHp = craft.shields + craft.hull;
+  let A = cfg.A, D = cfg.D, K2 = cfg.K, dStar = cfg.dStar;
+  const desperate = myHp <= 2; if (desperate) { D -= 0.3; K2 += 0.3; }
+  const bold = Math.min(6, rv.bold); A += 0.15 * bold; D = Math.max(0.1, D - 0.15 * bold); dStar = Math.max(60, dStar - 40 * bold);
+  const B = MOVES18.filter(m => !(husk.strain >= 1 && m.colour === 'red')), J = MOVES18.filter(m => !(craft.strain >= 1 && m.colour === 'red'));
+  const eb = B.map(m => execFast(me, m)), ej = J.map(m => execFast(you, m));
+  const sit = situation(you, me, craft.strain >= 1);
+  const { p, habit } = playerModel(J, ej, me, you, husk.strain, sit, Lv, cfg);
+  const fJ = J.map((m, j) => !ej[j].clipped && strainAfter(craft.strain, m, false) === 0);
+  const youRear = Math.abs(angN(Math.atan2(you.y - me.y, you.x - me.x) - me.h)) >= 3 * Math.PI / 4;
+  const scores = new Float64Array(B.length); let best = -1e9;
+  for (let b = 0; b < B.length; b++) {
+    const m = B[b], e = eb[b].end, sa = strainAfter(husk.strain, m, eb[b].clipped), fB = !eb[b].clipped && sa === 0;
+    let mean = 0, m2 = 0, nose = 0;
+    for (let j = 0; j < J.length; j++) {
+      const q = ej[j].end, dx = q.x - e.x, dy = q.y - e.y, d = Math.hypot(dx, dy);
+      const toYou = Math.atan2(dy, dx), off = Math.abs(angN(toYou - e.h)), back = Math.abs(angN(toYou + Math.PI - q.h));
+      let u = R2(cfg.R, d, dStar) + cfg.P * (back <= Math.PI / 4 ? 0 : (back - Math.PI / 4) / (3 * Math.PI / 4));
+      if (d <= 300 && off <= Math.PI / 4) { const t = edOf(d, fB, fJ[j]); u += A * t.ed + K2 * t.ge[Math.min(6, yourHp)]; }
+      if (d <= 300 && back <= Math.PI / 4) u -= D * edOf(d, fJ[j], fB).ed;
+      if (off <= Math.PI / 8) nose += p[j];
+      mean += p[j] * u; m2 += p[j] * u * u;
+    }
+    const sd = Math.sqrt(Math.max(0, m2 - mean * mean));
+    let trap = 0; for (const x of ESCAPES) if (clipsSoon(e, x)) trap++;
+    let s = mean - cfg.lam * sd - cfg.E * (eb[b].clipped ? 1 : 0) - cfg.N * trap / 3 - cfg.S * (sa >= 1 ? 1 : 0);
+    if (cfg.bias === 'nose') s += cfg.biasW * nose;
+    else if (cfg.bias === 'hand' && m.side === rv.hand && m.shape !== 'Flip') s += cfg.biasW;
+    else if (cfg.bias === 'flip' && m.shape === 'Flip' && youRear) s += cfg.biasW;
+    if (rv.quiet >= 1 && rv.last.length >= 2 && rv.last.every(k => k === m.label + m.side)) s -= 0.2;
+    scores[b] = s; if (s > best) best = s;
+  }
+  // controlled imperfection: only moves within the window of the best can win, then a soft pick inside it
+  const Tm = cfg.T * Lv.tMul, Dm = cfg.Dl * Lv.dMul, ws = []; let wz = 0;
+  for (let b = 0; b < B.length; b++) { const w = scores[b] >= best - Dm ? Math.exp((scores[b] - best) / Tm) : 0; ws.push(w); wz += w; }
+  let r = rs() * wz, pick = 0; for (let b = 0; b < B.length; b++) { r -= ws[b]; if (r <= 0 && ws[b] > 0) { pick = b; break; } }
+  let top = 0; for (let j = 1; j < J.length; j++) if (p[j] > p[top]) top = j;
+  const mv = B[pick], trueSide = mv.shape === 'Bank' || mv.shape === 'Turn' ? mv.side : 0;
+  const honest = rs() < Lv.lean, lean = honest ? trueSide : (trueSide ? -trueSide : (rs() < 0.5 ? -1 : 1));
+  const ms = performance.now() - t0;
+  return { m: mv, read: { m: J[top], end: ej[top].end, p: p[top] }, lean, honest, sit, habit, desperate, bold, ms, best, n: B.length * J.length };
+}
+const R2 = (R, d, dStar) => -R * Math.abs(d - dStar) / 100;
+let rv = null;      // the rival's running state: its plan, its read, its mood, its last moves
+const botMs = [];
+function newRival(sd) { const r = mulberry32(sd * 577 + 5); return { hand: r() < 0.5 ? -1 : 1, quiet: 0, bold: 0, last: [], plan: null, told: {} }; }
+const decRng = () => mulberry32(seed * 7717 + round * 131 + 99);
+function huskChoose() {
+  rv.bold = rv.quiet >= 2 ? rv.quiet - 1 : 0;
+  const pl = rivalPlan(decRng());
+  botMs.push(pl.ms); if (botMs.length > 400) botMs.shift();
+  rv.plan = pl;
+  if (pl.bold && !rv.told.bold) { rv.told.bold = true; stats.bold++; toast(RV().name + ' grows bold: no shots for a while', C_HUSK, 2400); }
+  if (!pl.bold) rv.told.bold = false;
+  if (pl.desperate && !rv.told.desperate) { rv.told.desperate = true; stats.desperate++; toast(RV().name + ' is desperate: it takes risks now', C_HUSK, 2600); }
+  return pl.m;
+}
+function sightsOf(s, tx, ty) {
+  const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
+  if (d > 300) return null;
+  if (Math.abs(angN(Math.atan2(dy, dx) - s.h)) > Math.PI / 4 + 1e-9) return null;
+  return { d, band: d <= 100 ? 'Close' : d <= 200 ? 'Mid' : 'Far' };
+}
+function setPlan(m) { planRaw = m; plan = clampStrained(m, craft.strain); }
+
+// ---------------------------------------------------------------- strokes (touch and the test API share this path)
+function strokeBegin(p, now) { if (phase !== 'plan') return; SK = { raw: [p], t0: now, maxD: 0 }; }
+function strokeMove(p) {
+  if (!SK) return;
+  const a = SK.raw[0]; SK.raw.push(p);
+  SK.maxD = Math.max(SK.maxD, Math.hypot(p.x - a.x, p.y - a.y) * S);
+  if (SK.maxD >= T.tapPx) { tapMark = null; const r = analyse(SK.raw); if (r) { lastAnalysis = r; setPlan(r.m); } }
+}
+function strokeEnd(now) {
+  if (!SK) return;
+  const sk = SK; SK = null;
+  if (sk.maxD < T.tapPx) {
+    if (now - sk.t0 < T.tapMs) { tapMark = sk.raw[0]; shownStroke = null; lastAnalysis = null; setPlan(tapPick(sk.raw[0])); vib(8); blip(520, 0.05, 'sine', 0.03); }
+    return;
+  }
+  shownStroke = sk.raw;
+  const r = analyse(sk.raw); if (r) { lastAnalysis = r; setPlan(r.m); }
+  vib(8);
+}
+
+// ---------------------------------------------------------------- the round: Plan -> Fly -> Act -> Shoot
+function fly() {
+  if (phase !== 'plan' || !plan || over) return false;
+  phase = 'fly'; sub = 'reveal'; revealed = true; SK = null; vib(12); blip(330, 0.12, 'triangle', 0.05);
+  // what it expected against what you did (scored on the frozen read, after both plans are locked)
+  const pl = rv.plan; stats.reads++;
+  if (pl) {
+    const ex = execPath(pose(craft), plan), rm = pl.read.m;
+    const same = mkey(rm) === mkey(plan) || (Math.hypot(pl.read.end.x - ex.end.x, pl.read.end.y - ex.end.y) < 22 && Math.abs(angN(pl.read.end.h - ex.end.h)) < 0.5);
+    readHit = same; if (same) stats.readRight++;
+    const learnt = recordHabit(pl.sit, plan);
+    // only said when the habit model is in play at this level
+    if (learnt && LEVELS[level].habit) { stats.learned++; after(T.revealMs + 200, () => toast('It has learned you: you ' + famWords(learnt.fav), C_HUSK, 3200)); }
+  }
+  rv.last.push(hp.label + hp.side); if (rv.last.length > 2) rv.last.shift();
+  if (hp.shape === 'Flip') stats.huskFlips++;
+  if ((hp.shape === 'Bank' || hp.shape === 'Turn')) { if (hp.side === rv.hand) stats.handTurns++; else stats.offTurns++; }
+  after(T.revealMs, () => {
+    sub = 'husk';
+    flyShip(husk, hp, () => { sub = 'craft'; flyShip(craft, plan, enterAct); });
+  });
+  return true;
+}
+function flyShip(ship, m, cb) {
+  const p0 = pose(ship), ex = execPath(p0, m);
+  ship.fl = { p0, m, ex, t0: clock, dur: T.flyMs };
+  after(T.flyMs, () => {
+    ship.x = ex.end.x; ship.y = ex.end.y; ship.h = ex.end.h; ship.fl = null; ship.flown = true;
+    const before = ship.strain;
+    if (ex.clipped) { ship.strain += (m.colour === 'red' ? 1 : 0) + 1; ship.clipped = true; }
+    else if (m.colour === 'red') ship.strain += 1;
+    else if (m.colour === 'green') ship.strain = Math.max(0, ship.strain - 1);
+    const gained = Math.max(0, ship.strain - before);
+    if (ship === craft) { stats.strainTaken += gained; if (ex.clipped) stats.clips++; if (m.shape === 'Flip') stats.flips++; }
+    else { stats.huskStrain += gained; if (ex.clipped) stats.huskClips++; }
+    if (ex.clipped) { toast(ship === craft ? 'Clipped the void · +1 Strain' : RV().name + ' clipped the void · +1 Strain', ship === craft ? HEX.red : C_HUSK); vib(25); }
+    for (let i = 0; i < 10; i++) addParticle(ship.x - Math.cos(ship.h) * 14, ship.y - Math.sin(ship.h) * 14, -Math.cos(ship.h) * 40 + (Math.random() - 0.5) * 50, -Math.sin(ship.h) * 40 + (Math.random() - 0.5) * 50, ship === craft ? 0 : 1);
+    cb();
+  });
+}
+function enterAct() {
+  phase = 'act'; sub = '';
+  if (husk.strain < 1 && !husk.clipped) { husk.focus = true; stats.huskFocuses++; }   // same rule as yours: Focus unless strained or clipped
+  if (craft.strain >= 1 || craft.clipped) after(T.autoPassMs, () => { if (phase === 'act') pass(); });
+}
+function focus() {
+  if (phase !== 'act' || craft.strain >= 1 || craft.clipped) return false;
+  craft.focus = true; stats.focuses++; vib(15); blip(784, 0.18, 'sine', 0.05);
+  sub = 'focused'; after(220, enterShoot);
+  return true;
+}
+function pass() { if (phase !== 'act' || sub === 'focused') return false; enterShoot(); return true; }
+function enterShoot() {
+  if (phase !== 'act') return;
+  phase = 'shoot'; sightsT0 = clock; tray = []; picked = false;
+  tgt = sightsOf(craft, husk.x, husk.y); huskTgt = sightsOf(husk, craft.x, craft.y);
+  if (huskTgt) stats.inHuskSights++;
+  if (Math.abs(angN(Math.atan2(craft.y - husk.y, craft.x - husk.x) - husk.h)) >= 3 * Math.PI / 4) stats.behindIt++;
+  if (tgt && !huskTgt) { stats.arcDodges++; toast('Out of its Sights', HEX.green); }
+  noTarget = !tgt;
+  blip(990, 0.06, 'square', 0.02);
+  if (tgt || huskTgt) { shotFired = true; rv.quiet = 0; } else rv.quiet++;
+  if (tgt) { sub = 'ready'; picked = true; }          // one target: the card is information, ROLL is live at once
+  else if (huskTgt) { sub = 'wait'; after(650, huskFire); }
+  else sub = 'done';
+}
+function pick() { if (phase === 'shoot' && (sub === 'pick' || sub === 'ready')) { picked = true; sub = 'ready'; vib(8); blip(660, 0.05, 'sine', 0.03); return true; } return false; }
+function roll() {
+  if (phase !== 'shoot' || sub !== 'ready') return false;
+  sub = 'roll';
+  const nA = 3 + (tgt.band === 'Close' ? 1 : 0), nD = 2 + (tgt.band === 'Far' ? 1 : 0);
+  const rivalStrained = husk.strain >= 1;
+  startRoll('craft', nA, nD, craft.focus, husk.focus, () => {
+    const lr = tray[tray.length - 1].res; if (lr && rivalStrained && lr.shield + lr.hull > 0) stats.strainedHits++;
+    if (husk.hull <= 0) { sub = 'over'; after(900, () => endGame('win')); return; }
+    if (huskTgt) { sub = 'wait'; after(700, huskFire); } else sub = 'done';
+  });
+  return true;
+}
+function huskFire() {
+  if (phase !== 'shoot') return;
+  sub = 'husk';
+  stats.huskShots++;
+  startRoll('husk', 3 + (huskTgt.band === 'Close' ? 1 : 0), 2 + (huskTgt.band === 'Far' ? 1 : 0), husk.focus, craft.focus, () => {
+    if (craft.hull <= 0) { sub = 'over'; after(900, () => endGame('lose')); return; }
+    sub = 'done';
+  });
+}
+function next() { if (phase === 'shoot' && sub === 'done') { startRound(); return true; } return false; }
+
+// ---------------------------------------------------------------- dice
+const face = kind => (kind === 'strike' ? STRIKE : DODGE)[Math.floor(rng() * 8)];
+function startRoll(who, nA, nD, attF, defF, cb) {
+  const att = [], def = [];
+  for (let i = 0; i < nA; i++) att.push({ f: face('strike'), kind: 'strike', settled: false, st: 0, flash: -1e9 });
+  for (let i = 0; i < nD; i++) def.push({ f: face('dodge'), kind: 'dodge', settled: false, st: 0, flash: -1e9 });
+  for (const d of att.concat(def)) d.rolled = d.f;
+  const row = { who, att, def, line: '', t0: clock, attF, defF, res: null };
+  tray.push(row);
+  const all = att.concat(def);
+  all.forEach((d, i) => after(T.tumbleMs + i * T.settleGap, () => { d.settled = true; d.st = clock; blip(587 * Math.pow(2, [0, 2, 4, 7, 9, 12, 14][i % 7] / 12), 0.045, 'sine', 0.035); }));
+  after(T.tumbleMs + (all.length - 1) * T.settleGap + 150, () => {
+    let any = false;
+    if (attF) for (const d of att) if (d.f === 'Spirit') { d.f = 'Hit'; d.flash = clock; any = true; }
+    if (defF) for (const d of def) if (d.f === 'Spirit') { d.f = 'Dodge'; d.flash = clock; any = true; }
+    if (any) blip(1175, 0.12, 'sine', 0.04);
+    after(any ? 260 : 60, () => { resolveRow(row); cb(); });
+  });
+}
+function resolveRow(row) {
+  const ship = row.who === 'craft' ? husk : craft;
+  let h = 0, b = 0, d = 0;
+  for (const x of row.att) { if (x.f === 'Hit') h++; else if (x.f === 'Burst') b++; }
+  for (const x of row.def) if (x.f === 'Dodge') d++;
+  const H0 = h, B0 = b, D0 = d;
+  const c1 = Math.min(d, h); h -= c1; d -= c1;
+  const c2 = Math.min(d, b); b -= c2;
+  const sh = Math.min(ship.shields, h); ship.shields -= sh;
+  const hd = Math.min(ship.hull, h - sh + b); ship.hull -= hd;
+  row.res = { hits: H0, bursts: B0, dodges: D0, shield: sh, hull: hd, burstThrough: b };
+  const ht = (H0 || B0) ? [H0 ? plural(H0, 'Hit') : '', B0 ? plural(B0, 'Burst') : ''].filter(Boolean).join(', ') : 'No hits';
+  const dt = D0 ? plural(D0, 'Dodge') : 'No dodges';
+  const dm = (sh || hd) ? [sh ? sh + ' shield' + (sh > 1 ? 's' : '') : '', hd ? hd + ' hull' : ''].filter(Boolean).join(', ') : 'no damage';
+  row.line = (row.who === 'husk' ? RV().name + ': ' : '') + ht + ' · ' + dt + ' → ' + dm;
+  const dmg = sh + hd;
+  if (row.who === 'craft') {
+    if (dmg) stats.landed++; else stats.missed++;
+    stats.bestShot = Math.max(stats.bestShot, dmg);
+    if (ship.hull <= 0) { stats.killBurst = b > 0; stats.killHits = h - sh; }
+    stats.dmgDealt += dmg;
+  } else { if (dmg) stats.huskLanded++; stats.lastHuskDmg = dmg; stats.dmgTaken += dmg; }
+  if (dmg) {
+    const n = 14 + dmg * 10 + (b ? 18 : 0);
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * (b ? 220 : 150); addParticle(ship.x, ship.y, Math.cos(a) * v, Math.sin(a) * v, b ? 3 : 2); }
+    shake = { t0: clock, amp: 4 }; vib(20); thump(b > 0);
+    if (b) flash = clock;
+  } else {
+    for (let i = 0; i < 8; i++) { const a = Math.random() * Math.PI * 2; addParticle(ship.x + Math.cos(a) * 20, ship.y + Math.sin(a) * 20, Math.cos(a) * 30, Math.sin(a) * 30, 4); }
+  }
+}
+// the end card names the cause plainly, in the rival's own terms (losses must be explainable)
+function causeLines(result) {
+  const s = stats, R0 = RV(), nm = R0.name, n = round;
+  const hand = rv.hand > 0 ? 'right' : 'left', turns = s.handTurns + s.offTurns;
+  const dodged = s.arcDodges, caught = s.inHuskSights;
+  let cause, tip = '';
+  if (result === 'win') {
+    if (R0.key === 'ram' && dodged >= 1) cause = 'Ram never looks back: you hit it from outside its Sights ' + plural(dodged, 'time') + '. It caught you ' + caught + '.';
+    else if (R0.key === 'kite' && turns >= 3 && s.handTurns / turns >= 0.6) cause = 'You out-turned Kite on its circling side: it turned ' + hand + ' ' + s.handTurns + ' of ' + turns + ' times, and you slipped its Sights ' + plural(dodged, 'time') + '.';
+    else if (R0.key === 'wisp' && s.strainedHits >= 1) cause = 'You punished Wisp\'s Flips: ' + plural(s.strainedHits, 'shot') + ' landed while it was strained (it Flipped ' + s.huskFlips + ').';
+    else cause = nm + ' destroyed, round ' + n + ': you landed ' + s.landed + ' of ' + (s.landed + s.missed) + ' shots; it landed ' + s.huskLanded + ' of ' + s.huskShots + '.';
+    cause += ' The last blow: ' + (s.killBurst ? 'a Burst through the hull.' : (s.killHits > 1 ? s.killHits + ' Hits' : 'a Hit') + ' through the hull.');
+  } else {
+    cause = nm + ' caught you in its Sights ' + plural(caught, 'time') + '; you dodged ' + dodged + '. It landed ' + s.huskLanded + ' of ' + s.huskShots + ' shots' + (s.reads ? ' and read your move ' + s.readRight + ' of ' + s.reads + ' rounds.' : '.');
+    if (R0.key === 'kite' && turns >= 2) tip = 'It circles ' + hand + ' (' + s.handTurns + ' of ' + turns + ' turns). ' + R0.tip;
+    else tip = R0.tip;
+  }
+  return { cause, tip };
+}
+function endGame(result) {
+  if (over) return;
+  over = { result, round }; phase = 'end'; sub = '';
+  const n = round, s = stats, R0 = RV();
+  const title = document.getElementById('endTitle');
+  title.textContent = result === 'win' ? R0.name + ' destroyed' : 'Craft destroyed';
+  title.style.color = result === 'win' ? C_CRAFT : C_HUSK;
+  const cl = causeLines(result);
+  document.getElementById('endCause').textContent = cl.cause;
+  document.getElementById('endTip').textContent = cl.tip ? 'Try this: ' + cl.tip : '';
+  const turns = s.handTurns + s.offTurns;
+  const special = R0.key === 'kite' ? ['Its circling side', (rv.hand > 0 ? 'right ' : 'left ') + s.handTurns + ' of ' + turns]
+    : R0.key === 'wisp' ? ['Its Flips / hits on it strained', s.huskFlips + ' / ' + s.strainedHits] : ['Rounds you sat behind it', s.behindIt];
+  const rows = [['Rival', R0.name + ' · ' + LEVELS[level].name + ' · R' + n], ['It read your move', s.readRight + ' of ' + s.reads + ' rounds'],
+    ['Rounds in its Sights', s.inHuskSights], ['Arc-dodges (you shot, it could not)', s.arcDodges], special,
+    ['Your shots landed', s.landed + ' of ' + (s.landed + s.missed)], ['Its shots landed', s.huskLanded + ' of ' + s.huskShots],
+    ['Seed', seed]];
+  document.getElementById('endStats').innerHTML = rows.map(r => '<span>' + r[0] + '</span><b>' + r[1] + '</b>').join('');
+  document.getElementById('end').classList.add('on');
+}
+document.getElementById('bAgain').addEventListener('click', () => restart(seed + 1));
+document.getElementById('bSame').addEventListener('click', () => restart(seed));
+document.getElementById('bRivals').addEventListener('click', () => showStart(seed + 1));
+// the start card: pick a rival (one tap starts the duel); the level sticks
+function showStart(sd) {
+  seed = sd; document.getElementById('end').classList.remove('on');
+  for (const b of document.querySelectorAll('#lvl button')) b.classList.toggle('on', b.dataset.l === level);
+  document.getElementById('start').classList.add('on');
+}
+for (const b of document.querySelectorAll('#lvl button')) b.addEventListener('click', () => { level = b.dataset.l; for (const x of document.querySelectorAll('#lvl button')) x.classList.toggle('on', x === b); });
+for (const b of document.querySelectorAll('.rcard')) b.addEventListener('click', () => { audioOn(); restart(seed, { rival: b.dataset.r }); });
+
+// ---------------------------------------------------------------- feel: particles, vibration, a little sound
+const NP = 320, pX = new Float32Array(NP), pY = new Float32Array(NP), pVX = new Float32Array(NP), pVY = new Float32Array(NP), pL = new Float32Array(NP), pC = new Uint8Array(NP);
+let pI = 0;
+const PCOL = [C_CRAFT, C_HUSK, '#fff2c8', '#ffffff', '#9aa4c4'];
+function addParticle(x, y, vx, vy, c) { const p = pI++ % NP; pX[p] = x; pY[p] = y; pVX[p] = vx; pVY[p] = vy; pL[p] = 0.6; pC[p] = c; }
+function stepParticles(dt) { for (let p = 0; p < NP; p++) if (pL[p] > 0) { pL[p] -= dt; pX[p] += pVX[p] * dt; pY[p] += pVY[p] * dt; pVX[p] *= 0.93; pVY[p] *= 0.93; } }
+function vib(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* not supported */ } }
+let AC = null;
+function audioOn() { if (AC) return; try { const A = window.AudioContext || window.webkitAudioContext; if (A) AC = new A(); } catch (e) { AC = null; } }
+function blip(f, dur, type, vol) {
+  if (!AC || !ANIM) return;
+  try { const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(vol || 0.04, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02); } catch (e) { /* audio off */ }
+}
+function thump(big) {
+  if (!AC || !ANIM) return;
+  try { const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(big ? 150 : 120, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.2);
+    g.gain.setValueAtTime(big ? 0.16 : 0.11, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + 0.26); } catch (e) { /* audio off */ }
+}
+
+// ---------------------------------------------------------------- canvas fit (letterbox 400 x 840)
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+let VW = 390, VH = 844, DPR = 1, S = 1, OX = 0, OY = 0, SAB = 0;
+const bgCv = document.createElement('canvas'), bgG = bgCv.getContext('2d');
+function resize() {
+  VW = window.innerWidth; VH = window.innerHeight; DPR = Math.min(2, window.devicePixelRatio || 1);
+  SAB = document.getElementById('sab').offsetHeight || 0;
+  cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR); cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+  S = Math.min(VW / W, (VH - SAB) / H);
+  OX = (VW - W * S) / 2; OY = Math.max(0, (VH - SAB - H * S) / 2);
+  buildBg();
+}
+const FONT = ' system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+function font(px, wt) { return (wt || 600) + ' ' + Math.max(px, 13.5 / S).toFixed(1) + 'px' + FONT; }
+function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function buildBg() {
+  const pw = Math.max(1, Math.round(W * S * DPR)), ph = Math.max(1, Math.round(BH * S * DPR));
+  bgCv.width = pw; bgCv.height = ph;
+  const b = bgG; b.setTransform(S * DPR, 0, 0, S * DPR, 0, 0);
+  b.fillStyle = '#0d1328'; b.fillRect(0, 0, W, BH);
+  const sr = mulberry32(seed * 3 + 1);
+  for (let n = 0; n < 110; n++) { b.fillStyle = 'rgba(220,230,255,' + (0.08 + sr() * 0.3) + ')'; const s = 0.6 + sr() * 1.1; b.fillRect(sr() * W, sr() * BH, s, s); }
+  // quiet geometry: the board's inscribed circle and the square inside it
+  b.strokeStyle = 'rgba(160,180,255,0.05)'; b.lineWidth = 1.2;
+  b.beginPath(); b.arc(200, 280, 196, 0, 7); b.stroke();
+  b.beginPath(); b.moveTo(200, 84); b.lineTo(396, 280); b.lineTo(200, 476); b.lineTo(4, 280); b.closePath(); b.stroke();
+  b.beginPath(); b.arc(200, 280, 138.6, 0, 7); b.stroke();
+  // the void starts at the edge
+  b.strokeStyle = 'rgba(255,90,106,0.18)'; b.lineWidth = 2; b.strokeRect(1, 1, W - 2, BH - 2);
+}
+
+// ---------------------------------------------------------------- drawing
+function shipPath(c, kind) {
+  c.beginPath();
+  if (kind === 'craft') { c.moveTo(17, 0); c.lineTo(-11, -12); c.lineTo(-5, 0); c.lineTo(-11, 12); }
+  else { c.moveTo(14, 0); c.lineTo(5, -12); c.lineTo(-11, -11); c.lineTo(-6, -3); c.lineTo(-13, 0); c.lineTo(-6, 3); c.lineTo(-11, 11); c.lineTo(5, 12); }
+  c.closePath();
+}
+function drawShip(c, x, y, h, kind, alpha, sc) {
+  c.save(); c.translate(x, y); c.rotate(h); if (sc) c.scale(sc, sc);
+  c.globalAlpha = alpha == null ? 1 : alpha;
+  c.strokeStyle = kind === 'craft' ? 'rgba(98,200,255,0.25)' : 'rgba(240,138,93,0.25)'; c.lineWidth = 1.2;
+  c.beginPath(); c.arc(0, 0, B / 2, 0, 7); c.stroke();
+  shipPath(c, kind);
+  c.fillStyle = kind === 'craft' ? C_CRAFT : C_HUSK; c.fill();
+  c.strokeStyle = kind === 'craft' ? '#d8f3ff' : '#ffe0d0'; c.lineWidth = 1.4; c.stroke();
+  c.restore(); c.globalAlpha = 1;
+}
+function fanPath(c, p0, sc) {
+  const L3 = man('Turn', 3, -1), R3 = man('Turn', 3, 1);
+  c.beginPath(); c.moveTo(p0.x, p0.y);
+  for (let i = 1; i <= 16; i++) { const q = poseAt(p0, L3, i / 16, sc); c.lineTo(q.x, q.y); }
+  for (let i = 0; i <= 24; i++) { const q = endAt(p0, lenOf(3) * sc, -Math.PI / 2 + Math.PI * i / 24); c.lineTo(q.x, q.y); }
+  for (let i = 16; i >= 0; i--) { const q = poseAt(p0, R3, i / 16, sc); c.lineTo(q.x, q.y); }
+  c.closePath();
+}
+function ringPath(c, p0, l) { c.beginPath(); for (let i = 0; i <= 20; i++) { const q = endAt(p0, l, -Math.PI / 2 + Math.PI * i / 20); i ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y); } }
+function drawFan(c, p0, sc, rgb, a) {
+  fanPath(c, p0, sc);
+  c.fillStyle = 'rgba(' + rgb + ',' + (0.07 * a) + ')'; c.fill();
+  c.strokeStyle = 'rgba(' + rgb + ',' + (0.3 * a) + ')'; c.lineWidth = 1.3; c.stroke();
+  c.strokeStyle = 'rgba(' + rgb + ',' + (0.16 * a) + ')'; c.lineWidth = 1;
+  ringPath(c, p0, lenOf(1) * sc); c.stroke(); ringPath(c, p0, lenOf(2) * sc); c.stroke();
+}
+function pathLine(c, p0, m, uEnd, sc) {
+  c.beginPath(); c.moveTo(p0.x, p0.y);
+  const n = 24; for (let i = 1; i <= n; i++) { const q = poseAt(p0, m, uEnd * i / n, sc); c.lineTo(q.x, q.y); }
+}
+function drawPlanPath(c, ship, m, col, a) {
+  const p0 = pose(ship), ex = execPath(p0, m);
+  c.globalAlpha = a; c.lineCap = 'round';
+  c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 7; pathLine(c, p0, m, ex.uEnd); c.stroke();
+  c.strokeStyle = col; c.lineWidth = 4; pathLine(c, p0, m, ex.uEnd); c.stroke();
+  if (ex.clipped) {
+    c.setLineDash([4, 6]); c.strokeStyle = 'rgba(255,90,106,0.5)'; c.lineWidth = 2;
+    c.beginPath(); const q0 = poseAt(p0, m, ex.uEnd); c.moveTo(q0.x, q0.y); for (let i = 1; i <= 12; i++) { const q = poseAt(p0, m, ex.uEnd + (1 - ex.uEnd) * i / 12); c.lineTo(q.x, q.y); } c.stroke(); c.setLineDash([]);
+    const e = ex.end; c.strokeStyle = HEX.red; c.lineWidth = 3; c.beginPath(); c.moveTo(e.x - 7, e.y - 7); c.lineTo(e.x + 7, e.y + 7); c.moveTo(e.x + 7, e.y - 7); c.lineTo(e.x - 7, e.y + 7); c.stroke();
+  }
+  c.globalAlpha = 1;
+  drawShip(c, ex.end.x, ex.end.y, ex.end.h, ship.kind, 0.5 * a);
+  return ex;
+}
+function wedge(c, s, r) { c.beginPath(); c.moveTo(s.x, s.y); c.arc(s.x, s.y, r, s.h - Math.PI / 4, s.h + Math.PI / 4); c.closePath(); }
+function drawSights(c, s, rgb, a, pop, labels) {
+  const k = pop;
+  wedge(c, s, 300 * k); c.fillStyle = 'rgba(' + rgb + ',' + 0.08 * a + ')'; c.fill();
+  c.strokeStyle = 'rgba(' + rgb + ',' + 0.5 * a + ')'; c.lineWidth = 1.5; c.stroke();
+  c.strokeStyle = 'rgba(' + rgb + ',' + 0.25 * a + ')'; c.lineWidth = 1;
+  for (const r of [100, 200]) { c.beginPath(); c.arc(s.x, s.y, r * k, s.h - Math.PI / 4, s.h + Math.PI / 4); c.stroke(); }
+  if (labels && k > 0.95) {
+    c.fillStyle = 'rgba(' + rgb + ',' + 0.55 * a + ')'; c.font = font(13, 600); c.textAlign = 'center'; c.textBaseline = 'middle';
+    [['Close', 55], ['Mid', 150], ['Far', 250]].forEach(([t, r]) => { const x = s.x + Math.cos(s.h) * r, y = s.y + Math.sin(s.h) * r; if (y > 50 && y < BH - 8 && x > 20 && x < W - 20) c.fillText(t, x, y); });
+  }
+}
+function pips(c, x, y, n, max, col, r, gap) {
+  for (let i = 0; i < max; i++) { c.beginPath(); c.arc(x + i * gap, y, r, 0, 7); if (i < n) { c.fillStyle = col; c.fill(); } else { c.strokeStyle = col; c.globalAlpha = 0.35; c.lineWidth = 1.2; c.stroke(); c.globalAlpha = 1; } }
+  return x + max * gap;
+}
+function strainPips(c, s) {
+  const n = Math.min(3, s.strain); if (!n) return;
+  for (let i = 0; i < n; i++) { c.beginPath(); c.arc(s.x + 22, s.y - 10 + i * 9, 3.6, 0, 7); c.fillStyle = C_STRAIN; c.fill(); }
+}
+function drawBoard(c) {
+  const sh = ANIM ? Math.max(0, 1 - (clock - shake.t0) / 160) : 0;
+  const jx = sh ? (Math.random() - 0.5) * 2 * shake.amp * sh : 0, jy = sh ? (Math.random() - 0.5) * 2 * shake.amp * sh : 0;
+  c.save(); c.translate(jx, jy);
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bgCv, Math.round((OX + jx * S) * DPR), Math.round((OY + jy * S) * DPR)); c.restore();
+  c.save(); c.beginPath(); c.rect(0, 0, W, BH); c.clip();
+  const pulse = 0.5 + 0.5 * Math.sin(clock / 260);
+  if (phase === 'plan') {
+    const grow = ANIM ? smooth(clamp((clock - fanT0) / 260, 0, 1)) : 1;
+    drawFan(c, pose(husk), 1, '240,138,93', 0.45);
+    drawFan(c, pose(craft), grow, '98,200,255', 1);
+    if (plan) drawPlanPath(c, craft, plan, HEX[plan.colour], 1);
+  }
+  if (phase === 'fly') {
+    // the reveal: both plans drawn together, then the Husk flies, then the Craft
+    for (const [s, m, col] of [[husk, hp, C_HUSK], [craft, plan, HEX[plan.colour]]]) {
+      if (s.flown) continue;
+      const p0 = s.fl ? s.fl.p0 : pose(s), ex = s.fl ? s.fl.ex : execPath(p0, m);
+      c.globalAlpha = s.fl ? 0.4 : 0.95; c.lineCap = 'round';
+      c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 7; pathLine(c, p0, m, ex.uEnd); c.stroke();
+      c.strokeStyle = col; c.lineWidth = 4; pathLine(c, p0, m, ex.uEnd); c.stroke(); c.globalAlpha = 1;
+      if (!s.fl) drawShip(c, ex.end.x, ex.end.y, ex.end.h, s.kind, 0.45);
+    }
+  }
+  if (rv && rv.plan && (phase === 'fly' || phase === 'act' || phase === 'shoot')) {
+    const e = rv.plan.read.end, a = phase === 'fly' ? 0.6 : 0.35;
+    c.save(); c.globalAlpha = a; c.setLineDash([3, 4]); c.strokeStyle = C_HUSK; c.lineWidth = 1.6;
+    c.translate(e.x, e.y); c.rotate(e.h); shipPath(c, 'craft'); c.stroke(); c.setLineDash([]); c.restore();
+    c.globalAlpha = a; c.fillStyle = C_HUSK; c.font = font(12, 600); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('its read', e.x, e.y + (e.y > BH - 40 ? -24 : 24)); c.globalAlpha = 1;
+  }
+  if (phase === 'shoot' || (phase === 'end' && tgt)) {
+    const pop = ANIM ? clamp((clock - sightsT0) / T.popMs, 0, 1) : 1, k = 0.6 + 0.4 * (1 - Math.pow(1 - pop, 3)) + 0.04 * Math.sin(pop * Math.PI);
+    drawSights(c, husk, '240,138,93', huskTgt ? 0.9 : 0.3, k, false);
+    drawSights(c, craft, '98,200,255', 1, k, true);
+    if (tgt && husk.hull > 0) {
+      c.strokeStyle = picked ? '#ffffff' : 'rgba(255,255,255,' + (0.4 + 0.5 * pulse) + ')'; c.lineWidth = picked ? 3 : 2;
+      c.beginPath(); c.arc(husk.x, husk.y, 26 + (picked ? 0 : 3 * pulse), 0, 7); c.stroke();
+      if (picked) { c.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; c.moveTo(husk.x + Math.cos(a) * 20, husk.y + Math.sin(a) * 20); c.lineTo(husk.x + Math.cos(a) * 34, husk.y + Math.sin(a) * 34); } c.stroke(); }
+    }
+  }
+  // ships
+  for (const s of [husk, craft]) {
+    const q = s.fl ? flightPose(s) : pose(s);
+    if (s.fl && ANIM) { for (let i = 0; i < 2; i++) addParticle(q.x - Math.cos(q.h) * 14, q.y - Math.sin(q.h) * 14, -Math.cos(q.h) * 50 + (Math.random() - 0.5) * 30, -Math.sin(q.h) * 50 + (Math.random() - 0.5) * 30, s === craft ? 0 : 1); }
+    if (s.hull <= 0 && !s.fl) { c.globalAlpha = 0.35; }
+    if (s.focus) { const rg = s === craft ? '160,230,255' : '255,190,150'; c.strokeStyle = 'rgba(' + rg + ',' + (0.35 + 0.35 * pulse) + ')'; c.lineWidth = 3; c.beginPath(); c.arc(q.x, q.y, 22, 0, 7); c.stroke(); c.strokeStyle = 'rgba(' + rg + ',0.15)'; c.lineWidth = 8; c.stroke(); }
+    if (s === husk && rv && phase === 'plan' && rv.plan) drawLean(c, q, rv.plan.lean, pulse);
+    if (s === husk && rv && rv.plan && (rv.plan.bold || rv.plan.desperate) && ANIM && Math.random() < 0.25) addParticle(q.x + (Math.random() - 0.5) * 18, q.y + (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 40, -30 - Math.random() * 30, 1);
+    drawShip(c, q.x, q.y, q.h, s.kind, s.hull <= 0 ? 0.35 : 1);
+    c.globalAlpha = 1;
+    if (!s.fl) strainPips(c, s);
+    c.fillStyle = s === craft ? 'rgba(98,200,255,0.75)' : 'rgba(240,138,93,0.75)'; c.font = font(13, 600); c.textAlign = 'center'; c.textBaseline = 'top';
+    // the name sits behind the ship (opposite its nose), so the nose, the lean arrow and the path stay clear
+    const bx = clamp(q.x - Math.cos(q.h) * 36, 24, W - 24), byy = q.y - Math.sin(q.h) * 36 - 8;
+    const ly = clamp(byy, 46, BH - 40), lx = bx, nm = s === craft ? 'Craft' : RV().name; c.strokeStyle = 'rgba(8,11,24,0.85)'; c.lineWidth = 4; c.lineJoin = 'round'; c.strokeText(nm, lx, ly); c.fillText(nm, lx, ly);
+    if (s === husk && rv && rv.plan && !s.fl) {
+      const tag = phase === 'plan' && rv.plan.lean ? 'leaning' : rv.plan.desperate ? 'Desperate' : rv.plan.bold ? 'Bold' : '';
+      if (tag) { const ty = (ly < q.y - 8 || ly + 16 > BH - 20) ? ly - 15 : ly + 16; c.font = font(12, 700); c.fillStyle = rv.plan.desperate && phase !== 'plan' ? '#ff7a5a' : 'rgba(255,200,170,0.9)'; c.strokeText(tag, lx, ty); c.fillText(tag, lx, ty); }
+    }
+  }
+  // particles
+  for (let col = 0; col < PCOL.length; col++) { c.fillStyle = PCOL[col]; for (let p = 0; p < NP; p++) if (pL[p] > 0 && pC[p] === col) { c.globalAlpha = pL[p] / 0.6; c.fillRect(pX[p] - 1.5, pY[p] - 1.5, 3, 3); } }
+  c.globalAlpha = 1;
+  const fl = ANIM ? Math.max(0, 1 - (clock - flash) / 260) : 0;
+  if (fl > 0) { c.fillStyle = 'rgba(255,248,220,' + 0.28 * fl + ')'; c.fillRect(0, 0, W, BH); }
+  // toasts
+  toasts = toasts.filter(t => !ANIM || clock - t.t0 < t.ms);
+  toasts.forEach((t, i) => {
+    const a = ANIM ? clamp(1 - (clock - t.t0 - (t.ms - 500)) / 500, 0, 1) : 1;
+    c.globalAlpha = a; c.font = font(17, 700); c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (c.measureText(t.text).width > 360) c.font = font(14, 700);
+    const w = Math.min(396, c.measureText(t.text).width + 26); roundRect(c, 200 - w / 2, 58 + i * 34, w, 28, 14); c.fillStyle = 'rgba(8,11,24,0.85)'; c.fill();
+    c.fillStyle = t.col; c.fillText(t.text, 200, 72 + i * 34); c.globalAlpha = 1;
+  });
+  c.restore();
+  c.restore();
+}
+// the lean: during Plan its engine glows on the side it means to turn, and a hooked arrow bends off its nose (mostly true)
+function drawLean(c, q, lean, pulse) {
+  c.save(); c.translate(q.x, q.y); c.rotate(q.h);
+  for (const sd of [-1, 1]) {
+    const hot = lean === sd ? 1 : lean ? 0.25 : 0.55, r = 4 + 5 * hot * (0.8 + 0.2 * pulse);
+    const gr = c.createRadialGradient(-12, sd * 8, 0, -12, sd * 8, r * 1.8);
+    gr.addColorStop(0, 'rgba(255,220,160,' + (0.9 * hot) + ')'); gr.addColorStop(1, 'rgba(255,140,80,0)');
+    c.fillStyle = gr; c.beginPath(); c.arc(-12, sd * 8, r * 1.8, 0, 7); c.fill();
+  }
+  if (lean) {
+    // a hooked arrow off the nose, bending the way it leans (drawn in its own frame, so it points where it will go)
+    const ex = 42, ey = lean * 24, dx = ex - 38, dy = ey, dl = Math.hypot(dx, dy), ux = dx / dl, uy = dy / dl;
+    c.strokeStyle = 'rgba(8,11,24,0.7)'; c.lineWidth = 6; c.lineCap = 'round'; c.lineJoin = 'round';
+    const arrow = () => { c.beginPath(); c.moveTo(19, 0); c.quadraticCurveTo(38, 0, ex, ey);
+      for (const w of [0.55, -0.55]) { const cx = Math.cos(w), sn = Math.sin(w); c.moveTo(ex, ey); c.lineTo(ex - 9 * (ux * cx - uy * sn), ey - 9 * (ux * sn + uy * cx)); } };
+    arrow(); c.stroke();
+    c.strokeStyle = 'rgba(255,200,160,' + (0.7 + 0.3 * pulse) + ')'; c.lineWidth = 3; arrow(); c.stroke();
+  }
+  c.restore();
+}
+function flightPose(s) {
+  const f = s.fl, t = ANIM ? clamp((clock - f.t0) / f.dur, 0, 1) : 1, e = ease(t);
+  const q = poseAt(f.p0, f.m, e * f.ex.uEnd);
+  if (f.m.shape === 'Flip' && !f.ex.clipped) q.h += (f.m.side || 1) * Math.PI * smooth(clamp((e - 2 / 3) * 3, 0, 1));
+  if (f.ex.clipped) { const k = smooth(clamp((t - 0.8) / 0.2, 0, 1)); q.h = q.h + angN(f.ex.end.h - q.h) * k; }
+  return q;
+}
+function drawTop(c) {
+  c.fillStyle = 'rgba(8,11,24,0.84)'; c.fillRect(0, 0, W, 42);
+  c.strokeStyle = 'rgba(160,180,255,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 42); c.lineTo(W, 42); c.stroke();
+  const pi = phase === 'end' ? 3 : PHASES.indexOf(phase === 'fly' ? 'Fly' : phase === 'act' ? 'Act' : phase === 'shoot' ? 'Shoot' : 'Plan');
+  c.font = font(18, 800); c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = C_GOLD;
+  c.fillText(PHASES[pi], 10, 21);
+  let x = 10 + Math.max(52, c.measureText(PHASES[pi]).width + 8);
+  for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(x + i * 10, 21, 3.4, 0, 7); if (i <= pi) { c.fillStyle = i === pi ? C_GOLD : 'rgba(230,184,74,0.45)'; c.fill(); } else { c.strokeStyle = 'rgba(230,184,74,0.45)'; c.lineWidth = 1.2; c.stroke(); } }
+  x += 44; c.font = font(15, 700); c.fillStyle = '#c9d0e6'; c.fillText('R' + round, x, 21);
+  // ships: shields (blue), hull (white), Strain (amber)
+  const block = (bx, s) => {
+    c.save(); c.translate(bx + 8, 21); c.rotate(UP); c.scale(0.55, 0.55); shipPath(c, s.kind); c.fillStyle = s.kind === 'craft' ? C_CRAFT : C_HUSK; c.fill(); c.restore();
+    let px = bx + 24;
+    px = pips(c, px, 21, s.shields, 2, C_SHIELD, 4.2, 11) + 3;
+    px = pips(c, px, 21, s.hull, 3, C_HULL, 4.2, 11) + 3;
+    pips(c, px, 21, Math.min(3, s.strain), 3, C_STRAIN, 3.4, 9);
+  };
+  block(162, craft); block(280, husk);
+}
+// ---------------------------------------------------------------- the panel: pad, dice, buttons
+let BTNS = [];
+function layoutButtons() {
+  const b = [];
+  if (phase === 'plan') b.push({ id: 'fly', ...BTN, label: 'FLY', on: !!plan, main: true, fn: fly });
+  else if (phase === 'fly') b.push({ id: 'fly', ...BTN, label: 'FLY', on: false, main: true, fn: () => {} });
+  else if (phase === 'act') {
+    const blocked = craft.strain >= 1 || craft.clipped;
+    b.push({ id: 'focus', x: 8, y: 640, w: 252, h: 194, label: blocked ? (craft.strain >= 1 ? 'Strained' : 'Clipped') : 'FOCUS', subl: blocked ? 'no Focus this round' : 'Spirit = Hit & Dodge', focusIcon: !blocked, on: !blocked && sub !== 'focused', main: true, fn: focus });
+    b.push({ id: 'pass', x: 268, y: 640, w: 124, h: 194, label: blocked ? 'GO ON' : 'PASS', subl: blocked ? 'continue' : 'no bonus', on: sub !== 'focused', fn: pass });
+  } else if (phase === 'shoot') {
+    if (sub === 'pick' || sub === 'ready') {
+      b.push({ id: 'card', x: 8, y: 570, w: 384, h: 140, card: true, on: true, fn: pick });
+      b.push({ id: 'roll', ...BTN, label: 'ROLL', on: sub === 'ready', main: true, fn: roll });
+    } else if (sub === 'done') b.push({ id: 'next', ...BTN, label: 'NEXT ROUND', on: true, main: true, fn: next });
+    else b.push({ id: 'wait', ...BTN, label: '…', on: false, fn: () => {} });
+  }
+  BTNS = b;
+}
+function drawButton(c, bt) {
+  if (bt.card) return drawCard(c, bt);
+  roundRect(c, bt.x, bt.y, bt.w, bt.h, 16);
+  c.fillStyle = bt.on ? (bt.main ? '#62c8ff' : '#1b2448') : '#141a33'; c.fill();
+  c.strokeStyle = bt.on ? (bt.main ? '#a8e4ff' : '#3a4780') : '#242c52'; c.lineWidth = 1.5; c.stroke();
+  if (downId === bt.id && bt.on) { c.fillStyle = 'rgba(255,255,255,0.15)'; c.fill(); }
+  c.fillStyle = bt.on ? (bt.main ? '#06121c' : '#e8ecf8') : '#5d6788'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = font(bt.h > 120 ? 26 : 22, 800); c.fillText(bt.label, bt.x + bt.w / 2, bt.y + bt.h / 2 - (bt.subl ? 12 : 0));
+  if (bt.subl) { c.font = font(14, 600); c.fillStyle = bt.on ? (bt.main ? '#0c2a3d' : '#9aa4c4') : (bt.label === 'Strained' ? C_STRAIN : '#7d86a6'); c.fillText(bt.subl, bt.x + bt.w / 2, bt.y + bt.h / 2 + 20); }
+  if (bt.focusIcon) {
+    // a Spirit face turning into a Hit: what Focus does, drawn
+    const cx = bt.x + bt.w / 2, cy = bt.y + bt.h / 2 + 56, sz = 30, col = bt.on ? '#06121c' : '#5d6788';
+    c.strokeStyle = col; c.lineWidth = 1.6; roundRect(c, cx - 52, cy - sz / 2, sz, sz, 6); c.stroke(); glyph(c, 'Spirit', cx - 37, cy, sz, col);
+    c.beginPath(); c.moveTo(cx - 14, cy); c.lineTo(cx + 12, cy); c.moveTo(cx + 6, cy - 5); c.lineTo(cx + 12, cy); c.lineTo(cx + 6, cy + 5); c.stroke();
+    roundRect(c, cx + 22, cy - sz / 2, sz, sz, 6); c.stroke(); glyph(c, 'Hit', cx + 37, cy, sz, col);
+  }
+}
+function drawCard(c, bt) {
+  roundRect(c, bt.x, bt.y, bt.w, bt.h, 16);
+  c.fillStyle = picked ? '#2a1a14' : '#1a1730'; c.fill();
+  const pulse = 0.5 + 0.5 * Math.sin(clock / 260);
+  c.strokeStyle = picked ? C_HUSK : 'rgba(240,138,93,' + (0.45 + 0.4 * pulse) + ')'; c.lineWidth = picked ? 3 : 2; c.stroke();
+  drawShip(c, bt.x + 40, bt.y + 46, UP, 'husk', 1, 1.2);
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.font = font(22, 800); c.fillStyle = '#fff'; c.fillText(RV().name + ' · ' + tgt.band, bt.x + 76, bt.y + 30);
+  let px = bt.x + 84; px = pips(c, px, bt.y + 62, husk.shields, 2, C_SHIELD, 5.5, 15) + 6; pips(c, px, bt.y + 62, husk.hull, 3, C_HULL, 5.5, 15);
+  c.font = font(15, 600);
+  const bonus = tgt.band === 'Close' ? '+1 Strike die (Close)' : tgt.band === 'Far' ? '+1 Dodge die (Far)' : '3 Strike vs 2 Dodge';
+  c.fillStyle = tgt.band === 'Close' ? HEX.green : tgt.band === 'Far' ? C_STRAIN : '#c9d0e6'; c.fillText(bonus, bt.x + 76, bt.y + 92);
+  c.fillStyle = huskTgt ? C_HUSK : HEX.green; c.font = font(14, 600);
+  c.fillText(huskTgt ? 'You are in its Sights: it fires back' + (husk.focus ? ' (Focused)' : '') : 'You are out of its Sights', bt.x + 76, bt.y + 118);
+  c.textAlign = 'right'; c.font = font(16, 800); c.fillStyle = picked ? C_HUSK : '#fff';
+  c.fillText(husk.focus ? 'Focused' : husk.strain >= 1 ? 'Strained' : '', bt.x + bt.w - 14, bt.y + 30);
+}
+function glyph(c, f, cx, cy, s, col) {
+  const r = s * 0.3; c.fillStyle = col; c.strokeStyle = col;
+  if (f === 'Hit') { c.beginPath(); c.moveTo(cx, cy - r); c.lineTo(cx + r * 0.78, cy); c.lineTo(cx, cy + r); c.lineTo(cx - r * 0.78, cy); c.closePath(); c.fill(); }
+  else if (f === 'Burst') { c.beginPath(); for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + i * Math.PI / 4, rr = i % 2 ? r * 0.3 : r * 1.1; i ? c.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : c.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } c.closePath(); c.fill(); }
+  else if (f === 'Spirit') { c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.27 : r * 0.66; i ? c.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : c.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } c.closePath(); c.fill(); }
+  else if (f === 'Dodge') { c.lineWidth = s * 0.11; c.lineCap = 'round'; c.beginPath(); c.arc(cx - r * 0.35, cy, r * 0.95, -Math.PI * 0.38, Math.PI * 0.38); c.stroke(); }
+}
+function drawDie(c, d, x, y, s, owner, i) {
+  const settled = d.settled || !ANIM;
+  let f = d.f, jx = 0, jy = 0, rot = 0, sc = 1;
+  if (!settled) {
+    const list = d.kind === 'strike' ? STRIKE : DODGE;
+    f = list[(Math.floor(clock / 70) * 7 + i * 3) % 8];
+    jx = Math.sin(clock * 0.05 + i * 1.7) * 2.5; jy = Math.cos(clock * 0.043 + i * 2.3) * 2.5; rot = Math.sin(clock * 0.03 + i) * 0.25;
+  } else if (ANIM) { const k = clamp((clock - d.st) / 140, 0, 1); sc = 1 + 0.16 * (1 - k); }
+  c.save(); c.translate(x + s / 2 + jx, y + s / 2 + jy); c.rotate(rot); c.scale(sc, sc);
+  roundRect(c, -s / 2, -s / 2, s, s, 9);
+  c.fillStyle = owner === 'craft' ? '#10283b' : '#3a1e15'; c.fill();
+  c.strokeStyle = owner === 'craft' ? C_CRAFT : C_HUSK; c.lineWidth = 2; c.stroke();
+  const fl = ANIM ? Math.max(0, 1 - (clock - d.flash) / 450) : 0;
+  if (fl > 0) { c.fillStyle = 'rgba(255,255,255,' + 0.5 * fl + ')'; c.fill(); c.shadowColor = '#fff'; c.shadowBlur = 14 * fl; }
+  glyph(c, f, 0, 0, s, owner === 'craft' ? '#e2f6ff' : '#ffe6d8');
+  c.restore();
+}
+function drawRow(c, row, y) {
+  const s = 40, gap = 6, nA = row.att.length, nD = row.def.length, vsW = 30;
+  const total = nA * (s + gap) - gap + vsW + nD * (s + gap) - gap;
+  let x = (W - total) / 2;
+  const aOwner = row.who, dOwner = row.who === 'craft' ? 'husk' : 'craft';
+  row.att.forEach((d, i) => { drawDie(c, d, x, y, s, aOwner, i); x += s + gap; });
+  x += vsW / 2 - gap / 2; c.fillStyle = '#9aa4c4'; c.font = font(14, 700); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('vs', x, y + s / 2); x += vsW / 2 + gap / 2;
+  row.def.forEach((d, i) => { drawDie(c, d, x, y, s, dOwner, nA + i); x += s + gap; });
+  if (row.res) {
+    c.font = font(15, 700); c.textAlign = 'center'; c.fillStyle = (row.res.shield + row.res.hull) ? (row.who === 'craft' ? '#ffffff' : C_HUSK) : '#9aa4c4';
+    c.fillText(row.line, W / 2, y + s + 18);
+  }
+}
+function drawPad(c) {
+  roundRect(c, PAD.x, PAD.y, PAD.w, PAD.h, 18); c.fillStyle = '#0f1530'; c.fill();
+  c.strokeStyle = 'rgba(98,200,255,0.18)'; c.lineWidth = 1.2; c.stroke();
+  const p0 = { x: PO.x, y: PO.y, h: UP };
+  drawFan(c, p0, K, '98,200,255', 0.9);
+  // the 15 landing spots (the tap fallback) and the Flip spot behind
+  c.fillStyle = 'rgba(200,225,255,0.22)';
+  for (const m of ALL15) { const e = padEnd(m); c.beginPath(); c.arc(PO.x + e.x, PO.y + e.y, 2.6, 0, 7); c.fill(); }
+  
+  // the raw stroke, thin
+  const raw = SK && SK.maxD >= T.tapPx ? SK.raw : shownStroke;
+  if (raw && raw.length > 1) {
+    c.strokeStyle = 'rgba(232,236,248,0.4)'; c.lineWidth = 1.6; c.lineJoin = 'round'; c.beginPath();
+    raw.forEach((p, i) => i ? c.lineTo(PO.x + p.x, PO.y + p.y) : c.moveTo(PO.x + p.x, PO.y + p.y)); c.stroke();
+  }
+  if (tapMark) { c.strokeStyle = 'rgba(232,236,248,0.6)'; c.lineWidth = 1.5; c.beginPath(); c.arc(PO.x + tapMark.x, PO.y + tapMark.y, 9, 0, 7); c.stroke(); }
+  // the quantised manoeuvre, bold
+  if (plan) {
+    const col = HEX[plan.colour];
+    c.lineCap = 'round'; c.strokeStyle = col; c.lineWidth = 6; pathLine(c, p0, plan, 1, K); c.stroke();
+    const e = poseAt(p0, plan, 1, K);
+    if (plan.shape === 'Flip') { c.lineWidth = 3; c.beginPath(); c.arc(e.x + plan.side * 9, e.y, 9, plan.side > 0 ? Math.PI : 0, plan.side > 0 ? 0 : Math.PI, plan.side < 0); c.stroke(); }
+    drawShip(c, e.x, e.y, plan.shape === 'Flip' ? -UP : e.h, 'craft', 0.55, K);
+  }
+  drawShip(c, PO.x, PO.y, UP, 'craft', 1, K);
+  // label under the Craft
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  if (plan) { c.font = font(19, 800); c.fillStyle = HEX[plan.colour]; c.fillText(plan.label, PO.x, PO.y + 30); }
+  else if (round <= 2) { c.font = font(15, 600); c.fillStyle = 'rgba(200,215,240,0.75)'; c.fillText('Draw from your Craft, or tap a spot', PO.x, PO.y + 30); }
+  // header: Strain, the strained notice, the void warning
+  c.textAlign = 'right'; c.font = font(14, 700); c.fillStyle = C_STRAIN; c.fillText('Strain', PAD.x + PAD.w - 50, PAD.y + 18);
+  pips(c, PAD.x + PAD.w - 38, PAD.y + 18, Math.min(3, craft.strain), 3, C_STRAIN, 4, 11);
+  if (craft.strain >= 1) {
+    c.textAlign = 'left'; c.font = font(14, 700); c.fillStyle = (plan && plan.clamped) ? C_STRAIN : 'rgba(255,197,61,0.7)';
+    c.fillText('Strained:', PAD.x + 12, PAD.y + 18); c.fillText('no Hard moves', PAD.x + 12, PAD.y + 38);
+  }
+  if (plan && execPath(pose(craft), plan).clipped) { c.textAlign = 'right'; c.font = font(14, 700); c.fillStyle = HEX.red; c.fillText('Clips the void', PAD.x + PAD.w - 12, PAD.y + 42); }
+}
+const sideLabel = m => m.shape + ' ' + m.speed + sideWord(m) + ' · ' + WORD[m.colour];
+const sideWord = m => m.shape === 'Bank' || m.shape === 'Turn' ? (m.side > 0 ? ' right' : ' left') : '';
+function drawPanel(c) {
+  if (phase === 'plan') drawPad(c);
+  else if (phase === 'fly') {
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const nm = RV().name;
+    c.font = font(20, 800); c.fillStyle = '#e8ecf8'; c.fillText(sub === 'reveal' ? 'Revealing…' : sub === 'husk' ? nm + ' flies' : 'Your Craft flies', 200, 592);
+    c.font = font(18, 700);
+    c.fillStyle = C_HUSK; c.fillText(nm + ': ' + sideLabel(hp), 200, 630);
+    c.fillStyle = HEX[plan.colour]; c.fillText('You: ' + sideLabel(plan), 200, 662);
+    if (rv.plan) {
+      c.font = font(15, 600); c.fillStyle = 'rgba(240,138,93,0.85)'; c.fillText('It expected you: ' + rv.plan.read.m.shape + ' ' + rv.plan.read.m.speed + sideWord(rv.plan.read.m), 200, 698);
+      c.font = font(16, 800); c.fillStyle = readHit ? C_HUSK : HEX.green; c.fillText(readHit ? 'It read you' : 'You surprised it', 200, 728);
+    }
+  } else if (phase === 'act') {
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = font(20, 800); c.fillStyle = '#e8ecf8';
+    c.fillText(craft.clipped ? 'Clipped the void: no action' : craft.strain >= 1 ? 'Strained: no Focus' : 'Act: Focus or Pass', 200, 586);
+    c.font = font(15, 600); c.fillStyle = husk.focus ? C_HUSK : '#9aa4c4';
+    c.fillText(RV().name + (husk.focus ? ' Focuses too' : husk.clipped ? ' clipped the void: no Focus' : ' is strained: no Focus'), 200, 614);
+  } else if (phase === 'shoot') {
+    const slots = [576, 664];
+    if (noTarget) { c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = font(19, 800); c.fillStyle = '#9aa4c4'; c.fillText('No target in Sights', 200, 600); if (!huskTgt) { c.font = font(15, 600); c.fillText('and you are out of its Sights', 200, 630); } }
+    tray.forEach((row, i) => drawRow(c, row, slots[noTarget ? 1 : i] || slots[1]));
+  }
+  layoutButtons();
+  for (const bt of BTNS) drawButton(c, bt);
+}
+function render() {
+  const c = g;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = '#080b18'; c.fillRect(0, 0, cv.width, cv.height);
+  c.fillStyle = '#0b1022'; c.fillRect(0, Math.round((OY + BH * S) * DPR), cv.width, cv.height);
+  c.setTransform(S * DPR, 0, 0, S * DPR, OX * DPR, OY * DPR);
+  drawBoard(c);
+  drawTop(c);
+  drawPanel(c);
+}
+
+// ---------------------------------------------------------------- input: one finger
+const toWorld = (sx, sy) => ({ x: (sx - OX) / S, y: (sy - OY) / S });
+const padOf = w => ({ x: w.x - PO.x, y: w.y - PO.y });
+const inRect = (w, r) => w.x >= r.x && w.x <= r.x + r.w && w.y >= r.y && w.y <= r.y + r.h;
+let G = null, downId = null;
+cv.addEventListener('pointerdown', ev => {
+  ev.preventDefault(); audioOn();
+  if (G || over) return;                                  // one finger: a second pointer is ignored
+  const w = toWorld(ev.clientX, ev.clientY);
+  layoutButtons();
+  const bt = BTNS.find(b => inRect(w, b));
+  try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* synthetic pointer */ }
+  if (bt) { G = { id: ev.pointerId, kind: 'btn', bid: bt.id }; downId = bt.id; return; }
+  if (phase === 'plan' && inRect(w, PAD)) { G = { id: ev.pointerId, kind: 'pad' }; strokeBegin(padOf(w), performance.now()); return; }
+  if (phase === 'shoot' && sub === 'pick' && w.y < BH && Math.hypot(w.x - husk.x, w.y - husk.y) <= Math.max(28 / S, 30)) { pick(); }
+  G = { id: ev.pointerId, kind: 'none' };
+}, { passive: false });
+cv.addEventListener('pointermove', ev => {
+  if (!G || ev.pointerId !== G.id) return;
+  ev.preventDefault();
+  if (G.kind === 'pad') strokeMove(padOf(toWorld(ev.clientX, ev.clientY)));
+}, { passive: false });
+function endPointer(ev, cancel) {
+  if (!G || ev.pointerId !== G.id) return;
+  const gs = G; G = null;
+  downId = null;
+  if (gs.kind === 'pad') { if (cancel) SK = null; else strokeEnd(performance.now()); }
+  if (gs.kind === 'btn' && !cancel) {
+    layoutButtons();
+    const w = toWorld(ev.clientX, ev.clientY), bt = BTNS.find(b => b.id === gs.bid);
+    if (bt && bt.on && inRect(w, bt)) bt.fn();
+  }
+}
+cv.addEventListener('pointerup', ev => endPointer(ev, false));
+cv.addEventListener('pointercancel', ev => endPointer(ev, true));
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+// ---------------------------------------------------------------- loop + perf sampler
+const perfS = [];
+let last = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
+  const t0 = performance.now();
+  if (ANIM) clock += dt * 1000 * timeScale;
+  runTasks();
+  stepParticles(dt * timeScale);
+  render();
+  perfS.push(performance.now() - t0); if (perfS.length > 300) perfS.shift();
+}
+window.addEventListener('resize', resize);
+
+// ---------------------------------------------------------------- test API
+const ship = s => ({ x: +s.x.toFixed(2), y: +s.y.toFixed(2), heading: +s.h.toFixed(4), shields: s.shields, hull: s.hull, strain: s.strain, focus: s.focus, clipped: s.clipped });
+const pctl = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * q))] : 0; };
+const planOut = pl => pl && { move: manOut(pl.m), read: { ...manOut(pl.read.m), p: +pl.read.p.toFixed(3), end: { x: +pl.read.end.x.toFixed(2), y: +pl.read.end.y.toFixed(2) } }, lean: pl.lean, honest: pl.honest, habit: pl.habit, desperate: pl.desperate, bold: pl.bold, situation: pl.sit.key, ms: pl.ms, best: +pl.best.toFixed(4), pairs: pl.n };
+const manOut = m => m && { speed: m.speed, shape: m.shape, side: m.side, colour: m.colour, label: m.label, clamped: !!m.clamped };
+window.__fl = {
+  state() {
+    const ex = plan ? execPath(pose(craft), plan) : null;
+    return {
+      phase, sub, round, seed, over, start: document.getElementById('start').classList.contains('on'),
+      craft: ship(craft), husk: ship(husk),
+      rival: { key: rivalKey, name: RV().name, level, lean: phase === 'plan' && rv.plan ? rv.plan.lean : null, read: phase !== 'plan' && rv.plan ? manOut(rv.plan.read.m) : null, readHit: phase !== 'plan' ? readHit : null, quiet: rv.quiet, bold: rv.bold },
+      plan: plan ? { ...manOut(plan), end: { x: +ex.end.x.toFixed(2), y: +ex.end.y.toFixed(2), heading: +ex.end.h.toFixed(4) }, clipped: ex.clipped } : null,
+      planRaw: manOut(planRaw), huskPlan: manOut(hp), analysis: lastAnalysis && { bend: +lastAnalysis.bend.toFixed(1), lest: +lastAnalysis.lest.toFixed(1), disp: +lastAnalysis.disp.toFixed(1) },
+      flags: { target: tgt && { band: tgt.band, d: +tgt.d.toFixed(1) }, huskTarget: huskTgt && { band: huskTgt.band, d: +huskTgt.d.toFixed(1) }, picked, noTarget,
+        tray: tray.map(r => ({ who: r.who, att: r.att.map(d => d.f), def: r.def.map(d => d.f), rolledAtt: r.att.map(d => d.rolled), rolledDef: r.def.map(d => d.rolled), res: r.res, line: r.line, focusAtt: r.attF, focusDef: r.defF })),
+        tasks: tasks.length, stats: { ...stats } },
+    };
+  },
+  stroke(points, ms) { if (phase !== 'plan' || !points || !points.length) return null; strokeBegin(points[0], 0); for (let i = 1; i < points.length; i++) strokeMove(points[i]); strokeEnd(ms || 0); return manOut(plan); },
+  fly, focus, pass, pick, roll, next,
+  rollDice(kind, n) { const out = []; for (let i = 0; i < n; i++) out.push(face(kind)); return out; },
+  seed(n, opts) { opts = Object.assign({}, opts); if (!opts.keepHabits) opts.fresh = true; restart(n, opts); return seed; },
+  botTiming() { return { n: botMs.length, p50: pctl(botMs, 0.5), p95: pctl(botMs, 0.95), max: pctl(botMs, 1) }; },
+  // run the decision n times on the current board without touching game state (same inputs, fresh decision rng each time)
+  bench(n) { const t = []; let first = null, same = true; for (let i = 0; i < n; i++) { const pl = rivalPlan(decRng()); t.push(pl.ms); const k = pl.m.label + pl.m.side + '|' + pl.lean; if (first === null) first = k; else if (k !== first) same = false; } return { n, p50: pctl(t, 0.5), p95: pctl(t, 0.95), max: pctl(t, 1), deterministic: same, plan: first }; },
+  perf() { const s = perfS.slice().sort((a, b) => a - b); return { frames: s.length, p50: s.length ? s[Math.floor(s.length * 0.5)] : 0, p95: s.length ? s[Math.floor(s.length * 0.95)] : 0, max: s.length ? s[s.length - 1] : 0 }; },
+  resetPerf() { perfS.length = 0; },
+  toScreen(wx, wy) { return { x: OX + wx * S, y: OY + wy * S }; },
+  padToScreen(px, py) { return { x: OX + (PO.x + px) * S, y: OY + (PO.y + py) * S }; },
+  padEnd(shape, speed, side) { return padEnd(man(shape, speed, side)); },
+  anim(on) { ANIM = !!on; if (!ANIM) { while (tasks.length) { const t = tasks.shift(); t.fn(); } } return ANIM; },
+  btn(id) { layoutButtons(); const b = BTNS.find(x => x.id === id); return b ? { x: OX + (b.x + b.w / 2) * S, y: OY + (b.y + b.h / 2) * S, on: b.on, h: b.h * S, w: b.w * S } : null; },
+  get S() { return S; }, T, STRIKE, DODGE,
+  dev: {
+    place(who, x, y, h) { const s = who === 'husk' ? husk : craft; s.x = x; s.y = y; if (h != null) s.h = h; if (phase === 'plan' && who === 'craft') setPlan(planRaw); },
+    setStrain(who, n) { const s = who === 'husk' ? husk : craft; s.strain = n; if (who === 'craft') setPlan(planRaw); },
+    setHull(who, sh, hu) { const s = who === 'husk' ? husk : craft; s.shields = sh; s.hull = hu; },
+    huskPlan(shape, speed, side) { hp = man(shape, speed, side); },
+    rivalPlan: () => planOut(rv.plan), replan: () => planOut(rivalPlan(decRng())), hand: () => rv.hand, habits: () => JSON.parse(JSON.stringify(habits)),
+    tune(o) { tune = Object.assign({}, o || {}); return RV(); }, level(l) { if (LEVELS[l]) level = l; return level; }, rivals: () => Object.keys(RIVALS),
+    pause(on) { timeScale = on ? 0 : 1; },
+    clock: () => clock,
+  },
+};
+
+// ---------------------------------------------------------------- boot
+const qs = new URLSearchParams(location.search);
+seed = Math.max(1, parseInt(qs.get('seed') || '1', 10) || 1);
+try { const r0 = localStorage.getItem('flight.rival'), l0 = localStorage.getItem('flight.level'); if (RIVALS[r0]) rivalKey = r0; if (LEVELS[l0]) level = l0; } catch (e) { /* storage off */ }
+if (RIVALS[qs.get('rival')]) rivalKey = qs.get('rival');
+if (LEVELS[qs.get('level')]) level = qs.get('level');
+resize();
+restart(seed);
+if (!RIVALS[qs.get('rival')]) showStart(seed);     // a link that names its rival starts the duel at once
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
