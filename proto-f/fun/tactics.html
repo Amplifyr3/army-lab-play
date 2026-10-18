@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f1e">
+<title>Tactics: six ships, one timeline</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0b0f1e; color: #e8e6df; overflow: hidden; font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  #c { position: fixed; inset: 0; display: block; touch-action: none; }
+  .card { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); box-sizing: border-box; background: rgba(6,9,20,0.86); z-index: 5; }
+  .card.on { display: flex; }
+  .card > div { background: #141a33; border: 2px solid #2a3360; border-radius: 18px; padding: 18px 18px 16px; max-width: 420px; width: 100%; box-sizing: border-box; }
+  .card h1 { font-size: 22px; margin: 0 0 6px; color: #e6b84a; letter-spacing: .02em; }
+  .card p { margin: 0 0 10px; color: #b9b6ad; font-size: 15px; }
+  .card ul { margin: 0 0 12px; padding-left: 18px; color: #c9c6bd; font-size: 15px; }
+  .card li { margin: 2px 0; }
+  .row { display: flex; gap: 10px; margin: 6px 0 12px; }
+  .tog { flex: 1; display: flex; border: 2px solid #2a3360; border-radius: 12px; overflow: hidden; }
+  .tog button { flex: 1; background: #0f1430; color: #9aa4c4; border: 0; padding: 12px 6px; font: inherit; font-weight: 700; font-size: 15px; }
+  .tog button.on { background: #e6b84a; color: #0b0f1e; }
+  .big { display: block; width: 100%; box-sizing: border-box; background: #62c8ff; color: #0c2a3d; border: 0; border-radius: 14px; padding: 16px; font: inherit; font-weight: 800; font-size: 20px; letter-spacing: .03em; margin-top: 4px; }
+  .big:active { filter: brightness(1.1); }
+  .sub { display: flex; gap: 10px; margin-top: 10px; }
+  .sub button { flex: 1; background: #1c2448; color: #e8e6df; border: 2px solid #2a3360; border-radius: 12px; padding: 12px 8px; font: inherit; font-weight: 700; font-size: 15px; }
+  .stats { display: flex; flex-direction: column; gap: 5px; font-size: 14.5px; color: #b9b6ad; margin: 10px 0 4px; }
+  .stats div { display: flex; justify-content: space-between; gap: 12px; }
+  .stats b { color: #e8e6df; font-weight: 700; text-align: right; flex: 0 1 auto; }
+  #endCause { color: #e8e6df; font-size: 15.5px; }
+  .tiny { color: #7d86a6; font-size: 13px; margin-top: 10px; }
+  .tiny a { color: #9aa4c4; }
+  .picks { display: flex; gap: 10px; margin: 8px 0 6px; }
+  .picks button { flex: 1; background: #0f1430; border: 2px solid #2a3360; border-radius: 14px; padding: 12px 8px 10px; color: #e8e6df; font: inherit; text-align: left; min-height: 120px; }
+  .picks button:active { border-color: #e6b84a; }
+  .picks b { display: block; font-size: 16px; margin-bottom: 4px; }
+  .picks i { display: inline-block; background: #e6b84a; color: #0b0f1e; font-style: normal; font-weight: 800; border-radius: 50%; width: 22px; height: 22px; line-height: 22px; text-align: center; margin-bottom: 6px; }
+  .picks span { color: #b9b6ad; font-size: 13.5px; line-height: 1.3; }
+  #sab { position: fixed; left: 0; right: 0; bottom: 0; height: env(safe-area-inset-bottom); pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="sab"></div>
+
+<div id="start" class="card on"><div>
+  <h1>Tactics: six ships, one timeline</h1>
+  <p>Three spirits against three rivals, three battles in a row. Everyone plans in initiative order, nobody moves until all have planned, then it all plays out at once, and the cards flip.</p>
+  <ul>
+    <li><b>Draw</b> a ship's path on the board, from the ship. Loops are fine. The ring is its budget; lift to lock it in.</li>
+    <li>It <b>faces where the path ends</b>. Where everyone ends decides which cards light up: in arc, tailing, head-on.</li>
+    <li><b>Combat:</b> 5 cards, 3 Energy. Tap a lit card, tap a target. Rivals show what they intend; answer it.</li>
+    <li>Two fingers peek at the whole board. Win a battle, pick a card.</li>
+  </ul>
+  <div class="row"><div class="tog" id="clk"><button data-c="timer" class="on">Timer · 9 s a ship</button><button data-c="calm">Calm · no timer</button></div></div>
+  <button class="big" id="bBegin">BEGIN</button>
+  <div class="tiny">Seed <span id="seedLbl">1</span>. Grey box, no assets. <a href="index.html">All prototypes</a></div>
+</div></div>
+
+<div id="pick" class="card"><div>
+  <h1 id="pickTitle">Battle won</h1>
+  <p id="pickLine">A spirit offers a card. Pick one for your deck.</p>
+  <div class="picks" id="picks"></div>
+  <div class="tiny">Your deck: <span id="deckLine"></span></div>
+</div></div>
+
+<div id="end" class="card"><div>
+  <h1 id="endTitle">Rivals destroyed</h1>
+  <p id="endCause"></p>
+  <div class="stats" id="endStats"></div>
+  <div class="sub"><button id="bAgain">Again</button><button id="bSame">Same seed</button></div>
+  <div class="tiny"><a href="index.html">All prototypes</a></div>
+</div></div>
+
+<script>
+'use strict';
+// ---------------------------------------------------------------- constants
+const BW = 1200, BHT = 1200, B = 32;                   // board, ship base
+const C_P = '#62c8ff', C_R = '#f08a5d', C_HULL = '#f0f0f0', C_GOLD = '#e6b84a', C_WARN = '#ffc53d', C_BLOCK = '#9fe3ff';
+const RGB_P = '98,200,255', RGB_R = '240,138,93';
+const RANGE = 240, ARC = Math.PI / 4, TOUCH = 56;      // 90 degree sights to 240
+const T = { planS: 9, graceS: 0.9, passS: 0.95, flyS: 2.4, slowPlan: 0.05, slowCombat: 0.02, idleSpeed: 32, betweenS: 0.8, resolveS: 0.75, maxRounds: 30,
+  rv: { silence: 0.5, flipAt: 0.5, flipGap: 0.1, flipDur: 0.28, arcsAt: 1.15, arcGap: 0.11, intentsAt: 1.95, handAt: 2.35, playAt: 2.7 } };
+const ENERGY = 3, HAND = 5;
+// ship types: budget is path length per round; init orders the timeline (low plans first, high intents resolve first)
+const TYPES = {
+  dart: { name: 'Dart', budget: 300, hull: 8, glyph: 'dart' },
+  lance: { name: 'Lance', budget: 230, hull: 10, glyph: 'lance' },
+  bulwark: { name: 'Bulwark', budget: 170, hull: 14, glyph: 'bulwark' },
+};
+// cards: cost in Energy; req is the position that lights them. Damage is flat; a Lock On adds to the next attack.
+const CARDS = {
+  volley: { name: 'Volley', cost: 1, kind: 'attack', dmg: 3, req: 'arc', text: '3 damage to a target in arc.' },
+  tailgun: { name: 'Tail Gun', cost: 2, kind: 'attack', dmg: 6, req: 'behind', text: '6 damage from the rear half of the target, with it in your arc.' },
+  joust: { name: 'Joust', cost: 1, kind: 'attack', dmg: 4, self: 4, req: 'headon', text: 'Head-on only: you both take 4.' },
+  ram: { name: 'Ram', cost: 2, kind: 'attack', dmg: 8, self: 2, req: 'touch', text: 'Touching only: 8 damage, 2 to you.' },
+  broadside: { name: 'Broadside', cost: 1, kind: 'attack', dmg: 4, req: 'beam', text: '4 damage to a target abeam of you, in range.' },
+  barrage: { name: 'Barrage', cost: 2, kind: 'attack', dmg: 2, req: 'arc', all: true, text: '2 damage to every enemy in arc.' },
+  snapshot: { name: 'Snapshot', cost: 0, kind: 'attack', dmg: 2, req: 'arc', text: '2 damage to a target in arc. Free.' },
+  feint: { name: 'Feint', cost: 1, kind: 'attack', dmg: 1, req: 'behind', cancel: true, text: 'From the rear half: 1 damage and cancel its intent.' },
+  lockon: { name: 'Lock On', cost: 1, kind: 'self', req: 'own', text: "This ship's next attack deals +3." },
+  evade: { name: 'Evade', cost: 1, kind: 'self', req: 'own', block: 4, text: 'Block 4 on this ship until the round ends.' },
+  afterburn: { name: 'Afterburn', cost: 1, kind: 'self', req: 'own', boost: 0.4, text: "This ship's next path budget +40%." },
+  repair: { name: 'Repair', cost: 1, kind: 'self', req: 'hurt', heal: 3, text: 'Restore 3 hull.' },
+};
+const STARTER = ['volley', 'volley', 'volley', 'volley', 'tailgun', 'joust', 'snapshot', 'lockon', 'evade', 'evade'];
+const POOL = ['volley', 'tailgun', 'joust', 'ram', 'broadside', 'barrage', 'snapshot', 'feint', 'lockon', 'evade', 'afterburn', 'repair'];
+// rival temperaments: E2's planner over free paths; the pair utility is in card damage, so positions that light their cards score
+const TEMPERS = {
+  ram: { name: 'Ram', A: 1.0, D: 0.45, P: 0.05, R: 0.3, dStar: 70, K: 0.8, E: 1.4, Q: 0.6, lam: -0.1, T: 0.25, dlt: 0.6, biasNose: 0.25, tell: 0.8, line: 'noses in: Joust and Ram', w: { joust: 1.3, ram: 1.3, volley: 1.0, tailgun: 0.7 } },
+  kite: { name: 'Kite', A: 0.85, D: 0.9, P: 0.5, R: 0.45, dStar: 170, K: 0.6, E: 1.6, Q: 0.6, lam: 0.25, T: 0.1, dlt: 0.35, biasHand: 0.12, tell: 0.8, line: 'holds Mid, circles one way, Evades', w: { joust: 0.4, ram: 0.2, volley: 1.25, tailgun: 1.0 } },
+  wisp: { name: 'Wisp', A: 0.7, D: 1.3, P: 1.0, R: 0.2, dStar: 150, K: 0.5, E: 1.5, Q: 0.6, lam: 0.4, T: 0.12, dlt: 0.4, biasFlip: 0.3, tell: 0.8, line: 'slips behind you: Tail Gun', w: { joust: 0.3, ram: 0.2, volley: 0.9, tailgun: 1.5 } },
+  sweep: { name: 'Sweep', A: 1.0, D: 0.7, P: 0.4, R: 0.2, dStar: 120, K: 0.7, E: 2.0, Q: 0.6, lam: 0, T: 0.0001, dlt: 0.0001, tell: 1, w: { joust: 0.6, ram: 0.6, volley: 1.0, tailgun: 1.2 } },
+};
+
+// ---------------------------------------------------------------- rng + helpers
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const angN = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const onBoard = (x, y) => x >= B / 2 && x <= BW - B / 2 && y >= B / 2 && y <= BHT - B / 2;
+const pctl = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * q))] : 0; };
+
+// ---------------------------------------------------------------- positions: the geometry every card reads
+const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+const bearing = (from, to) => angN(Math.atan2(to.y - from.y, to.x - from.x) - from.h);  // where `to` sits from `from`'s nose
+const sees = (a, b) => dist(a, b) <= RANGE && Math.abs(bearing(a, b)) <= ARC + 1e-9;
+const behind = (a, b) => sees(a, b) && Math.abs(bearing(b, a)) >= Math.PI / 2;          // a sits in b's rear half, with b in a's sights
+const headon = (a, b) => sees(a, b) && sees(b, a);
+const touching = (a, b) => dist(a, b) <= TOUCH;
+const abeam = (a, b) => { const d = dist(a, b), ab = Math.abs(bearing(a, b)); return d <= RANGE && ab >= Math.PI / 3 && ab <= 2 * Math.PI / 3; };
+function meets(req, a, b) {
+  if (req === 'arc') return sees(a, b);
+  if (req === 'behind') return behind(a, b);
+  if (req === 'headon') return headon(a, b);
+  if (req === 'touch') return touching(a, b);
+  if (req === 'beam') return abeam(a, b);
+  return false;
+}
+// what a ship could deal to a target from here, by its temperament's card weights (the bots' idea of a good position)
+function posValue(tp, a, b) {
+  let v = 0;
+  if (behind(a, b)) v = Math.max(v, 6 * tp.w.tailgun);
+  if (touching(a, b)) v = Math.max(v, (8 - 2 * 0.6) * tp.w.ram);
+  if (headon(a, b)) v = Math.max(v, (4 - 4 * 0.6) * tp.w.joust);
+  if (sees(a, b)) v = Math.max(v, 3 * tp.w.volley);
+  return v;
+}
+// what the target could do back: the plain card values, no temperament
+function threatValue(b, a) {
+  let v = 0;
+  if (behind(b, a)) v = 6; else if (headon(b, a)) v = Math.max(v, 3.2); else if (sees(b, a)) v = 3;
+  if (touching(b, a)) v = Math.max(v, 6);
+  return v;
+}
+
+// ---------------------------------------------------------------- paths
+// A path is a polyline in the ship's local frame: x forward along the nose, y to the right, starting at (0,0).
+function makePath(pts) {
+  const n = pts.length, X = new Float32Array(n), Y = new Float32Array(n), L = new Float32Array(n);
+  let acc = 0, turn = 0, prevH = null;
+  for (let i = 0; i < n; i++) {
+    X[i] = pts[i].x; Y[i] = pts[i].y;
+    if (i) { acc += Math.hypot(X[i] - X[i - 1], Y[i] - Y[i - 1]); const h = Math.atan2(Y[i] - Y[i - 1], X[i] - X[i - 1]); if (prevH != null) turn += Math.abs(angN(h - prevH)); prevH = h; }
+    L[i] = acc;
+  }
+  return { X, Y, L, n, len: acc, turn, endH: prevH == null ? 0 : prevH };
+}
+function poseOn(p0, path, d) {
+  if (!path || path.n < 2 || path.len <= 0) return { x: p0.x, y: p0.y, h: p0.h };
+  d = clamp(d, 0, path.len);
+  let lo = 0, hi = path.n - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (path.L[m] <= d) lo = m; else hi = m; }
+  const seg = Math.max(1e-6, path.L[hi] - path.L[lo]), t = (d - path.L[lo]) / seg;
+  const lx = lerp(path.X[lo], path.X[hi], t), ly = lerp(path.Y[lo], path.Y[hi], t);
+  const lh = Math.atan2(path.Y[hi] - path.Y[lo], path.X[hi] - path.X[lo]);
+  const c = Math.cos(p0.h), s = Math.sin(p0.h);
+  return { x: p0.x + lx * c - ly * s, y: p0.y + lx * s + ly * c, h: angN(p0.h + lh) };
+}
+function resample(pts, step) {
+  if (!pts.length) return [];
+  const out = [{ x: pts[0].x, y: pts[0].y }]; let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    let a = pts[i - 1]; const b = pts[i]; let seg = Math.hypot(b.x - a.x, b.y - a.y);
+    while (acc + seg >= step && seg > 0) {
+      const t = (step - acc) / seg, p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      out.push(p); a = p; seg = Math.hypot(b.x - a.x, b.y - a.y); acc = 0;
+    }
+    acc += seg;
+  }
+  const e = pts[pts.length - 1], l = out[out.length - 1];
+  if (Math.hypot(e.x - l.x, e.y - l.y) > step * 0.35) out.push({ x: e.x, y: e.y });
+  return out;
+}
+function smoothPts(pts, k) {
+  if (pts.length < 3) return pts.slice();
+  const out = [], h = k >> 1;
+  for (let i = 0; i < pts.length; i++) {
+    if (i === 0 || i === pts.length - 1) { out.push({ x: pts[i].x, y: pts[i].y }); continue; }
+    let sx = 0, sy = 0, n = 0;
+    for (let j = -h; j <= h; j++) { const q = pts[clamp(i + j, 0, pts.length - 1)]; sx += q.x; sy += q.y; n++; }
+    out.push({ x: sx / n, y: sy / n });
+  }
+  return out;
+}
+// a stroke of world points becomes a path in the ship's frame: starts at the ship, smoothed, cut at the budget
+function strokeToPath(ship, worldPts, budget) {
+  const c = Math.cos(-ship.h), s = Math.sin(-ship.h);
+  const loc = [{ x: 0, y: 0 }];
+  for (const w of worldPts) { const dx = w.x - ship.x, dy = w.y - ship.y; loc.push({ x: dx * c - dy * s, y: dx * s + dy * c }); }
+  let pts = smoothPts(resample(loc, 4), 5);
+  pts = resample(pts, 4);
+  const out = [pts[0]]; let acc = 0, cut = false;
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (acc + seg > budget) { const t = (budget - acc) / seg; out.push({ x: lerp(pts[i - 1].x, pts[i].x, t), y: lerp(pts[i - 1].y, pts[i].y, t) }); cut = true; break; }
+    acc += seg; out.push(pts[i]);
+  }
+  const p = makePath(out); p.cut = cut; p.kind = 'drawn'; return p;
+}
+// parametric families for the bots and the hold-course default: arcs, S-curves, hooks, loops, late turns
+function arcPts(len, theta, pts, from) {
+  from = from || { x: 0, y: 0, h: 0 };
+  const n = Math.max(2, Math.ceil(len / 8)), out = pts || [];
+  if (!out.length) out.push({ x: from.x, y: from.y });
+  for (let i = 1; i <= n; i++) {
+    const u = i / n, l = len * u;
+    if (Math.abs(theta) < 1e-6) out.push({ x: from.x + Math.cos(from.h) * l, y: from.y + Math.sin(from.h) * l });
+    else { const R = len / theta, hh = from.h + theta * u; out.push({ x: from.x + R * (Math.sin(hh) - Math.sin(from.h)), y: from.y - R * (Math.cos(hh) - Math.cos(from.h)) }); }
+  }
+  return out;
+}
+const endOf = (pts, h0) => { const n = pts.length, a = pts[n - 2], b = pts[n - 1]; return { x: b.x, y: b.y, h: n >= 2 ? Math.atan2(b.y - a.y, b.x - a.x) : (h0 || 0) }; };
+function famPath(kind, L, a, b) {
+  let pts;
+  if (kind === 'arc') pts = arcPts(L, a);
+  else if (kind === 'S') { pts = arcPts(L / 2, a); pts = arcPts(L / 2, -a, pts, endOf(pts)); }
+  else if (kind === 'hook') { pts = arcPts(L * 0.45, 0); pts = arcPts(L * 0.55, a, pts, endOf(pts)); }
+  else if (kind === 'loop') { pts = arcPts(L * 0.7, a * 2 * Math.PI); pts = arcPts(L * 0.3, 0, pts, endOf(pts)); }
+  else if (kind === 'late') { pts = arcPts(L * 0.6, a); pts = arcPts(L * 0.4, b, pts, endOf(pts)); }
+  else pts = arcPts(L, 0);
+  const p = makePath(pts); p.kind = kind; p.a = a; return p;
+}
+function holdPath(ship) { return famPath('arc', Math.max(24, ship.budget * 0.4), 0); }
+let CANDS = {}, PREDS = {};
+function candidates(budget) {
+  if (CANDS[budget]) return CANDS[budget];
+  const out = [], D = Math.PI / 180;
+  out.push(famPath('arc', budget * 0.08, 0));
+  for (const share of [0.45, 0.7, 1.0]) {
+    const L = budget * share;
+    out.push(famPath('arc', L, 0));
+    for (const th of [30, 60, 90, 135, 180]) for (const sd of [-1, 1]) out.push(famPath('arc', L, sd * th * D));
+    for (const th of [45, 90]) for (const sd of [-1, 1]) out.push(famPath('S', L, sd * th * D));
+    for (const th of [90, 140]) for (const sd of [-1, 1]) out.push(famPath('hook', L, sd * th * D));
+    if (share >= 0.7) for (const sd of [-1, 1]) { out.push(famPath('loop', L, sd)); out.push(famPath('late', L, sd * 20 * D, sd * 120 * D)); out.push(famPath('late', L, sd * 70 * D, -sd * 60 * D)); }
+  }
+  CANDS[budget] = out; return out;
+}
+function predictions(budget) {
+  if (PREDS[budget]) return PREDS[budget];
+  const out = [], D = Math.PI / 180;
+  out.push(famPath('arc', budget * 0.08, 0));
+  for (const share of [0.5, 1.0]) { const L = budget * share; out.push(famPath('arc', L, 0)); for (const th of [45, 90, 150]) for (const sd of [-1, 1]) out.push(famPath('arc', L, sd * th * D)); }
+  for (const sd of [-1, 1]) { out.push(famPath('S', budget * 0.8, sd * 60 * D)); out.push(famPath('hook', budget * 0.9, sd * 120 * D)); }
+  PREDS[budget] = out; return out;
+}
+
+// ---------------------------------------------------------------- game state
+let seed = 1, rng = mulberry32(1), calm = false, battle = 1;
+let ships = [], order = [], round = 0, phase = 'start', sub = '', over = null, active = -1;
+let stats = null, clock = 0, realClock = 0, timeScale = 1, ANIM = true;
+const S = { planT: 0, grace: -1, camArrived: false, passT: 0, betweenT: 0, flyT: 0, revealT: 0, resolveT: 0, resolveI: 0 };
+let bolts = [], pops = [], toasts = [], shake = null, flashT = -1e9, vignette = 0, quiet = 0;
+let deck = { draw: [], discard: [], hand: [] }, energy = 0, selected = -1, runDeck = [], drng = mulberry32(1), lit = [], relations = [];
+const perfS = [], botMs = [];
+
+function mkShip(team, key, temper, init, x, y, h, i, hullMul) {
+  const t = TYPES[key], hull = Math.round(t.hull * (hullMul || 1));
+  return { id: team + '-' + key, team, type: t, key, temper, init, x, y, h, hull, maxHull: hull, alive: true, path: null, planned: false, exec: { d: 0, done: false }, lean: 0, honest: true, idx: i,
+    budget: t.budget, boost: 0, block: 0, lock: 0, intent: null, flip: 0 };
+}
+function placeFleets(pr) {
+  ships = []; CANDS = {}; PREDS = {};
+  const px = 600 + (pr() - 0.5) * 160, rx = 600 + (pr() - 0.5) * 160, rh = Math.PI / 2 + (pr() - 0.5) * 0.6, ph = -Math.PI / 2 + (pr() - 0.5) * 0.3;
+  const keys = ['bulwark', 'lance', 'dart'], rTemp = { bulwark: 'ram', lance: 'kite', dart: 'wisp' };
+  const pInit = { bulwark: 2, lance: 3, dart: 5 }, rInit = { bulwark: 1, lance: 4, dart: 6 };
+  const rMul = 1 + 0.1 * (battle - 1);
+  keys.forEach((k, i) => ships.push(mkShip('p', k, null, pInit[k], px + (i - 1) * 110, 880 + Math.abs(i - 1) * 30, ph, ships.length)));
+  keys.forEach((k, i) => ships.push(mkShip('r', k, rTemp[k], rInit[k], rx + (i - 1) * 110, 320 - Math.abs(i - 1) * 30, rh, ships.length, rMul)));
+  for (const s of ships) if (s.temper) s.hand = pr() < 0.5 ? -1 : 1;
+}
+function freshStats() {
+  return { rounds: 0, battlesWon: 0, cardsPlayed: 0, dmgDealt: 0, dmgTaken: 0, blocked: 0, tailGuns: 0, jousts: 0, intentsFizzled: 0, intentsCancelled: 0, intentsBlocked: 0, kills: 0, lost: 0,
+    loops: 0, clips: 0, autoCommits: 0, litRounds: 0, lit: {}, bestLit: {}, cause: '', played: {} };
+}
+function restart(sd) {
+  seed = sd; battle = 1; runDeck = STARTER.slice(); stats = freshStats();
+  startBattle();
+}
+function startBattle() {
+  rng = mulberry32(seed * 31 + 7 * battle); drng = mulberry32(seed * 101 + battle * 13);
+  placeFleets(mulberry32(seed * 7919 + 3 + battle * 17));
+  deck = { draw: shuffle(runDeck.slice(), drng), discard: [], hand: [] }; energy = 0; selected = -1;
+  round = 0; over = null; bolts = []; pops = []; toasts = []; shake = null; quiet = 0; relations = []; lit = [];
+  timeScale = 1; perfS.length = 0; botMs.length = 0;
+  camSet(overviewCam());
+  startRound();
+}
+function shuffle(a, r) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function living(team) { return ships.filter(s => s.alive && (!team || s.team === team)); }
+function startRound() {
+  round++; stats.rounds++;
+  for (const s of ships) { s.path = null; s.planned = false; s.exec = { d: 0, done: false }; s.lean = 0; s.block = 0; s.intent = null; s.budget = Math.round(s.type.budget * (1 + s.boost)); s.boost = 0; s.flip = 0; }
+  order = living().slice().sort((a, b) => a.init - b.init);
+  phase = 'plan'; active = -1; relations = []; lit = [];
+  nextTurn();
+}
+function nextTurn() {
+  active++;
+  while (active < order.length && !order[active].alive) active++;
+  if (active >= order.length) { beginFly(); return; }
+  const s = order[active];
+  S.camArrived = false; S.planT = 0; S.grace = -1; S.passT = 0;
+  sub = s.team === 'p' ? 'draw' : 'pass';
+  camGo(unitCam(s));
+  if (s.team === 'r') { const t0 = performance.now(); botPlan(s); botMs.push(performance.now() - t0); if (botMs.length > 200) botMs.shift(); }
+  if (!ANIM && s.team === 'r') { S.camArrived = true; nextTurn(); }
+}
+function commit(s, path, auto) {
+  s.path = path || holdPath(s); s.planned = true; s.lastTurn = s.path.turn;
+  if (auto) stats.autoCommits++;
+  if (s.team === 'p' && s.path.turn >= 300 * Math.PI / 180) stats.loops++;
+}
+
+// ---------------------------------------------------------------- the bots: E2's honest planner over sampled free paths, scored in card damage
+function botPlan(s, temperKey, seedExtra) {
+  const tp = TEMPERS[temperKey || s.temper], rb = mulberry32(seed * 1000 + round * 37 + s.idx * 7 + battle * 101 + (seedExtra || 0));
+  const cands = candidates(s.budget), foes = living(s.team === 'p' ? 'r' : 'p'), allies = living(s.team).filter(a => a !== s);
+  const p0 = { x: s.x, y: s.y, h: s.h }, STEPS = 6;
+  // the engagement clock: after a quiet round the bots grow bold, so two careful sides cannot circle forever
+  const bold = Math.max(0, quiet - 1), A = tp.A + 0.15 * bold, D = Math.max(0.1, tp.D - 0.15 * bold), dStar = Math.max(50, tp.dStar - 40 * bold);
+  // predicted foe end poses, weighted: naive (keep going) plus reasoned (ends that would light a card on me from where I stand)
+  const foeModels = foes.map(f => {
+    const preds = predictions(f.budget), fp = { x: f.x, y: f.y, h: f.h };
+    const ends = preds.map(p => poseOn(fp, p, p.len));
+    const straightHabit = f.lastTurn != null && f.lastTurn < 0.6, wN = straightHabit ? 0.8 : 0.45;
+    const ws = preds.map((p, i) => {
+      const e = ends[i], reason = Math.exp((threatValue(e, p0) / 6 - 0.7 * (posValue(TEMPERS.sweep, p0, e) / 6)) / 0.45);
+      const naive = (p.kind === 'arc' && Math.abs(p.a) < 1e-6 && p.len > f.budget * 0.3) ? 1 : 0.15;
+      return 0.02 + wN * naive + (1 - wN) * reason;
+    });
+    const tot = ws.reduce((a, b) => a + b, 0);
+    return { f, ends, w: ws.map(x => x / tot), hp: f.hull };
+  });
+  const allyEnds = allies.filter(a => a.planned && a.path).map(a => poseOn({ x: a.x, y: a.y, h: a.h }, a.path, a.path.len));
+  const scores = new Float64Array(cands.length);
+  for (let ci = 0; ci < cands.length; ci++) {
+    const c = cands[ci];
+    let mean = 0, m2 = 0, off = 0;
+    for (let k = 1; k <= STEPS; k++) { const q = poseOn(p0, c, c.len * k / STEPS); if (!onBoard(q.x, q.y)) off = 1; }
+    const me = poseOn(p0, c, c.len);
+    for (const fm of foeModels) {
+      for (let pi = 0; pi < fm.ends.length; pi++) {
+        const fe = fm.ends[pi], w = fm.w[pi];
+        const dealt = posValue(tp, me, fe), taken = threatValue(fe, me);
+        const dx = me.x - fe.x, dy = me.y - fe.y, d = Math.hypot(dx, dy);
+        const bear = Math.abs(angN(Math.atan2(dy, dx) - fe.h));
+        const tail = clamp((bear - ARC) / (Math.PI - ARC), 0, 1);
+        const range = -Math.abs(d - dStar) / 100;
+        const kill = dealt >= fm.hp ? 1 : 0;
+        const u = A * dealt - D * taken + tp.P * tail * 3 + tp.R * range + tp.K * kill;
+        mean += w * u; m2 += w * u * u;
+      }
+    }
+    const nf = Math.max(1, foeModels.length), sd = Math.sqrt(Math.max(0, m2 / nf - (mean / nf) ** 2));
+    let sc = mean - tp.lam * sd - tp.E * off * 6;
+    for (const ae of allyEnds) { const d = Math.hypot(ae.x - me.x, ae.y - me.y); if (d < 60) sc -= tp.Q * (60 - d) / 60 * 3; }
+    if (tp.biasNose) { let best = 0; for (const fm of foeModels) { const ang = Math.abs(angN(Math.atan2(fm.f.y - me.y, fm.f.x - me.x) - me.h)); best = Math.max(best, 1 - ang / Math.PI); } sc += tp.biasNose * best * 3; }
+    if (tp.biasHand && c.a && Math.sign(c.a) === s.hand) sc += tp.biasHand * 3;
+    if (tp.biasFlip) { let tailed = 0; for (const fm of foeModels) { const ang = Math.abs(angN(Math.atan2(fm.f.y - s.y, fm.f.x - s.x) - s.h)); if (ang > 3 * Math.PI / 4) tailed = 1; } if (tailed && (c.kind === 'loop' || (c.kind === 'arc' && Math.abs(c.a) >= Math.PI * 0.74))) sc += tp.biasFlip * 3; }
+    scores[ci] = sc;
+  }
+  let best = -1e9; for (let i = 0; i < scores.length; i++) if (scores[i] > best) best = scores[i];
+  const idx = [], ws = []; let tot = 0;
+  const dlt = tp.dlt * 3, Tt = tp.T * 3;
+  for (let i = 0; i < scores.length; i++) if (scores[i] >= best - dlt) { idx.push(i); const w = Math.exp((scores[i] - best) / Tt); ws.push(w); tot += w; }
+  let r = rb() * tot, pick = idx[idx.length - 1];
+  for (let i = 0; i < idx.length; i++) { r -= ws[i]; if (r <= 0) { pick = idx[i]; break; } }
+  const chosen = cands[pick];
+  const q1 = poseOn({ x: 0, y: 0, h: 0 }, chosen, chosen.len * 0.3), firstTurn = Math.abs(q1.h) < 0.08 ? 0 : Math.sign(q1.h);
+  const honest = rb() < tp.tell;
+  s.lean = honest ? firstTurn : (-firstTurn || (rb() < 0.5 ? -1 : 1)); s.honest = honest;
+  if (s.temper && !temperKey) commit(s, chosen);
+  return { pick, path: chosen, best, n: cands.length, lean: s.lean, honest };
+}
+
+
+// ---------------------------------------------------------------- fly: everyone flies at once, full speed, no shooting
+function beginFly() {
+  phase = 'fly'; sub = ''; S.flyT = 0;
+  for (const s of ships) if (s.alive) { if (!s.path) commit(s, null, true); s.exec = { d: 0, done: false }; s.p0 = { x: s.x, y: s.y, h: s.h }; s.speed = s.budget / T.flyS; s.clipped = false; }
+  camGo(midCam());
+  if (!ANIM) { stepShips(1e9); beginReveal(); }
+}
+function stepShips(dt) {
+  let all = true;
+  for (const s of ships) {
+    if (!s.alive || s.exec.done) continue;
+    s.exec.d = Math.min(s.path.len, s.exec.d + s.speed * dt);
+    const q = poseOn(s.p0, s.path, s.exec.d);
+    if (!onBoard(q.x, q.y)) {       // clipped the edge: stop here, face back in
+      s.exec.done = true; s.clipped = true; if (s.team === 'p') stats.clips++;
+      const e = { x: clamp(q.x, B / 2, BW - B / 2), y: clamp(q.y, B / 2, BHT - B / 2) };
+      let vx = Math.cos(q.h), vy = Math.sin(q.h); if (q.x < B / 2 || q.x > BW - B / 2) vx = -vx; if (q.y < B / 2 || q.y > BHT - B / 2) vy = -vy;
+      s.x = e.x; s.y = e.y; s.h = Math.atan2(vy, vx);
+      for (let i = 0; i < 10; i++) { const an = Math.random() * 6.28; addParticle(s.x, s.y, Math.cos(an) * 60, Math.sin(an) * 60, 2); }
+    } else { s.x = q.x; s.y = q.y; s.h = q.h; if (s.exec.d >= s.path.len - 1e-6) s.exec.done = true; }
+    if (!s.exec.done) all = false;
+  }
+  return all;
+}
+
+// ---------------------------------------------------------------- the reveal: cards flip, arcs snap on, intents show, the hand comes up
+function beginReveal() {
+  phase = 'combat'; sub = 'reveal'; S.revealT = 0; selected = -1; relations = computeRelations();
+  for (const r of living('r')) { r.intent = intentFor(r); if (r.intent.card === 'evade') { r.block += r.intent.block; } if (r.intent.card === 'lockon') r.lock += 3; }
+  energy = ENERGY; drawHand(); computeLit();
+  // the anti-staleness ledger: which cards the positions lit this round, and the strongest one
+  stats.litRounds++; let bestK = null, bestD = -1;
+  deck.hand.forEach((k, i) => { if (lit[i].targets.length) { stats.lit[k] = (stats.lit[k] || 0) + 1; const c = CARDS[k]; if (c.kind === 'attack' && c.dmg > bestD) { bestD = c.dmg; bestK = k; } } });
+  if (bestK) stats.bestLit[bestK] = (stats.bestLit[bestK] || 0) + 1;
+  for (const s of ships) s.flip = 0;
+  camGo(combatCam());
+  if (!ANIM) { sub = 'play'; for (const s of ships) s.flip = 1; }
+}
+function computeRelations() {
+  const out = [];
+  for (const a of living()) for (const b of living()) {
+    if (a.team === b.team || !sees(a, b)) continue;
+    let tag = '';
+    if (touching(a, b)) tag = a.init > b.init ? 'TOUCHING' : '';
+    else if (behind(a, b)) tag = 'TAILING';
+    else if (headon(a, b)) tag = a.init > b.init ? 'HEAD-ON' : '';
+    out.push({ a: a.id, b: b.id, tag });
+  }
+  return out;
+}
+// a rival's intent, from the positions it actually reached, by its temperament's card weights. Honest and shown at once.
+function intentFor(r) {
+  const tp = TEMPERS[r.temper], opts = [];
+  for (const t of living('p')) {
+    if (behind(r, t)) opts.push({ card: 'tailgun', dmg: 6, self: 0, target: t.id });
+    if (headon(r, t)) opts.push({ card: 'joust', dmg: 4, self: 4, target: t.id });
+    if (touching(r, t)) opts.push({ card: 'ram', dmg: 8, self: 2, target: t.id });
+    if (sees(r, t)) opts.push({ card: 'volley', dmg: 3, self: 0, target: t.id });
+  }
+  let best = null, bs = -1e9;
+  for (const o of opts) {
+    const t = ships.find(s => s.id === o.target), dmg = o.dmg + r.lock;
+    const sc = dmg * tp.w[o.card] - o.self * 0.6 + (dmg >= t.hull ? 3 : 0) - t.hull * 0.05 + (r.hull <= o.self ? -9 : 0);
+    if (sc > bs) { bs = sc; best = o; }
+  }
+  if (best) return Object.assign({ kind: 'attack', total: best.dmg + r.lock }, best);
+  const threatened = living('p').some(p => sees(p, r));
+  if (r.temper === 'kite' && threatened) return { kind: 'self', card: 'evade', block: 3, total: 0 };
+  return { kind: 'self', card: 'lockon', total: 0 };
+}
+// the fleet hand: one shared deck, five cards a round, reshuffled when the draw pile runs dry
+function drawHand() {
+  deck.discard.push(...deck.hand); deck.hand = [];
+  for (let i = 0; i < HAND; i++) {
+    if (!deck.draw.length) { if (!deck.discard.length) break; deck.draw = shuffle(deck.discard, drng); deck.discard = []; }
+    deck.hand.push(deck.draw.pop());
+  }
+}
+function legalTargets(key) {
+  const c = CARDS[key]; if (!c || c.cost > energy) return [];
+  if (c.kind === 'self') return living('p').filter(s => c.req !== 'hurt' || s.hull < s.maxHull).map(s => s.id);
+  const out = []; for (const t of living('r')) if (living('p').some(a => meets(c.req, a, t))) out.push(t.id);
+  return out;
+}
+function attackerFor(key, t) {
+  const c = CARDS[key]; let best = null;
+  for (const a of living('p')) if (meets(c.req, a, t)) if (!best || a.lock > best.lock || (a.lock === best.lock && a.init > best.init)) best = a;
+  return best;
+}
+function computeLit() { lit = deck.hand.map(k => ({ key: k, targets: legalTargets(k) })); }
+function applyDamage(t, dmg, by, label) {
+  const b = Math.min(t.block, dmg); t.block -= b; dmg -= b;
+  if (t.team === 'p') { stats.blocked += b; stats.dmgTaken += dmg; } else stats.dmgDealt += dmg;
+  t.hull -= dmg;
+  pops.push({ x: t.x, y: t.y, text: (dmg ? '-' + dmg : '') + (b ? (dmg ? ' ' : '') + 'blocked ' + b : '') + (label ? ' ' + label : ''), colour: dmg ? (t.team === 'p' ? C_R : '#fff') : C_BLOCK, t0: realClock });
+  if (dmg) {
+    const n = 10 + dmg * 4;
+    for (let i = 0; i < n; i++) { const an = Math.random() * Math.PI * 2, v = 60 + Math.random() * 180; addParticle(t.x, t.y, Math.cos(an) * v, Math.sin(an) * v, t.team === 'p' ? 0 : 1); }
+    shake = { t0: realClock, amp: 3 + dmg * 0.6 }; vib(20); thump(dmg >= 6); if (dmg >= 6) flashT = realClock;
+  } else { for (let i = 0; i < 8; i++) { const an = Math.random() * Math.PI * 2; addParticle(t.x + Math.cos(an) * 18, t.y + Math.sin(an) * 18, Math.cos(an) * 40, Math.sin(an) * 40, 2); } tone(300, 220, 0.12, 'triangle', 0.04); }
+  if (by) bolts.push({ ax: by.x, ay: by.y, tx: t.x, ty: t.y, t0: realClock, team: by.team });
+  if (t.hull <= 0) destroy(t, by);
+  return dmg;
+}
+function destroy(t, by) {
+  t.alive = false; t.exec.done = true; t.hull = 0;
+  for (let i = 0; i < 60; i++) { const an = Math.random() * Math.PI * 2, v = 40 + Math.random() * 260; addParticle(t.x, t.y, Math.cos(an) * v, Math.sin(an) * v, i % 3 === 0 ? 3 : t.team === 'p' ? 0 : 1); }
+  shake = { t0: realClock, amp: 9 }; flashT = realClock; vib(40); thump(true);
+  if (t.team === 'r') stats.kills++; else stats.lost++;
+  toast((t.team === 'p' ? 'Your ' : 'Their ') + t.type.name + ' destroyed' + (by ? ' by ' + (by.team === 'p' ? 'your ' : 'their ') + by.type.name : ''), t.team === 'p' ? C_R : C_P);
+  stats.lastKill = { t: t.type.name, by: by ? (by.team === 'p' ? 'your ' : 'their ') + by.type.name : null, team: t.team };
+}
+// play hand card i on target id. Attacks pick the best-placed own ship automatically (Lock On first, then initiative).
+function playCard(i, targetId) {
+  if (phase !== 'combat' || sub !== 'play') return false;
+  const key = deck.hand[i]; if (!key) return false;
+  computeLit(); if (!lit[i].targets.includes(targetId)) return false;
+  const c = CARDS[key], t = ships.find(s => s.id === targetId);
+  energy -= c.cost; stats.cardsPlayed++; stats.played[key] = (stats.played[key] || 0) + 1;
+  if (c.kind === 'attack') {
+    const a = attackerFor(key, t), bonus = c.dmg > 0 ? a.lock : 0; if (bonus) a.lock = 0;
+    const targets = c.all ? living('r').filter(x => sees(a, x)) : [t];
+    for (const x of targets) applyDamage(x, c.dmg + bonus, a, bonus ? '(locked)' : '');
+    if (c.self) applyDamage(a, c.self, null, 'Joust');
+    if (c.cancel && t.alive && t.intent && t.intent.kind === 'attack') { t.intent = { kind: 'self', card: 'feint', total: 0, cancelled: true }; stats.intentsCancelled++; pops.push({ x: t.x, y: t.y - 30, text: 'intent cancelled', colour: C_GOLD, t0: realClock }); }
+    if (key === 'tailgun') stats.tailGuns++; if (key === 'joust') stats.jousts++;
+    zap();
+  } else {
+    if (c.block) t.block += c.block; if (c.boost) t.boost += c.boost; if (c.heal) t.hull = Math.min(t.maxHull, t.hull + c.heal);
+    if (key === 'lockon') t.lock += 3;
+    pops.push({ x: t.x, y: t.y, text: c.name + (c.block ? ' ' + c.block : c.heal ? ' +' + c.heal : ''), colour: C_BLOCK, t0: realClock });
+    tone(520, 780, 0.14, 'sine', 0.045);
+  }
+  deck.discard.push(key); deck.hand.splice(i, 1); selected = -1;
+  computeLit();
+  return true;
+}
+function endPlay() {
+  if (phase !== 'combat' || sub !== 'play') return false;
+  sub = 'resolve'; S.resolveT = 0; S.resolveI = 0; selected = -1;
+  S.queue = living('r').filter(r => r.intent && r.intent.kind === 'attack').sort((a, b) => b.init - a.init);
+  // intents whose attacker fell before it could act
+  for (const r of ships) if (r.team === 'r' && !r.alive && r.intent && r.intent.kind === 'attack') stats.intentsFizzled++;
+  if (!ANIM) { while (S.resolveI < S.queue.length) resolveNext(); endRound(); }
+  return true;
+}
+function resolveNext() {
+  const r = S.queue[S.resolveI++]; if (!r || !r.alive) return;
+  const it = r.intent, t = ships.find(s => s.id === it.target);
+  if (!t || !t.alive) { pops.push({ x: r.x, y: r.y, text: 'no target', colour: '#9aa4c4', t0: realClock }); return; }
+  const dmg = it.dmg + r.lock; r.lock = 0;
+  const b0 = t.block; const dealt = applyDamage(t, dmg, r, CARDS[it.card].name);
+  if (b0 > 0 && dealt < dmg) stats.intentsBlocked++;
+  if (it.self) applyDamage(r, it.self, null, 'Joust');
+}
+function endRound() {
+  deck.discard.push(...deck.hand); deck.hand = []; selected = -1; lit = [];
+  const dealtNow = stats.dmgDealt + stats.dmgTaken;
+  if (dealtNow === (S.dmgAtRoundStart || 0)) { quiet++; if (quiet >= 2 && ANIM) toast('The rivals grow bold', C_R); } else quiet = 0;
+  S.dmgAtRoundStart = dealtNow;
+  const pAlive = living('p').length, rAlive = living('r').length;
+  if (!rAlive) { battleWon(); return; }
+  if (!pAlive) { endGame('lose'); return; }
+  if (round >= T.maxRounds) { endGame('draw'); return; }
+  phase = 'between'; S.betweenT = 0;
+  if (!ANIM) startRound();
+}
+// between battles: pick one of three cards, then the next three rivals (a little tougher)
+let picks = [];
+function battleWon() {
+  stats.battlesWon++;
+  if (battle >= 3) { endGame('win'); return; }
+  phase = 'pick'; sub = '';
+  const pool = POOL.slice(); picks = []; const pr = mulberry32(seed * 53 + battle * 7);
+  while (picks.length < 3 && pool.length) picks.push(pool.splice(Math.floor(pr() * pool.length), 1)[0]);
+  if (ANIM) {
+    document.getElementById('pickTitle').textContent = 'Battle ' + battle + ' won';
+    document.getElementById('picks').innerHTML = picks.map((k, i) => '<button data-i="' + i + '"><i>' + CARDS[k].cost + '</i><b>' + CARDS[k].name + '</b><span>' + CARDS[k].text + '</span></button>').join('');
+    document.getElementById('deckLine').textContent = deckLine();
+    for (const b of document.querySelectorAll('#picks button')) b.addEventListener('click', () => pickCard(+b.dataset.i));
+    document.getElementById('pick').classList.add('on');
+  } else pickCard(0);
+}
+function deckLine() { const c = {}; for (const k of runDeck) c[k] = (c[k] || 0) + 1; return Object.keys(c).map(k => CARDS[k].name + (c[k] > 1 ? ' ×' + c[k] : '')).join(', '); }
+function pickCard(i) {
+  if (phase !== 'pick') return false;
+  const k = picks[i]; if (!k) return false;
+  runDeck.push(k); stats.picked = (stats.picked || []).concat(k);
+  document.getElementById('pick').classList.remove('on');
+  battle++; startBattle(); return true;
+}
+// a greedy hand policy for sims and tests: biggest lit attack on the most wounded legal target, then Evade the biggest threat
+function autoPlay() {
+  const plays = [];
+  for (let guard = 0; guard < 12; guard++) {
+    computeLit();
+    let best = null;
+    lit.forEach((l, i) => {
+      const c = CARDS[l.key]; if (!l.targets.length) return;
+      if (c.kind === 'attack') { for (const id of l.targets) { const t = ships.find(s => s.id === id), v = (c.all ? c.dmg * 2 : c.dmg) - (c.self || 0) * 0.6 + (c.dmg >= t.hull ? 4 : 0) - t.hull * 0.05 + (c.cancel && t.intent && t.intent.kind === 'attack' ? t.intent.total : 0); if (!best || v > best.v) best = { i, id, v }; } }
+      else if (l.key === 'evade') { for (const r of living('r')) if (r.intent && r.intent.kind === 'attack' && l.targets.includes(r.intent.target)) { const v = Math.min(4, r.intent.total) * 0.8; if (!best || v > best.v) best = { i, id: r.intent.target, v }; } }
+      else if (l.key === 'repair') { const t = ships.find(s => s.id === l.targets[0]); if (t) { const v = 1.5; if (!best || v > best.v) best = { i, id: t.id, v }; } }
+      else if (l.key === 'lockon' && energy >= 2) { const v = 0.5; if (!best || v > best.v) best = { i, id: l.targets[0], v }; }
+    });
+    if (!best) break;
+    plays.push(deck.hand[best.i] + '>' + best.id); playCard(best.i, best.id);
+  }
+  return plays;
+}
+
+// ---------------------------------------------------------------- camera
+const cam = { x: BW / 2, y: BHT / 2, z: 0.3 }, camT = { x: BW / 2, y: BHT / 2, z: 0.3 };
+let VW = 390, VH = 844, DPR = 1, SAB = 0, HUD_TOP = 96, hudBot = 56;
+const viewH = () => VH - HUD_TOP - SAB - hudBot;
+function fitCam(x0, y0, x1, y1, margin, zMin, zMax) {
+  const w = x1 - x0 + margin * 2, h = y1 - y0 + margin * 2;
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: clamp(Math.min(VW / w, viewH() / h), zMin, zMax) };
+}
+function bounds(withEnds) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const s of living()) { const pts = [s]; if (withEnds && s.path) pts.push(poseOn(s.p0 || s, s.path, s.path.len)); for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); } }
+  return [x0, y0, x1, y1];
+}
+function overviewCam() {
+  if (!living().length) return fitCam(0, 0, BW, BHT, 0, 0.1, 1);
+  const c = fitCam(...bounds(false), 260, 0.12, 0.42), full = fitCam(0, 0, BW, BHT, 10, 0.1, 1);
+  c.z = Math.max(c.z, full.z); return c;
+}
+function unitCam(s) { const z = clamp(0.42 * Math.min(VW, viewH()) / s.budget, 0.45, 1.1); return { x: s.x + Math.cos(s.h) * 20 / z, y: s.y + Math.sin(s.h) * 20 / z, z }; }
+function midCam() { return fitCam(...bounds(true), 150, 0.2, 0.75); }
+function combatCam() { return fitCam(...bounds(false), 170, 0.22, 0.8); }
+function camGo(c) { camT.x = c.x; camT.y = c.y; camT.z = c.z; }
+function camSet(c) { camGo(c); cam.x = c.x; cam.y = c.y; cam.z = c.z; }
+let peek = false;
+function stepCam(dt) {
+  let tgt = camT;
+  if (peek) tgt = overviewCam();
+  else if (phase === 'fly') tgt = midCam();
+  else if (phase === 'combat') tgt = combatCam();
+  const k = 1 - Math.exp(-dt * (peek ? 9 : 6));
+  cam.x = lerp(cam.x, tgt.x, k); cam.y = lerp(cam.y, tgt.y, k); cam.z = lerp(cam.z, tgt.z, k);
+  hudBot = lerp(hudBot, phase === 'combat' ? handH() + 94 : 56, k);
+  if (!S.camArrived && phase === 'plan' && !peek && Math.abs(cam.z - camT.z) < 0.03 * camT.z && Math.hypot(cam.x - camT.x, cam.y - camT.y) * cam.z < 8) S.camArrived = true;
+}
+const CY = () => HUD_TOP + viewH() / 2;
+const toScreen = (wx, wy) => ({ x: VW / 2 + (wx - cam.x) * cam.z, y: CY() + (wy - cam.y) * cam.z });
+const toWorld = (sx, sy) => ({ x: cam.x + (sx - VW / 2) / cam.z, y: cam.y + (sy - CY()) / cam.z });
+
+// ---------------------------------------------------------------- end card
+function endGame(result) {
+  if (over) return;
+  over = { result, round, battle }; phase = 'end'; sub = '';
+  const s = stats, title = document.getElementById('endTitle');
+  title.textContent = result === 'win' ? 'Run complete: three battles won' : result === 'lose' ? 'Your wing is lost' : 'Stalemate';
+  title.style.color = result === 'win' ? C_P : result === 'lose' ? C_R : C_GOLD;
+  const lk = s.lastKill; let cause;
+  const litLine = Object.keys(s.bestLit).sort((a, b) => s.bestLit[b] - s.bestLit[a]).slice(0, 3).map(k => CARDS[k].name + ' ' + s.bestLit[k]).join(', ');
+  if (result === 'win') cause = 'Battle ' + battle + ', round ' + round + ': ' + (lk && lk.by ? lk.by + ' finished their ' + lk.t : 'the last rival fell') + '. You played ' + s.cardsPlayed + ' cards for ' + s.dmgDealt + ' damage (' + plural(s.tailGuns, 'Tail Gun') + ', ' + plural(s.jousts, 'Joust') + ') and took ' + s.dmgTaken + '.';
+  else if (result === 'lose') cause = 'Battle ' + battle + ', round ' + round + ': ' + (lk && lk.by ? lk.by + ' finished your ' + lk.t : 'your last ship fell') + '. They dealt ' + s.dmgTaken + '; you blocked ' + s.blocked + ', cancelled ' + s.intentsCancelled + ' intents and killed ' + s.intentsFizzled + ' attackers before they acted. You dealt ' + s.dmgDealt + ' with ' + s.cardsPlayed + ' cards.';
+  else cause = 'Nobody closed in ' + round + ' rounds. End your paths facing where they must go.';
+  if (s.autoCommits && result !== 'win') cause += ' The timer committed ' + plural(s.autoCommits, 'path') + ' for you.';
+  s.cause = cause;
+  document.getElementById('endCause').textContent = cause;
+  const rows = [['Battles won · rounds', s.battlesWon + ' · ' + s.rounds], ['Cards played · damage dealt', s.cardsPlayed + ' · ' + s.dmgDealt], ['Tail Guns · Jousts', s.tailGuns + ' · ' + s.jousts],
+    ['Strongest lit card, by round', litLine || 'none'], ['Damage taken · blocked', s.dmgTaken + ' · ' + s.blocked], ['Intents cancelled · attackers killed first', s.intentsCancelled + ' · ' + s.intentsFizzled],
+    ['Loops drawn · edge clips', s.loops + ' · ' + s.clips], ['Timer commits', s.autoCommits], ['Deck', deckLine()], ['Seed', seed]];
+  document.getElementById('endStats').innerHTML = rows.map(r => '<div><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
+  if (ANIM) document.getElementById('end').classList.add('on');
+}
+document.getElementById('bAgain').addEventListener('click', () => { document.getElementById('end').classList.remove('on'); restart(seed + 1); });
+document.getElementById('bSame').addEventListener('click', () => { document.getElementById('end').classList.remove('on'); restart(seed); });
+document.getElementById('bBegin').addEventListener('click', () => { audioOn(); document.getElementById('start').classList.remove('on'); paused = false; restart(seed); });
+for (const b of document.querySelectorAll('#clk button')) b.addEventListener('click', () => { calm = b.dataset.c === 'calm'; for (const x of document.querySelectorAll('#clk button')) x.classList.toggle('on', x === b); try { localStorage.setItem('tactics.calm', calm ? '1' : '0'); } catch (e) { /* storage off */ } });
+function toast(text, colour) { toasts.push({ text, colour: colour || '#e8e6df', t0: realClock }); if (toasts.length > 3) toasts.shift(); }
+
+
+// ---------------------------------------------------------------- feel: particles, vibration, a little sound
+const NP = 360, pX = new Float32Array(NP), pY = new Float32Array(NP), pVX = new Float32Array(NP), pVY = new Float32Array(NP), pL = new Float32Array(NP), pC = new Uint8Array(NP);
+let pI = 0;
+const PCOL = [C_P, C_R, '#9aa4c4', '#fff2c8'];
+function addParticle(x, y, vx, vy, c) { const p = pI++ % NP; pX[p] = x; pY[p] = y; pVX[p] = vx; pVY[p] = vy; pL[p] = 0.7; pC[p] = c; }
+function stepParticles(dt) { for (let p = 0; p < NP; p++) if (pL[p] > 0) { pL[p] -= dt; pX[p] += pVX[p] * dt; pY[p] += pVY[p] * dt; pVX[p] *= 0.94; pVY[p] *= 0.94; } }
+function vib(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* not supported */ } }
+let AC = null;
+function audioOn() { if (AC) return; try { const A = window.AudioContext || window.webkitAudioContext; if (A) AC = new A(); } catch (e) { AC = null; } }
+function tone(f0, f1, dur, type, vol, at) {
+  if (!AC || !ANIM) return;
+  try { const t = AC.currentTime + (at || 0), o = AC.createOscillator(), g = AC.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(vol || 0.04, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02); } catch (e) { /* audio off */ }
+}
+const thump = big => tone(big ? 150 : 120, 48, 0.24, 'triangle', big ? 0.16 : 0.11);
+const heartbeat = () => { tone(62, 40, 0.16, 'sine', 0.2); tone(58, 38, 0.2, 'sine', 0.16, 0.14); };
+const zap = () => tone(900, 180, 0.13, 'sawtooth', 0.035);
+const tick = () => tone(1400, 1100, 0.05, 'triangle', 0.03);
+const flipSnd = i => tone(700 + i * 60, 500, 0.07, 'triangle', 0.035);
+const arcSnd = i => tone(330 * Math.pow(2, [0, 2, 4, 7, 9, 12][i % 6] / 12), 330 * Math.pow(2, [0, 2, 4, 7, 9, 12][i % 6] / 12) * 1.5, 0.22, 'sine', 0.045);
+const whoosh = () => tone(180, 640, 0.3, 'sine', 0.04);
+
+// ---------------------------------------------------------------- canvas
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+function resize() {
+  VW = window.innerWidth; VH = window.innerHeight; DPR = Math.min(2, window.devicePixelRatio || 1);
+  SAB = document.getElementById('sab').offsetHeight || 0;
+  cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR); cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+}
+const FONT = ' system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+const font = (px, wt) => (wt || 600) + ' ' + px + 'px' + FONT;
+function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+const STARS = []; { const sr = mulberry32(99); for (let i = 0; i < 260; i++) STARS.push({ x: -700 + sr() * 2600, y: -700 + sr() * 2600, s: 0.6 + sr() * 1.3, a: 0.15 + sr() * 0.5, far: i < 140, ph: sr() * 6.28 }); }
+
+// ---------------------------------------------------------------- the hand's layout (screen space)
+const handH = () => Math.round(Math.min(72, (VW - 48) / 5) * 1.42) + 10;
+function handLayout() {
+  const n = Math.max(1, deck.hand.length), gap = 6, w = Math.min(72, (VW - 24 - 4 * gap) / 5), h = Math.round(w * 1.42);
+  const tot = n * w + (n - 1) * gap, x0 = (VW - tot) / 2, y0 = VH - SAB - h - 10;
+  let slide = 0;
+  if (phase === 'combat' && sub === 'reveal') slide = (1 - easeOut(clamp((S.revealT - T.rv.handAt) / 0.4, 0, 1))) * (h + 90);
+  else if (phase !== 'combat' || sub === 'resolve') slide = h + 90;
+  return { w, h, gap, x0, y0: y0 + slide, slide, rects: deck.hand.map((k, i) => ({ i, key: k, x: x0 + i * (w + gap), y: y0 + slide - (i === selected ? 16 : 0), w, h })),
+    done: { x: VW - 126, y: y0 + slide - 82, w: 114, h: 44 }, pips: { x: 14, y: y0 + slide - 70 } };
+}
+const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+// ---------------------------------------------------------------- input: one finger draws, two fingers peek, taps play cards
+const pointers = new Map();
+let stroke = null, noStrokeUntilUp = false, nudge = null;
+function activeShip() { return active >= 0 && active < order.length ? order[active] : null; }
+function playerTurn() { const s = activeShip(); return phase === 'plan' && s && s.team === 'p' && s.alive ? s : null; }
+function strokeBegin(w, pid) {
+  const s = playerTurn(); if (!s) return;
+  stroke = { pts: [w], prev: s.path, moved: false, full: false, pid };
+  S.grace = -1; s.planned = false;
+}
+function strokeMove(w) {
+  const s = playerTurn(); if (!s || !stroke || stroke.full) return;
+  const last = stroke.pts[stroke.pts.length - 1];
+  if (Math.hypot(w.x - last.x, w.y - last.y) * cam.z < 1.5) return;
+  stroke.pts.push(w); stroke.moved = true;
+  const p = strokeToPath(s, stroke.pts, s.budget); s.path = p;
+  if (p.cut) { stroke.full = true; vib(10); tone(330, 330, 0.06, 'triangle', 0.03); }
+}
+function strokeEnd(cancel) {
+  const s = playerTurn(); const st = stroke; stroke = null; if (!s || !st) return;
+  if (cancel) { s.path = st.prev; s.planned = !!st.prev; if (st.prev) S.grace = 0; return; }
+  if (st.moved && s.path && s.path.len >= 12) { s.planned = true; S.grace = 0; tick(); return; }
+  s.path = st.prev;                                       // a tap: keep what was there and lock it in at once
+  if (st.prev) { s.planned = true; lockIn(s); } else S.grace = -1;
+}
+function lockIn(s, auto) {
+  if (stroke) { const st = stroke; stroke = null; if (!(st.moved && s.path && s.path.len >= 12)) s.path = st.prev; }
+  commit(s, s.path, auto || !s.path);
+  S.grace = -1; tick(); vib(6);
+  nextTurn();
+}
+function combatTap(p) {
+  if (sub === 'reveal') { if (S.revealT > T.rv.arcsAt + 0.3) { S.revealT = T.rv.playAt; } return; }
+  if (sub !== 'play') return;
+  const L = handLayout();
+  const hit = L.rects.find(r => inRect(p, { x: r.x, y: r.y - 16, w: r.w, h: r.h + 16 }));
+  if (hit) {
+    if (lit[hit.i] && lit[hit.i].targets.length) { selected = selected === hit.i ? -1 : hit.i; tick(); vib(6); }
+    else { nudge = { i: hit.i, t0: realClock }; tone(220, 180, 0.1, 'triangle', 0.04); }
+    return;
+  }
+  if (inRect(p, L.done)) { endPlay(); whoosh(); return; }
+  if (selected >= 0) {
+    let best = null;
+    for (const id of lit[selected].targets) { const s = ships.find(x => x.id === id), q = toScreen(s.x, s.y), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < 48 && (!best || d < best.d)) best = { id, d }; }
+    if (best) playCard(selected, best.id); else selected = -1;
+  }
+}
+cv.addEventListener('pointerdown', ev => {
+  audioOn(); ev.preventDefault();
+  pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, t0: performance.now() });
+  if (pointers.size >= 2) { if (stroke) strokeEnd(true); peek = true; noStrokeUntilUp = true; return; }
+  if (paused || over) return;
+  if (phase === 'combat') { combatTap({ x: ev.clientX, y: ev.clientY }); return; }
+  if (phase === 'plan' && playerTurn() && S.camArrived && !peek && !noStrokeUntilUp) strokeBegin(toWorld(ev.clientX, ev.clientY), ev.pointerId);
+});
+cv.addEventListener('pointermove', ev => {
+  const p = pointers.get(ev.pointerId); if (!p) return;
+  p.x = ev.clientX; p.y = ev.clientY;
+  if (pointers.size >= 2) return;
+  if (stroke && stroke.pid === ev.pointerId) strokeMove(toWorld(ev.clientX, ev.clientY));
+});
+function endPointer(ev, cancel) {
+  if (!pointers.has(ev.pointerId)) return;
+  pointers.delete(ev.pointerId);
+  if (stroke && stroke.pid === ev.pointerId) strokeEnd(cancel);
+  if (pointers.size === 0) { peek = false; noStrokeUntilUp = false; }
+}
+cv.addEventListener('pointerup', ev => endPointer(ev, false));
+cv.addEventListener('pointercancel', ev => endPointer(ev, true));
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+// ---------------------------------------------------------------- the loop: a slow clock while planning, full speed flying, a frozen board for the reveal
+let paused = true, last = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dtReal = Math.min(0.1, (now - (last || now)) / 1000); last = now;
+  const t0 = performance.now();
+  if (!paused && ANIM) { realClock += dtReal * 1000; update(dtReal); }
+  render();
+  perfS.push(performance.now() - t0); if (perfS.length > 300) perfS.shift();
+}
+function update(dtReal) {
+  timeScale = phase === 'plan' ? T.slowPlan : phase === 'combat' ? T.slowCombat : 1;
+  const dt = dtReal * timeScale; clock += dt * 1000;
+  stepCam(dtReal);
+  stepParticles(dtReal * Math.max(timeScale, 0.35));
+  for (let i = toasts.length - 1; i >= 0; i--) if (realClock - toasts[i].t0 > 2400) toasts.splice(i, 1);
+  for (let i = bolts.length - 1; i >= 0; i--) if (realClock - bolts[i].t0 > 700) bolts.splice(i, 1);
+  for (let i = pops.length - 1; i >= 0; i--) if (realClock - pops[i].t0 > 1300) pops.splice(i, 1);
+  vignette = Math.max(0, vignette - dtReal * 1.6);
+  if (phase === 'plan') {
+    for (const s of ships) if (s.alive) {           // the world drifts: everyone idles along their heading
+      s.x += Math.cos(s.h) * T.idleSpeed * dt; s.y += Math.sin(s.h) * T.idleSpeed * dt;
+      if (!onBoard(s.x, s.y)) { s.x = clamp(s.x, B / 2, BW - B / 2); s.y = clamp(s.y, B / 2, BHT - B / 2); s.h = angN(s.h + Math.PI); }
+    }
+    const s = activeShip(); if (!s) return;
+    if (s.team === 'p') {
+      if (S.camArrived && !calm) S.planT += dtReal;
+      if (S.grace >= 0) { S.grace += dtReal; if (S.grace >= T.graceS) { lockIn(s); return; } }
+      if (!calm && S.planT >= T.planS) { lockIn(s, !s.path && !(stroke && stroke.moved)); return; }
+    } else { S.passT += dtReal; if (S.passT >= T.passS) nextTurn(); }
+  } else if (phase === 'fly') {
+    S.flyT += dtReal;
+    if (stepShips(dt)) beginReveal();
+  } else if (phase === 'combat') {
+    if (sub === 'reveal') {
+      const t = S.revealT, rv = T.rv; S.revealT += dtReal;
+      if (t < rv.silence) vignette = Math.max(vignette, 0.7);
+      if (t < rv.flipAt && S.revealT >= rv.flipAt) heartbeat();
+      order.forEach((s, i) => { const f0 = s.flip, f = clamp((S.revealT - (rv.flipAt + i * rv.flipGap)) / rv.flipDur, 0, 1); s.flip = f; if (f0 < 0.5 && f >= 0.5) flipSnd(i); if (f0 <= 0 && f > 0) vib(5); });
+      order.forEach((s, i) => { const a0 = t - (rv.arcsAt + i * rv.arcGap), a1 = S.revealT - (rv.arcsAt + i * rv.arcGap); if (a0 < 0 && a1 >= 0) arcSnd(i); });
+      if (t < rv.intentsAt && S.revealT >= rv.intentsAt) { thump(false); vib(15); }
+      if (t < rv.handAt && S.revealT >= rv.handAt) whoosh();
+      if (S.revealT >= rv.playAt) { sub = 'play'; for (const s of ships) s.flip = 1; }
+    } else if (sub === 'resolve') {
+      S.resolveT += dtReal;
+      if (S.resolveT >= T.resolveS) { S.resolveT = 0; if (S.resolveI < S.queue.length) resolveNext(); else endRound(); }
+    }
+  } else if (phase === 'between') { S.betweenT += dtReal; for (const s of ships) s.flip = Math.max(0, s.flip - dtReal * 3); if (S.betweenT >= T.betweenS) startRound(); }
+}
+
+// ---------------------------------------------------------------- drawing
+function shipPath(c, kind) {
+  c.beginPath();
+  if (kind === 'dart') { c.moveTo(17, 0); c.lineTo(-11, -10); c.lineTo(-5, 0); c.lineTo(-11, 10); }
+  else if (kind === 'lance') { c.moveTo(20, 0); c.lineTo(-3, -7); c.lineTo(-14, -4); c.lineTo(-14, 4); c.lineTo(-3, 7); }
+  else { c.moveTo(12, 0); c.lineTo(6, -14); c.lineTo(-12, -12); c.lineTo(-12, 12); c.lineTo(6, 14); }
+  c.closePath();
+}
+const teamC = t => t === 'p' ? C_P : C_R, teamRGB = t => t === 'p' ? RGB_P : RGB_R;
+function drawShip(c, s, alpha, x, y, h, z) {
+  x = x == null ? s.x : x; y = y == null ? s.y : y; h = h == null ? s.h : h;
+  c.save(); c.translate(x, y); c.rotate(h); c.globalAlpha = alpha == null ? 1 : alpha;
+  const quietBeat = phase === 'combat' && sub === 'reveal' && S.revealT < T.rv.silence ? 0.25 : 1;
+  const glow = (0.35 + 0.25 * Math.sin(realClock / 90 + s.idx) + (phase === 'fly' && s.alive && !s.exec.done ? 0.3 : 0)) * quietBeat;
+  c.fillStyle = 'rgba(' + teamRGB(s.team) + ',' + (0.35 * glow) + ')';
+  const leanOn = s.team === 'r' && phase === 'plan' && activeShip() === s && s.lean;
+  for (const side of [-1, 1]) { const k = leanOn ? (side === s.lean ? 1.9 : 0.5) : 1; c.beginPath(); c.ellipse(-15, side * 6, 7 * k, 3.2 * k, 0, 0, 7); c.fill(); }
+  if (leanOn) { c.fillStyle = 'rgba(255,214,120,' + (0.35 + 0.25 * Math.sin(realClock / 70)) + ')'; c.beginPath(); c.ellipse(-16, s.lean * 7, 9, 4, 0, 0, 7); c.fill(); }
+  c.strokeStyle = 'rgba(' + teamRGB(s.team) + ',0.25)'; c.lineWidth = 1.2 / z; c.beginPath(); c.arc(0, 0, B / 2, 0, 7); c.stroke();
+  shipPath(c, s.type.glyph);
+  c.fillStyle = teamC(s.team); c.fill();
+  c.strokeStyle = s.team === 'p' ? '#d8f3ff' : '#ffe0d0'; c.lineWidth = 1.4 / z; c.stroke();
+  c.restore(); c.globalAlpha = 1;
+}
+function sightsPath(c, p) {
+  c.beginPath(); c.moveTo(p.x, p.y);
+  for (let i = 0; i <= 16; i++) { const a = p.h - ARC + 2 * ARC * i / 16; c.lineTo(p.x + Math.cos(a) * RANGE, p.y + Math.sin(a) * RANGE); }
+  c.closePath();
+}
+function drawPathLine(c, s, path, p0, z, bright, remaining) {
+  if (!path || path.n < 2) return null;
+  const col = teamRGB(s.team), amber = remaining != null && remaining < 0.15;
+  c.beginPath();
+  const cs = Math.cos(p0.h), sn = Math.sin(p0.h);
+  for (let i = 0; i < path.n; i++) { const x = p0.x + path.X[i] * cs - path.Y[i] * sn, y = p0.y + path.X[i] * sn + path.Y[i] * cs; i ? c.lineTo(x, y) : c.moveTo(x, y); }
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (bright) {
+    c.strokeStyle = amber ? 'rgba(255,197,61,0.22)' : 'rgba(' + col + ',0.22)'; c.lineWidth = 11 / z; c.stroke();
+    c.strokeStyle = amber ? '#ffe39a' : s.team === 'p' ? '#dff4ff' : '#ffe6d8'; c.lineWidth = 2.4 / z; c.stroke();
+    c.setLineDash([6 / z, 10 / z]); c.lineDashOffset = -realClock / 18 / z; c.strokeStyle = 'rgba(' + col + ',0.9)'; c.lineWidth = 4 / z; c.stroke(); c.setLineDash([]);
+  } else { c.strokeStyle = 'rgba(' + col + ',0.35)'; c.lineWidth = 2 / z; c.setLineDash([5 / z, 6 / z]); c.stroke(); c.setLineDash([]); }
+  const e = poseOn(p0, path, path.len);
+  drawShip(c, s, bright ? 0.55 : 0.3, e.x, e.y, e.h, z);
+  return e;
+}
+const arcAlpha = (i) => phase !== 'combat' ? 0 : sub !== 'reveal' ? 1 : clamp((S.revealT - (T.rv.arcsAt + i * T.rv.arcGap)) / 0.25, 0, 1);
+const intentAlpha = () => phase !== 'combat' ? 0 : sub !== 'reveal' ? 1 : clamp((S.revealT - T.rv.intentsAt) / 0.3, 0, 1);
+function render() {
+  const c = g, z = cam.z;
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.fillStyle = '#0b0f1e'; c.fillRect(0, 0, VW, VH);
+  let sx = 0, sy = 0;
+  if (shake && ANIM) { const k = clamp((realClock - shake.t0) / 220, 0, 1); if (k < 1) { sx = (Math.random() - 0.5) * 2 * shake.amp * (1 - k); sy = (Math.random() - 0.5) * 2 * shake.amp * (1 - k); } else shake = null; }
+  for (const st of STARS) {
+    const k = st.far ? 0.55 : 1, p = { x: VW / 2 + (st.x - cam.x * k) * z * (st.far ? 0.8 : 1), y: CY() + (st.y - cam.y * k) * z * (st.far ? 0.8 : 1) };
+    if (p.x < -2 || p.y < -2 || p.x > VW + 2 || p.y > VH + 2) continue;
+    c.fillStyle = 'rgba(220,230,255,' + (st.a * (0.75 + 0.25 * Math.sin(realClock / 900 + st.ph))) + ')'; c.fillRect(p.x, p.y, st.s, st.s);
+  }
+  c.save(); c.translate(VW / 2 + sx, CY() + sy); c.scale(z, z); c.translate(-cam.x, -cam.y);
+  c.strokeStyle = 'rgba(160,180,255,0.06)'; c.lineWidth = 1.2 / z; c.beginPath(); c.arc(BW / 2, BHT / 2, BW / 2, 0, 7); c.stroke();
+  const q = BW / 2 / Math.SQRT2; c.strokeRect(BW / 2 - q, BHT / 2 - q, 2 * q, 2 * q);
+  c.strokeStyle = 'rgba(255,90,106,0.22)'; c.lineWidth = 2 / z; c.strokeRect(1, 1, BW - 2, BHT - 2);
+  c.fillStyle = 'rgba(255,90,106,0.03)'; c.fillRect(0, 0, BW, BHT);
+  const act = activeShip();
+  if (phase === 'plan') {
+    for (const s of living('r')) { c.fillStyle = 'rgba(' + RGB_R + ',0.055)'; c.beginPath(); c.arc(s.x, s.y, s.budget, 0, 7); c.fill(); c.strokeStyle = 'rgba(' + RGB_R + ',0.16)'; c.lineWidth = 1 / z; c.setLineDash([4 / z, 8 / z]); c.stroke(); c.setLineDash([]); }
+    for (const s of living('p')) if (s !== act && s.path) drawPathLine(c, s, s.path, s, z, false);
+    if (act && act.team === 'p') {
+      const rem = act.path ? 1 - act.path.len / act.budget : 1;
+      c.strokeStyle = 'rgba(' + RGB_P + ',0.12)'; c.lineWidth = 1.5 / z; c.beginPath(); c.arc(act.x, act.y, act.budget, 0, 7); c.stroke();
+      c.strokeStyle = rem < 0.15 ? C_WARN : 'rgba(' + RGB_P + ',0.75)'; c.lineWidth = 3 / z; c.beginPath(); c.arc(act.x, act.y, act.budget, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * rem); c.stroke();
+      const e = drawPathLine(c, act, act.path, act, z, true, rem);
+      if (e) { sightsPath(c, e); c.fillStyle = 'rgba(' + RGB_P + ',0.07)'; c.fill(); c.strokeStyle = 'rgba(' + RGB_P + ',0.3)'; c.lineWidth = 1 / z; c.stroke();
+        if (stroke) { c.fillStyle = '#fff'; c.beginPath(); c.arc(e.x, e.y, 3.5 / z, 0, 7); c.fill(); }
+        if (S.grace >= 0) { const k = S.grace / T.graceS; c.strokeStyle = C_GOLD; c.lineWidth = 3 / z; c.beginPath(); c.arc(e.x, e.y, 22 / z, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); c.stroke(); } }
+      else { sightsPath(c, act); c.fillStyle = 'rgba(' + RGB_P + ',0.05)'; c.fill(); }
+    }
+  }
+  if (phase === 'combat') {
+    // every arc snaps on, in initiative order; then the relation lines: who is in whose sights, tailing, head-on
+    order.forEach((s, i) => { if (!s.alive) return; const a = arcAlpha(i); if (a <= 0) return; const sc = 0.6 + 0.4 * easeOut(a);
+      c.save(); c.translate(s.x, s.y); c.scale(sc, sc); c.translate(-s.x, -s.y); sightsPath(c, s); c.fillStyle = 'rgba(' + teamRGB(s.team) + ',' + (0.10 * a) + ')'; c.fill(); c.strokeStyle = 'rgba(' + teamRGB(s.team) + ',' + (0.5 * a) + ')'; c.lineWidth = 1.4 / z; c.stroke(); c.restore(); });
+    for (const r of relations) {
+      const a = ships.find(s => s.id === r.a), b = ships.find(s => s.id === r.b); if (!a.alive || !b.alive) continue;
+      const al = arcAlpha(order.indexOf(a)); if (al <= 0) continue;
+      c.strokeStyle = 'rgba(' + teamRGB(a.team) + ',' + (0.55 * al) + ')'; c.lineWidth = 1.6 / z; c.setLineDash([8 / z, 6 / z]); c.lineDashOffset = -realClock / 25 / z;
+      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); c.setLineDash([]);
+    }
+    // a selected card: its legal targets ring gold, and the ship that would fire shows a thin line to each
+    if (sub === 'play' && selected >= 0 && lit[selected]) {
+      const card = CARDS[lit[selected].key];
+      for (const id of lit[selected].targets) {
+        const t = ships.find(s => s.id === id), pulse = 1 + 0.08 * Math.sin(realClock / 120);
+        c.strokeStyle = C_GOLD; c.lineWidth = 3 / z; c.beginPath(); c.arc(t.x, t.y, (B * 0.8) * pulse, 0, 7); c.stroke();
+        if (card.kind === 'attack') { const a = attackerFor(lit[selected].key, t); if (a) { c.strokeStyle = 'rgba(230,184,74,0.7)'; c.lineWidth = 2 / z; c.setLineDash([4 / z, 4 / z]); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(t.x, t.y); c.stroke(); c.setLineDash([]); } }
+      }
+    }
+  }
+  for (const b of bolts) {
+    const k = clamp((realClock - b.t0) / 240, 0, 1), col = teamRGB(b.team);
+    const x0 = lerp(b.ax, b.tx, Math.max(0, k - 0.35)), y0 = lerp(b.ay, b.ty, Math.max(0, k - 0.35)), x1 = lerp(b.ax, b.tx, k), y1 = lerp(b.ay, b.ty, k);
+    c.strokeStyle = 'rgba(' + col + ',' + (0.9 * (1 - Math.max(0, (realClock - b.t0 - 240) / 400))) + ')'; c.lineWidth = 3 / z; c.lineCap = 'round'; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  }
+  for (const s of ships) if (s.alive) {
+    drawShip(c, s, 1, null, null, null, z);
+    if (s.block > 0) { c.strokeStyle = C_BLOCK; c.lineWidth = 3 / z; c.beginPath(); c.arc(s.x, s.y, B / 2 + 4, -Math.PI * 0.9, -Math.PI * 0.1); c.stroke(); }
+    if (s.lock > 0) { c.fillStyle = C_GOLD; c.beginPath(); c.arc(s.x + Math.cos(s.h) * 24, s.y + Math.sin(s.h) * 24, 3.5 / z, 0, 7); c.fill(); }
+  }
+  for (let p = 0; p < NP; p++) if (pL[p] > 0) { c.globalAlpha = Math.min(1, pL[p] * 2); c.fillStyle = PCOL[pC[p]]; c.fillRect(pX[p] - 1.5 / z, pY[p] - 1.5 / z, 3 / z, 3 / z); }
+  c.globalAlpha = 1;
+  c.restore();
+  // screen space: relation tags, intents, block/lock numbers, pops, markers
+  if (phase === 'combat') {
+    for (const r of relations) {
+      if (!r.tag) continue; const a = ships.find(s => s.id === r.a), b = ships.find(s => s.id === r.b); if (!a.alive || !b.alive) continue;
+      const al = arcAlpha(order.indexOf(a)); if (al <= 0) continue;
+      const m = toScreen((a.x + b.x) / 2, (a.y + b.y) / 2); c.globalAlpha = al;
+      c.font = font(11, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; const tw = c.measureText(r.tag).width + 12;
+      roundRect(c, m.x - tw / 2, m.y - 9, tw, 18, 9); c.fillStyle = 'rgba(11,15,30,0.85)'; c.fill(); c.strokeStyle = teamC(a.team); c.lineWidth = 1; c.stroke();
+      c.fillStyle = teamC(a.team); c.fillText(r.tag, m.x, m.y + 0.5); c.globalAlpha = 1;
+    }
+    const ia = intentAlpha();
+    if (ia > 0) for (const r of living('r')) if (r.intent) {
+      const p = toScreen(r.x, r.y), it = r.intent, sc = 0.7 + 0.3 * easeOut(ia);
+      let text, col;
+      if (it.kind === 'attack') { const t = ships.find(s => s.id === it.target); text = CARDS[it.card].name + ' ' + (it.dmg + r.lock) + ' → ' + (t ? t.type.name : '?'); col = C_GOLD; }
+      else if (it.card === 'evade') { text = 'Braces ' + it.block; col = C_BLOCK; }
+      else if (it.cancelled) { text = 'Feinted'; col = '#9aa4c4'; }
+      else { text = 'Locks on'; col = '#c9b8ff'; }
+      c.save(); c.globalAlpha = ia; c.translate(p.x, Math.max(HUD_TOP + 16, p.y - 36 - (r.idx % 3) * 18)); c.scale(sc, sc);
+      c.font = font(12, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; const tw = c.measureText(text).width + 16;
+      roundRect(c, -tw / 2, -11, tw, 22, 11); c.fillStyle = 'rgba(11,15,30,0.92)'; c.fill(); c.strokeStyle = col; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = col; c.fillText(text, 0, 0.5);
+      c.beginPath(); c.moveTo(-4, 11); c.lineTo(4, 11); c.lineTo(0, 16); c.closePath(); c.fill();
+      c.restore();
+      if (it.kind === 'attack') { const t = ships.find(s => s.id === it.target); if (t && t.alive) { const q = toScreen(t.x, t.y); c.globalAlpha = 0.6 * ia; c.strokeStyle = C_GOLD; c.lineWidth = 1.5; c.setLineDash([3, 5]); c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke(); c.setLineDash([]); c.globalAlpha = 1; } }
+    }
+    if (arcAlpha(0) > 0) for (const s of living()) { const p = toScreen(s.x, s.y); c.textAlign = 'center'; c.textBaseline = 'top'; c.font = font(11, 800); c.globalAlpha = arcAlpha(0);
+      c.fillStyle = '#e8e6df'; c.fillText(s.hull + (s.block ? ' +' + s.block : ''), p.x, p.y + 20);
+      if (s.lock) { c.fillStyle = C_GOLD; c.fillText('lock +' + s.lock, p.x, p.y + 32); } c.globalAlpha = 1; }
+  }
+  for (const p of pops) { const k = clamp((realClock - p.t0) / 1300, 0, 1), q = toScreen(p.x, p.y); c.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1; c.fillStyle = p.colour; c.font = font(16, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(p.text, q.x, q.y - 28 - k * 30); c.globalAlpha = 1; }
+  for (const s of ships) if (s.alive) {
+    const p = toScreen(s.x, s.y); if (p.x > 8 && p.x < VW - 8 && p.y > HUD_TOP + 8 && p.y < VH - hudBot) continue;
+    const mx = clamp(p.x, 14, VW - 14), my = clamp(p.y, HUD_TOP + 14, VH - hudBot - 6), a = Math.atan2(p.y - my, p.x - mx);
+    c.save(); c.translate(mx, my); c.rotate(a); c.fillStyle = teamC(s.team); c.beginPath(); c.moveTo(8, 0); c.lineTo(-5, -6); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();
+  }
+  if (vignette > 0) { const gr = c.createRadialGradient(VW / 2, VH / 2, VH * 0.25, VW / 2, VH / 2, VH * 0.75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,' + (0.55 * vignette) + ')'); c.fillStyle = gr; c.fillRect(0, 0, VW, VH); }
+  const fl = ANIM ? Math.max(0, 1 - (realClock - flashT) / 260) : 0;
+  if (fl > 0) { c.fillStyle = 'rgba(255,255,255,' + (0.28 * fl) + ')'; c.fillRect(0, 0, VW, VH); }
+  drawHud(c);
+  renderHand(c);
+}
+// ---------------------------------------------------------------- HUD: the timeline strip (cards flip for combat), the meter, the phase line, toasts
+const CARD = { w: 46, h: 64, gap: 5, x0: 10, y0: 14 };
+const cardPos = new Map();
+function drawHud(c) {
+  c.fillStyle = 'rgba(11,15,30,0.78)'; c.fillRect(0, 0, VW, HUD_TOP);
+  c.fillStyle = 'rgba(42,51,96,0.6)'; c.fillRect(0, HUD_TOP - 1, VW, 1);
+  const n = order.length, act = activeShip();
+  for (let i = 0; i < n; i++) {
+    const s = order[i]; const k = (phase === 'plan' && active >= 0) ? (i - active + n) % n : i;
+    const tx = CARD.x0 + k * (CARD.w + CARD.gap) + (k && phase === 'plan' ? 10 : 0);
+    let p = cardPos.get(s.id); if (!p) { p = { x: tx, s: 1 }; cardPos.set(s.id, p); }
+    const kk = ANIM ? 1 - Math.exp(-0.016 * 10) : 1;
+    p.x = lerp(p.x, tx, kk); p.s = lerp(p.s, k === 0 && phase === 'plan' ? 1.14 : 1, kk);
+    if (!s.alive) p.s = lerp(p.s, 0.001, 0.1);
+    if (p.s < 0.02 || p.x > VW) continue;
+    const w = CARD.w * p.s, h = CARD.h * p.s, x = p.x, y = CARD.y0 + (CARD.h - h) / 2;
+    const done = phase === 'plan' && i < active, back = s.flip >= 0.5, fx = Math.abs(Math.cos(Math.PI * s.flip));
+    c.save(); c.translate(x + w / 2, y + h / 2); c.scale(Math.max(0.04, fx), 1); c.translate(-(x + w / 2), -(y + h / 2));
+    c.globalAlpha = done ? 0.45 : 1;
+    roundRect(c, x, y, w, h, 8); c.fillStyle = back ? '#1a1430' : s.team === 'p' ? '#10283b' : '#3a1e15'; c.fill();
+    c.strokeStyle = back ? C_GOLD : teamC(s.team); c.lineWidth = k === 0 && phase === 'plan' ? 2.5 : 1.5; c.stroke();
+    if (!back) {
+      c.save(); c.translate(x + w / 2, y + h * 0.42); c.rotate(-Math.PI / 2); c.scale(p.s * 0.95, p.s * 0.95); shipPath(c, s.type.glyph); c.fillStyle = teamC(s.team); c.fill(); c.restore();
+      c.fillStyle = '#e8e6df'; c.font = font(10 * p.s, 800); c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText(String(s.init), x + 4, y + 3);
+      c.fillStyle = s.planned && phase === 'plan' ? C_GOLD : '#9aa4c4'; c.font = font(9 * p.s, 700); c.textAlign = 'center'; c.fillText(s.type.name, x + w / 2, y + h * 0.66);
+      const frac = s.hull / s.maxHull; c.fillStyle = 'rgba(240,240,240,0.18)'; c.fillRect(x + 5, y + h - 9, w - 10, 4); c.fillStyle = frac > 0.5 ? C_HULL : C_WARN; c.fillRect(x + 5, y + h - 9, (w - 10) * frac, 4);
+    } else {
+      // the combat face: hull big, team glyph small, and the rival's intent in gold
+      c.save(); c.translate(x + w / 2, y + 13); c.rotate(-Math.PI / 2); c.scale(0.45, 0.45); shipPath(c, s.type.glyph); c.fillStyle = teamC(s.team); c.fill(); c.restore();
+      c.fillStyle = '#fff'; c.font = font(19, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(s.hull), x + w / 2, y + h * 0.5);
+      c.font = font(9, 700); c.textBaseline = 'top';
+      if (s.team === 'r' && s.intent) { c.fillStyle = s.intent.kind === 'attack' ? C_GOLD : C_BLOCK; c.fillText(s.intent.kind === 'attack' ? CARDS[s.intent.card].name.replace('Tail Gun', 'Tail') + ' ' + (s.intent.dmg + s.lock) : s.intent.card === 'evade' ? 'brace' : s.intent.cancelled ? 'feint' : 'lock', x + w / 2, y + h - 15); }
+      else { c.fillStyle = s.block ? C_BLOCK : '#9aa4c4'; c.fillText(s.block ? 'block ' + s.block : s.lock ? 'lock +3' : 'hull', x + w / 2, y + h - 15); }
+    }
+    c.restore(); c.globalAlpha = 1;
+    if (k === 0 && phase === 'plan' && s.team === 'p' && !calm) {
+      const rem = clamp(1 - S.planT / T.planS, 0, 1);
+      c.strokeStyle = rem < 0.3 ? C_WARN : C_GOLD; c.lineWidth = 3; c.beginPath(); c.arc(x + w / 2, y + h / 2, Math.max(w, h) / 2 + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * rem); c.stroke();
+    }
+  }
+  c.fillStyle = '#9aa4c4'; c.font = font(12, 700); c.textAlign = 'right'; c.textBaseline = 'top';
+  c.fillText('B' + battle + ' · R' + round, VW - 10, 10);
+  c.fillStyle = C_GOLD; c.font = font(13, 800);
+  c.fillText(phase === 'plan' ? 'PLAN' : phase === 'fly' ? 'FLY' : phase === 'combat' ? (sub === 'reveal' ? 'REVEAL' : sub === 'play' ? 'HAND' : 'THEIRS') : phase === 'between' ? 'NEXT' : '', VW - 10, 28);
+  if (phase === 'plan' && !calm && act && act.team === 'p') { c.fillStyle = S.planT > T.planS - 3 ? C_WARN : '#e8e6df'; c.font = font(18, 800); c.fillText(Math.max(0, Math.ceil(T.planS - S.planT)) + 's', VW - 10, 48); }
+  if (phase === 'plan' && act && act.team === 'p') {
+    const rem = act.path ? 1 - act.path.len / act.budget : 1;
+    c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(12, HUD_TOP - 10, VW - 24, 5);
+    c.fillStyle = rem < 0.15 ? C_WARN : C_P; c.fillRect(12, HUD_TOP - 10, (VW - 24) * rem, 5);
+  }
+  let line = '', sub2 = '';
+  if (phase === 'plan' && act) {
+    if (act.team === 'p') { line = 'Your ' + act.type.name + ': draw its path' + (act.boost ? ' (Afterburn)' : ''); sub2 = act.path && !stroke ? (S.grace >= 0 ? 'locking in… touch to redraw' : 'tap to lock in · touch to redraw') : stroke && stroke.full ? 'budget spent' : 'lift to lock in · two fingers peek'; }
+    else { line = 'Their ' + act.type.name + ' (' + TEMPERS[act.temper].name + ') plans'; sub2 = TEMPERS[act.temper].line + ' · watch its engines'; }
+  } else if (phase === 'fly') { line = 'Flying'; sub2 = 'where everyone ends decides the cards'; }
+  else if (phase === 'combat' && sub === 'reveal') { line = S.revealT < T.rv.flipAt ? '' : S.revealT < T.rv.arcsAt ? 'The cards flip' : S.revealT < T.rv.intentsAt ? 'Sights on' : 'Their intents'; }
+  else if (phase === 'combat' && sub === 'resolve') { line = 'Their move'; sub2 = 'intents resolve in initiative order'; }
+  else if (phase === 'between') line = 'Round ' + (round + 1) + ' coming';
+  const by = VH - SAB - 14;
+  if (line) {
+    c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.fillStyle = 'rgba(11,15,30,0.7)'; roundRect(c, 10, by - 48, VW - 20, 48, 12); c.fill();
+    c.fillStyle = '#e8e6df'; c.font = font(17, 800); c.fillText(line, VW / 2, by - 25);
+    c.fillStyle = '#9aa4c4'; c.font = font(12.5, 600); c.fillText(sub2, VW / 2, by - 8);
+  }
+  toasts.forEach((t, i) => { const k = clamp((realClock - t.t0) / 2400, 0, 1); c.globalAlpha = k > 0.8 ? (1 - k) / 0.2 : 1; c.fillStyle = t.colour; c.font = font(14, 700); c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillText(t.text, VW / 2, by - 64 - i * 20 - (phase === 'combat' ? hudBot - 56 : 0)); c.globalAlpha = 1; });
+}
+// the card glyphs: the position each card asks for
+function reqGlyph(c, req, x, y, s, col) {
+  c.save(); c.translate(x, y); c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 2; c.lineCap = 'round'; c.lineJoin = 'round';
+  if (req === 'arc') { c.beginPath(); c.moveTo(0, s * 0.5); c.lineTo(-s * 0.5, -s * 0.4); c.arc(0, s * 0.5, s * 1.0, -Math.PI / 2 - 0.73, -Math.PI / 2 + 0.73); c.closePath(); c.globalAlpha = 0.35; c.fill(); c.globalAlpha = 1; c.stroke(); }
+  else if (req === 'behind') { for (const dy of [-s * 0.3, s * 0.2]) { c.beginPath(); c.moveTo(-s * 0.45, dy + s * 0.35); c.lineTo(0, dy - s * 0.1); c.lineTo(s * 0.45, dy + s * 0.35); c.stroke(); } }
+  else if (req === 'headon') { c.beginPath(); c.moveTo(-s * 0.55, 0); c.lineTo(-s * 0.1, 0); c.moveTo(-s * 0.3, -s * 0.25); c.lineTo(-s * 0.1, 0); c.lineTo(-s * 0.3, s * 0.25); c.moveTo(s * 0.55, 0); c.lineTo(s * 0.1, 0); c.moveTo(s * 0.3, -s * 0.25); c.lineTo(s * 0.1, 0); c.lineTo(s * 0.3, s * 0.25); c.stroke(); }
+  else if (req === 'touch') { c.beginPath(); c.arc(-s * 0.25, 0, s * 0.28, 0, 7); c.stroke(); c.beginPath(); c.arc(s * 0.25, 0, s * 0.28, 0, 7); c.stroke(); }
+  else if (req === 'beam') { c.beginPath(); c.moveTo(0, -s * 0.5); c.lineTo(0, s * 0.5); c.moveTo(s * 0.15, -s * 0.1); c.lineTo(s * 0.55, -s * 0.1); c.moveTo(s * 0.15, s * 0.1); c.lineTo(s * 0.55, s * 0.1); c.stroke(); }
+  else if (req === 'hurt') { c.beginPath(); c.moveTo(-s * 0.4, 0); c.lineTo(s * 0.4, 0); c.moveTo(0, -s * 0.4); c.lineTo(0, s * 0.4); c.stroke(); }
+  else { c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? s * 0.22 : s * 0.5; i ? c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); }
+  c.restore();
+}
+function renderHand(c) {
+  if (phase !== 'combat') return;
+  const L = handLayout(); if (L.slide > L.h + 80) return;
+  // the row above the hand: energy pips, the detail line, DONE
+  const top = L.y0 - 88;
+  c.fillStyle = 'rgba(11,15,30,0.82)'; roundRect(c, 6, top - 6, VW - 12, L.h + 104, 14); c.fill();
+  for (let i = 0; i < ENERGY; i++) { c.beginPath(); c.arc(L.pips.x + 10 + i * 24, L.pips.y + 10, 9, 0, 7); c.fillStyle = i < energy ? C_GOLD : 'rgba(230,184,74,0.18)'; c.fill(); }
+  c.fillStyle = '#9aa4c4'; c.font = font(11, 700); c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText('Energy', L.pips.x, L.pips.y - 14);
+  const d = L.done, canEnd = sub === 'play', anyLit = lit.some(l => l.targets.length);
+  roundRect(c, d.x, d.y, d.w, d.h, 12); c.fillStyle = canEnd ? (anyLit && energy > 0 ? '#1c2448' : C_P) : '#1c2448'; c.fill(); c.strokeStyle = canEnd && !(anyLit && energy > 0) ? C_P : '#2a3360'; c.lineWidth = 2; c.stroke();
+  c.fillStyle = canEnd && !(anyLit && energy > 0) ? '#0c2a3d' : '#e8e6df'; c.font = font(15, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(sub === 'play' ? 'DONE' : '…', d.x + d.w / 2, d.y + d.h / 2);
+  const detail = selected >= 0 && deck.hand[selected] ? CARDS[deck.hand[selected]].text + '  Tap a lit target.' : sub === 'play' ? (anyLit ? 'Tap a lit card, then a target.' : 'Nothing lit: end your paths in their sights, or behind them.') : '';
+  if (detail) { c.fillStyle = selected >= 0 ? C_GOLD : '#9aa4c4'; c.font = font(12.5, 600); c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText(detail, 14, L.y0 - 26, VW - 28); }
+  for (const r of L.rects) {
+    const k = r.key, cd = CARDS[k], on = lit[r.i] && lit[r.i].targets.length > 0, sel = r.i === selected;
+    let nx = 0; if (nudge && nudge.i === r.i) { const t = (realClock - nudge.t0) / 300; if (t < 1) nx = Math.sin(t * Math.PI * 4) * 4 * (1 - t); else nudge = null; }
+    c.globalAlpha = on ? 1 : 0.5;
+    roundRect(c, r.x + nx, r.y, r.w, r.h, 9); c.fillStyle = on ? (cd.kind === 'attack' ? '#10283b' : '#172a2e') : '#0f1430'; c.fill();
+    c.strokeStyle = sel ? C_GOLD : on ? (cd.kind === 'attack' ? C_P : C_BLOCK) : '#2a3360'; c.lineWidth = sel ? 3 : 1.5; c.stroke();
+    c.beginPath(); c.arc(r.x + nx + 12, r.y + 12, 9, 0, 7); c.fillStyle = cd.cost <= energy ? C_GOLD : 'rgba(230,184,74,0.35)'; c.fill();
+    c.fillStyle = '#0b0f1e'; c.font = font(11, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(cd.cost), r.x + nx + 12, r.y + 12.5);
+    reqGlyph(c, cd.req, r.x + nx + r.w / 2, r.y + r.h * 0.47, r.w * 0.3, on ? (cd.kind === 'attack' ? '#dff4ff' : C_BLOCK) : '#5a6388');
+    if (cd.dmg) { c.fillStyle = on ? '#fff' : '#7d86a6'; c.font = font(13, 800); c.textAlign = 'right'; c.textBaseline = 'top'; c.fillText(String(cd.dmg), r.x + nx + r.w - 6, r.y + 5); }
+    c.fillStyle = on ? '#e8e6df' : '#7d86a6'; c.font = font(Math.min(11, r.w / 6.2), 700); c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(cd.name, r.x + nx + r.w / 2, r.y + r.h - 6, r.w - 6);
+    c.globalAlpha = 1;
+  }
+  c.fillStyle = '#7d86a6'; c.font = font(10, 600); c.textAlign = 'right'; c.textBaseline = 'top'; c.fillText('draw ' + deck.draw.length + ' · discard ' + deck.discard.length, VW - 14, L.y0 + L.h - 2 - 12 + 2);
+}
+
+// ---------------------------------------------------------------- test API
+const shipOut = s => ({ id: s.id, team: s.team, type: s.key, init: s.init, x: +s.x.toFixed(2), y: +s.y.toFixed(2), heading: +s.h.toFixed(4), hull: s.hull, maxHull: s.maxHull, block: s.block, lock: s.lock, boost: s.boost, budget: s.budget, alive: s.alive, planned: s.planned, clipped: !!s.clipped, lean: s.lean, flip: +s.flip.toFixed(3),
+  intent: s.intent ? { ...s.intent } : null,
+  path: s.path ? { len: +s.path.len.toFixed(2), turn: +s.path.turn.toFixed(3), n: s.path.n, cut: !!s.path.cut, endH: +angN((s.p0 && phase !== 'plan' ? s.p0.h : s.h) + s.path.endH).toFixed(4), kind: s.path.kind || 'drawn', hash: pathHash(s.path) } : null, execDone: s.exec && s.exec.done });
+function pathHash(p) { let h = 0; for (let i = 0; i < p.n; i += Math.max(1, p.n >> 4)) h = (h * 31 + Math.round(p.X[i] * 10) * 7 + Math.round(p.Y[i] * 10)) | 0; return (h >>> 0).toString(16) + ':' + p.len.toFixed(1); }
+const hideCards = () => { for (const id of ['start', 'end', 'pick']) document.getElementById(id).classList.remove('on'); };
+function byId(id) { return ships.find(s => s.id === id) || null; }
+function policyPath(s, policy, srng) {
+  if (policy === 'idle') return null;
+  if (policy === 'random') { const cs = candidates(s.budget); return cs[Math.floor(srng() * cs.length)]; }
+  if (policy === 'sweep') return botPlan(s, 'sweep').path;
+  return null;
+}
+window.__ft = {
+  state() {
+    const a = activeShip(), L = phase === 'combat' ? handLayout() : null;
+    return { phase, sub, round, battle, seed, calm, over, paused, anim: ANIM, timeScale, active: a ? { id: a.id, team: a.team, type: a.key, index: active } : null, order: order.map(s => s.id),
+      ships: ships.map(shipOut), stroke: stroke ? { pts: stroke.pts.length, moved: stroke.moved, full: stroke.full } : null,
+      planT: +S.planT.toFixed(3), grace: +S.grace.toFixed(3), camArrived: S.camArrived, peek, pointers: pointers.size, revealT: +S.revealT.toFixed(3), flyT: +S.flyT.toFixed(3),
+      cam: { x: +cam.x.toFixed(1), y: +cam.y.toFixed(1), z: +cam.z.toFixed(4) }, camTarget: { x: +camT.x.toFixed(1), y: +camT.y.toFixed(1), z: +camT.z.toFixed(4) }, overviewZ: +overviewCam().z.toFixed(4),
+      hand: deck.hand.slice(), lit: lit.map(l => l.targets.slice()), energy, selected, deckSizes: { draw: deck.draw.length, discard: deck.discard.length, run: runDeck.length }, runDeck: runDeck.slice(),
+      relations: relations.slice(), intents: living('r').map(r => ({ id: r.id, intent: r.intent })), picks: phase === 'pick' ? picks.slice() : null,
+      handRects: L ? L.rects.map(r => ({ i: r.i, key: r.key, x: r.x, y: r.y, w: r.w, h: r.h })) : null, doneRect: L ? L.done : null, handSlide: L ? +L.slide.toFixed(1) : null,
+      stats: { ...stats, lastKill: undefined }, start: document.getElementById('start').classList.contains('on'), end: document.getElementById('end').classList.contains('on'), pick: document.getElementById('pick').classList.contains('on') };
+  },
+  T, TYPES, TEMPERS, CARDS, STARTER, POOL,
+  begin(sd, opts) { opts = opts || {}; hideCards(); if (opts.calm != null) calm = !!opts.calm; paused = false; restart(sd || seed); return seed; },
+  calm(on) { calm = !!on; return calm; },
+  anim(on) { ANIM = !!on; return ANIM; },
+  plan(pts) { const s = playerTurn(); if (!s) return null; let p; if (pts && pts.kind) p = famPath(pts.kind, pts.L, pts.a, pts.b); else if (pts && pts.length) p = makePath(pts); else p = null; s.path = p; lockIn(s, !p); return p ? pathHash(p) : null; },
+  lockIn() { const s = playerTurn(); if (!s) return false; lockIn(s, !s.path && !(stroke && stroke.moved)); return true; },
+  play(i, id) { return playCard(i, id); }, done() { return endPlay(); }, pick(i) { return pickCard(i); }, autoPlay() { return phase === 'combat' && sub === 'play' ? autoPlay() : null; },
+  legal(i) { computeLit(); return lit[i] ? lit[i].targets.slice() : null; },
+  attacker(i, id) { const t = byId(id); const a = t && deck.hand[i] ? attackerFor(deck.hand[i], t) : null; return a ? a.id : null; },
+  toScreen(wx, wy) { return toScreen(wx, wy); }, toWorld(sx, sy) { return toWorld(sx, sy); },
+  shipScreen(id) { const s = byId(id); return s ? toScreen(s.x, s.y) : null; },
+  perf() { return { frames: perfS.length, p50: pctl(perfS, 0.5), p95: pctl(perfS, 0.95), max: pctl(perfS, 1) }; },
+  resetPerf() { perfS.length = 0; },
+  botTiming() { return { n: botMs.length, p50: pctl(botMs, 0.5), p95: pctl(botMs, 0.95), max: pctl(botMs, 1) }; },
+  bench(n) { const t = []; let first = null, same = true; const rs = living('r'); for (let i = 0; i < n; i++) { const s = rs[i % rs.length], t0 = performance.now(), r = botPlan(s, s.temper, 0); t.push(performance.now() - t0); const k = s.id + ':' + r.pick; if (i < rs.length) { if (first === null) first = k; } else if (i % rs.length === 0 && k !== first) same = false; } return { n, p50: pctl(t, 0.5), p95: pctl(t, 0.95), max: pctl(t, 1), deterministic: same, cands: candidates(rs[0].budget).length }; },
+  // whole headless runs: path policy idle | random | sweep; cards greedy | none
+  sim(o) {
+    o = o || {}; const seeds = o.seeds || [1, 2, 3, 4, 5], out = [];
+    const keepAnim = ANIM, keepCalm = calm; ANIM = false; calm = true; hideCards(); paused = false;
+    for (const sd of seeds) {
+      restart(sd); const srng = mulberry32(sd * 7 + 11);
+      for (let guard = 0; guard < 2000 && !over; guard++) {
+        if (phase === 'plan') { const s = playerTurn(); if (!s) break; const p = policyPath(s, o.policy || 'idle', srng); s.path = p; lockIn(s, !p); }
+        else if (phase === 'combat') { if (o.cards !== 'none') autoPlay(); endPlay(); }
+        else if (phase === 'pick') pickCard(0);
+        else break;
+      }
+      out.push({ seed: sd, result: over ? over.result : 'none', battle, rounds: stats.rounds, battlesWon: stats.battlesWon, kills: stats.kills, lost: stats.lost, cards: stats.cardsPlayed, dealt: stats.dmgDealt, taken: stats.dmgTaken, tailGuns: stats.tailGuns, jousts: stats.jousts, lit: stats.lit, bestLit: stats.bestLit, litRounds: stats.litRounds, played: stats.played, clips: stats.clips, cancelled: stats.intentsCancelled, fizzled: stats.intentsFizzled });
+    }
+    ANIM = keepAnim; calm = keepCalm;
+    const wins = out.filter(r => r.result === 'win').length, losses = out.filter(r => r.result === 'lose').length;
+    return { policy: o.policy || 'idle', cards: o.cards || 'greedy', games: out.length, wins, losses, draws: out.length - wins - losses, medianRounds: pctl(out.map(r => r.rounds), 0.5), medianBattlesWon: pctl(out.map(r => r.battlesWon), 0.5), rows: out };
+  },
+  dev: {
+    place(id, x, y, h) { const s = byId(id); if (!s) return false; s.x = x; s.y = y; if (h != null) s.h = h; return true; },
+    setHull(id, hu) { const s = byId(id); if (!s) return false; s.hull = hu; return true; },
+    kill(id) { const s = byId(id); if (!s || !s.alive) return false; destroy(s, null); return true; },
+    // re-read a staged board during combat: relations, intents (their Lock On / brace reapplied) and the lit cards
+    restage() { if (phase !== 'combat') return false; for (const r of living('r')) { r.lock = 0; r.block = 0; } relations = computeRelations(); for (const r of living('r')) { r.intent = intentFor(r); if (r.intent.card === 'evade') r.block += r.intent.block; if (r.intent.card === 'lockon') r.lock += 3; } computeLit(); return true; },
+    arrive() { S.camArrived = true; camSet(camT); },
+    skipRival() { const s = activeShip(); if (s && s.team === 'r') S.passT = T.passS; },
+    skipReveal() { if (phase === 'combat' && sub === 'reveal') { S.revealT = T.rv.playAt; sub = 'play'; for (const s of ships) s.flip = 1; } return sub; },
+    setHand(keys) { deck.discard.push(...deck.hand); deck.hand = keys.slice(); computeLit(); return deck.hand.slice(); },
+    energy(n) { energy = n; computeLit(); return energy; },
+    botPlan(id, temper) { const s = byId(id); if (!s) return null; const keep = { path: s.path, planned: s.planned, lean: s.lean, honest: s.honest }; const r = botPlan(s, temper || s.temper || 'ram', 0); Object.assign(s, keep); return { pick: r.pick, hash: pathHash(r.path), len: +r.path.len.toFixed(1), kind: r.path.kind, lean: r.lean, honest: r.honest, best: +r.best.toFixed(4), n: r.n }; },
+    candidates(budget) { return candidates(budget).map(p => ({ kind: p.kind, a: +(p.a || 0).toFixed(3), len: +p.len.toFixed(1), turn: +p.turn.toFixed(3) })); },
+    pathPts(id, n) { const s = byId(id); if (!s || !s.path) return null; const p0 = s.p0 && phase !== 'plan' ? s.p0 : s, out = []; n = n || 40; for (let i = 0; i <= n; i++) { const q = poseOn(p0, s.path, s.path.len * i / n); out.push({ x: +q.x.toFixed(2), y: +q.y.toFixed(2), h: +q.h.toFixed(4) }); } return out; },
+    meets(req, a, b) { const A = byId(a), Bb = byId(b); return A && Bb ? meets(req, A, Bb) : null; },
+    clock: () => ({ clock, realClock }),
+  },
+};
+
+// ---------------------------------------------------------------- boot
+const qs = new URLSearchParams(location.search);
+seed = Math.max(1, parseInt(qs.get('seed') || '1', 10) || 1);
+try { calm = localStorage.getItem('tactics.calm') === '1'; } catch (e) { /* storage off */ }
+if (qs.get('calm') === '1') calm = true;
+for (const b of document.querySelectorAll('#clk button')) b.classList.toggle('on', (b.dataset.c === 'calm') === calm);
+document.getElementById('seedLbl').textContent = seed;
+resize();
+window.addEventListener('resize', resize);
+restart(seed); paused = true;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
