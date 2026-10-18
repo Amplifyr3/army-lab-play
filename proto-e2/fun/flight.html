@@ -32,6 +32,9 @@
   .seg{display:flex;gap:6px}
   .seg button{flex:1;min-height:48px;border-radius:12px;border:1px solid #3a4780;background:#141a33;color:#9aa4c4;font-size:16px;font-weight:700}
   .seg button.on{background:#2a3560;color:#fff;border-color:#62c8ff}
+  .seg.small{margin-top:8px;align-items:center}
+  .seg.small span{flex:0 0 auto;font-size:14px;color:#9aa4c4;padding-right:4px}
+  .seg.small button{min-height:40px;font-size:15px}
   .rcard{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;text-align:left;margin:0 0 8px;padding:12px 16px;min-height:76px;
     border-radius:16px;border:1px solid #6a3a2a;border-left:6px solid #f08a5d;background:#1a1426;color:#e8ecf8;cursor:pointer}
   .rcard b{font-size:22px;font-weight:800;color:#f08a5d;letter-spacing:.02em}
@@ -59,6 +62,7 @@
     <div class="lede">Same dice, Focus and Strain as you. It plans before you draw and never sees your path.
       <b>Watch its engine:</b> in Plan it leans the way it will turn. Mostly.</div>
     <div class="seg" id="lvl"><button data-l="easy">Easy</button><button data-l="medium" class="on">Medium</button><button data-l="hard">Hard</button></div>
+    <div class="seg small" id="ctl"><span>Controls</span><button data-c="detents" class="on">Detents</button><button data-c="free">Free</button></div>
   </div>
   <button class="rcard" data-r="ram"><b>Ram</b><span>Noses straight at you and jousts. Never looks back.</span></button>
   <button class="rcard" data-r="kite"><b>Kite</b><span>Holds Mid range and circles. Always the same way.</span></button>
@@ -109,6 +113,7 @@ function clampStrained(m, strain) {
 }
 function theta(m) { return m.shape === 'Bank' ? m.side * Math.PI / 4 : m.shape === 'Turn' ? m.side * Math.PI / 2 : 0; }
 function poseAt(p0, m, u, sc) {
+  if (m.path) return freePose(p0, m, u, sc || 1);
   const l = lenOf(m.speed) * (sc || 1), th = theta(m);
   if (!th) return { x: p0.x + Math.cos(p0.h) * l * u, y: p0.y + Math.sin(p0.h) * l * u, h: p0.h };
   const R = l / th, hh = p0.h + th * u;
@@ -193,6 +198,138 @@ function tapPick(p) {
   return best;
 }
 
+// ---------------------------------------------------------------- controls: Detents (a dial that clicks) or Free (flown as drawn)
+// Both put exactly one path on the pad and the same path on the board, and FLY flies that path through the same poseAt().
+let controls = 'detents';
+const CONTROLS = { detents: 'Detents', free: 'Free' };
+const lenM = m => m.path ? m.L : lenOf(m.speed);
+// Detents: the 18 legal moves are landing spots. The 15 arcs sit where they land; the 3 Flips sit in a row behind the Craft.
+const DETENTS = ALL15.map(m => ({ m, p: padEnd(m) })).concat([1, 2, 3].map(sp => ({ m: man('Flip', sp, 1), p: { x: 0, y: 7 + 9 * sp } })));
+const HYST = 10, DEAD = 15;    // a spot must be 10 pad units nearer than the current one to take over; a finger on the Craft picks nothing
+let detent = null, ticks = 0, popAt = -1e9, popD = null;
+function detentPick(p, cur, strain) {
+  const near = Math.hypot(p.x, p.y) < DEAD;
+  if (near) return cur;
+  let best = null, bd = 1e9, cd = 1e9;
+  const behind = p.y > 6;                                          // ahead of the Craft: the arcs; behind it: the Flips
+  for (const d of DETENTS) {
+    if ((d.m.shape === 'Flip') !== behind) continue;
+    if (strain >= 1 && d.m.colour === 'red') continue;           // strained: the Hard spots are shut, not clamped
+    const dd = Math.hypot(d.p.x - p.x, d.p.y - p.y);
+    if (dd < bd) { bd = dd; best = d; }
+    if (cur && d === cur) cd = dd;
+  }
+  if (!best) return cur;
+  return cur && cd < 1e9 && cd <= bd + (behind ? 3.5 : HYST) ? cur : best;    // the Flip row is tighter (9 apart), so its band is too
+}
+function detentSet(d) {
+  if (!d || d === detent) return;
+  detent = d; ticks++; popAt = clock; popD = d;
+  vib(8); blip(2300, 0.014, 'triangle', 0.022);                   // the click of a detent
+  setPlan(d.m);
+}
+// Free: the stroke is flown as drawn (smoothed), inside the ship's limits. Tightest bend = Turn 1 (90 degrees in 72).
+const KMAX = (Math.PI / 2) / lenOf(1);
+const FR = { ds: 4, look: 18, win: 24, green: 0.45, red: 0.75, wK: 0.65, wL: 0.35, Lmin: lenOf(1), Lmax: lenOf(3) };
+function freePose(p0, m, u, sc) {
+  const P = m.path, n = P.length / 3 - 1, f = clamp(u, 0, 1) * n, i = Math.min(n - 1, Math.floor(f)), t = f - i, j = i * 3;
+  const fx = (P[j] + (P[j + 3] - P[j]) * t) * sc, ly = (P[j + 1] + (P[j + 4] - P[j + 1]) * t) * sc, hl = P[j + 2] + (P[j + 5] - P[j + 2]) * t;
+  const c = Math.cos(p0.h), sn = Math.sin(p0.h);
+  return { x: p0.x + c * fx - sn * ly, y: p0.y + sn * fx + c * ly, h: p0.h + hl };
+}
+function pathFrom(H, L) {
+  const n = H.length - 1, st = L / n, P = new Float64Array((n + 1) * 3); let x = 0, y = 0; P[2] = H[0];
+  for (let i = 1; i <= n; i++) { const hm = (H[i - 1] + H[i]) / 2; x += Math.cos(hm) * st; y += Math.sin(hm) * st; P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = H[i]; }
+  return P;
+}
+const stepsOf = L => Math.max(2, Math.ceil(L / FR.ds - 1e-9));
+// difficulty is continuous: how tight the tightest stretch is (over 24 units) and how long the flight is
+function freeDifficulty(H, L) {
+  const st = L / (H.length - 1), w = Math.max(1, Math.round(FR.win / st)); let kp = 0;
+  for (let i = 0; i + w < H.length; i++) kp = Math.max(kp, Math.abs(H[i + w] - H[i]) / (w * st));
+  const kShare = Math.min(1, kp / KMAX + 1e-9), lShare = clamp((L - FR.Lmin) / (FR.Lmax - FR.Lmin), 0, 1);
+  return { kShare: Math.min(1, kShare), lShare, d: FR.wK * Math.min(1, kShare) + FR.wL * lShare };
+}
+const bandOf = d => d < FR.green ? 'green' : d < FR.red ? 'white' : 'red';
+// the nearest of the 18 moves, by where it ends (the rival files your habits under this, and the label names it)
+const END18 = MOVES18_LOCAL();
+function MOVES18_LOCAL() { const o = []; for (const m of ALL15.concat([man('Flip', 1, 1), man('Flip', 2, 1), man('Flip', 3, 1)])) { const e = poseAt({ x: 0, y: 0, h: 0 }, m, 1); if (m.shape === 'Flip') e.h = Math.PI; o.push({ m, e }); } return o; }
+function nearest18(shape, P) {
+  const n = P.length / 3 - 1, ex = P[n * 3], ey = P[n * 3 + 1], eh = P[n * 3 + 2] + (shape === 'Flip' ? Math.PI : 0);
+  let best = null, bc = 1e9;
+  for (const o of END18) { if ((o.m.shape === 'Flip') !== (shape === 'Flip')) continue; const c = Math.hypot(o.e.x - ex, o.e.y - ey) + 40 * Math.abs(angN(o.e.h - eh)); if (c < bc) { bc = c; best = o.m; } }
+  return best;
+}
+function mkFree(shape, H, L, flag, src, flipSide, strained) {
+  const path = pathFrom(H, L), df = shape === 'Flip' ? { d: 1, kShare: 0, lShare: (L - FR.Lmin) / (FR.Lmax - FR.Lmin) } : freeDifficulty(H, L);
+  let colour = shape === 'Flip' ? 'red' : bandOf(df.d);
+  if (strained && colour === 'red') colour = 'white';
+  const hEnd = H[H.length - 1];
+  const m = { shape, free: true, path, L, H, flag, src, d: df.d, kShare: df.kShare, lShare: df.lShare, colour,
+    side: shape === 'Flip' ? (flipSide || 1) : hEnd > 0.02 ? 1 : hEnd < -0.02 ? -1 : 0, speed: L < 92 ? 1 : L < 132 ? 2 : 3 };
+  m.near = nearest18(shape, path);
+  m.limited = flag.some(f => f === 1); m.extended = flag.some(f => f === 2);
+  m.clamped = !!strained && m.limited;
+  m.label = (shape === 'Flip' ? 'Flip ' + m.speed : '≈ ' + m.near.shape + ' ' + m.near.speed + sideWord(m.near)) + ' · ' + WORD[colour];
+  return m;
+}
+function freeFlip(L, side, src) { const n = stepsOf(L); return mkFree('Flip', new Array(n + 1).fill(0), L, new Array(n + 1).fill(0), src, side, false); }
+// a tapped spot in Free: that exact arc, as a path, judged by the Free difficulty rule
+function freeFromArc(m, strained) {
+  if (m.shape === 'Flip') { if (!strained) return freeFlip(lenOf(m.speed), m.side, { arc: m }); m = man('Turn', 2, m.side || 1); }
+  const L = lenOf(m.speed), n = stepsOf(L), th = theta(m), H = [];
+  for (let i = 0; i <= n; i++) H.push(th * i / n);
+  return mkFree('Free', H, L, new Array(n + 1).fill(0), { arc: m }, 0, strained);
+}
+// a drawn stroke in Free: pure pursuit of the smoothed stroke, turn rate capped, heading within 90 degrees of the nose,
+// length 72-152, and the end inside the 90 degree fan (if not, the whole bend relaxes until it is)
+function freeFromStroke(raw, strained) {
+  const a = analyse(raw);
+  if (a && a.m.shape === 'Flip' && !strained) return freeFlip(clamp(a.lest / K, FR.Lmin, FR.Lmax), a.m.side, { raw });
+  const sm = resample(smooth5(resample(raw, 3)), 3);
+  const pts = sm.map(q => ({ f: -(q.y - sm[0].y) / K, l: (q.x - sm[0].x) / K }));
+  const acc = [0]; for (let i = 1; i < pts.length; i++) acc.push(acc[i - 1] + Math.hypot(pts[i].f - pts[i - 1].f, pts[i].l - pts[i - 1].l));
+  const S = acc[acc.length - 1];
+  const at = sv => {
+    const n = pts.length - 1;
+    if (n < 1) return { f: sv, l: 0 };
+    if (sv >= S) { const q = pts[n], r = pts[Math.max(0, n - 3)], dl = Math.hypot(q.f - r.f, q.l - r.l) || 1; return { f: q.f + (q.f - r.f) / dl * (sv - S), l: q.l + (q.l - r.l) / dl * (sv - S) }; }
+    let i = 1; while (i < n && acc[i] < sv) i++;
+    const t = (sv - acc[i - 1]) / ((acc[i] - acc[i - 1]) || 1);
+    return { f: pts[i - 1].f + (pts[i].f - pts[i - 1].f) * t, l: pts[i - 1].l + (pts[i].l - pts[i - 1].l) * t };
+  };
+  const L = clamp(S, FR.Lmin, FR.Lmax), lS = (L - FR.Lmin) / (FR.Lmax - FR.Lmin);
+  const kCap = strained ? Math.min(1, (FR.red - FR.wL * lS) / FR.wK - 0.04) : 1;   // strained: never tight enough to be Hard
+  const n = stepsOf(L), st = L / n, H = [0], flag = [0];
+  let x = 0, y = 0, h = 0, sv = 0;
+  for (let i = 1; i <= n; i++) {
+    const tp = at(Math.min(sv + FR.look, Math.max(S, sv + FR.look)));
+    const want = Math.atan2(tp.l - y, tp.f - x);
+    let dh = angN(want - h), f = 0; const lim = kCap * KMAX * st;
+    if (Math.abs(dh) > lim) { if (Math.abs(dh) - lim > 0.05) f = 1; dh = Math.sign(dh) * lim; }
+    let hn = h + dh; if (Math.abs(hn) > Math.PI / 2) { hn = Math.sign(hn) * Math.PI / 2; f = 1; }
+    const hm = (h + hn) / 2; x += Math.cos(hm) * st; y += Math.sin(hm) * st; h = hn; sv += st;
+    H.push(h); flag.push(f || (sv > S + 2 ? 2 : 0));
+  }
+  // the end must sit inside the 90 degree fan from the nose: relax the whole bend just enough
+  const bearing = HH => { const P = pathFrom(HH, L), k = (P.length / 3 - 1) * 3; return Math.abs(Math.atan2(P[k + 1], P[k])); };
+  if (bearing(H) > Math.PI / 4 + 1e-6) {
+    let lo = 0, hi = 1;
+    for (let it = 0; it < 14; it++) { const mid = (lo + hi) / 2; if (bearing(H.map(v => v * mid)) > Math.PI / 4) hi = mid; else lo = mid; }
+    for (let i = 0; i < H.length; i++) { if (Math.abs(H[i]) * (1 - lo) > 0.04) flag[i] = 1; H[i] *= lo; }
+  }
+  return mkFree('Free', H, L, flag, { raw }, 0, strained);
+}
+function rebuildFree(m, strained) { return m.src && m.src.raw ? freeFromStroke(m.src.raw, strained) : freeFromArc(m.src.arc, strained); }
+// the line shades green -> white -> red as it tightens
+function shade(d) {
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const G = [111, 227, 163], Wt = [240, 240, 240], R = [255, 90, 106];
+  const c = d < FR.green ? mix(G, Wt, smooth(clamp((d - FR.green + 0.14) / 0.14, 0, 1)) * 0.6) : d < FR.red ? mix(Wt, R, smooth(clamp((d - FR.red + 0.1) / 0.1, 0, 1)) * 0.45) : R;
+  return 'rgb(' + c.join(',') + ')';
+}
+const pathCol = m => m.free && m.shape !== 'Flip' ? shade(m.d) : HEX[m.colour];
+
 // ---------------------------------------------------------------- game state
 let seed = 1, round = 0, phase = 'plan', sub = '', clock = 0, ANIM = true, timeScale = 1;
 let craft, husk, planRaw = null, plan = null, hp = null, lastAnalysis = null;
@@ -220,7 +357,9 @@ function restart(sd, opts) {
   opts = opts || {};
   if (opts.rival && RIVALS[opts.rival]) rivalKey = opts.rival;
   if (opts.level && LEVELS[opts.level]) level = opts.level;
-  if (opts.fresh) habits = {};     // a rematch keeps what it learned about you; the test API starts fresh
+  if (opts.controls && CONTROLS[opts.controls]) controls = opts.controls;
+  if (opts.fresh) habits = {};
+  ticks = 0;     // a rematch keeps what it learned about you; the test API starts fresh
   seed = sd | 0 || 1; rng = mulberry32(seed * 31 + 7); rv = newRival(seed);
   const r = mulberry32(seed * 7919 + 3);
   craft = newShip('craft', 200, 470, UP);
@@ -228,14 +367,14 @@ function restart(sd, opts) {
   round = 0; tasks = []; toasts = []; stats = newStats(); over = null; tray = []; buildBg();
   document.getElementById('end').classList.remove('on');
   document.getElementById('start').classList.remove('on');
-  try { history.replaceState(null, '', location.pathname + '?seed=' + seed + '&rival=' + rivalKey + '&level=' + level); } catch (e) { /* file:// may refuse */ }
-  try { localStorage.setItem('flight.rival', rivalKey); localStorage.setItem('flight.level', level); } catch (e) { /* storage off */ }
+  try { history.replaceState(null, '', location.pathname + '?seed=' + seed + '&rival=' + rivalKey + '&level=' + level + '&controls=' + controls); } catch (e) { /* file:// may refuse */ }
+  try { localStorage.setItem('flight.rival', rivalKey); localStorage.setItem('flight.level', level); localStorage.setItem('flight.controls', controls); } catch (e) { /* storage off */ }
   startRound();
 }
 function startRound() {
   round++; phase = 'plan'; sub = '';
   craft.focus = false; husk.focus = false; craft.clipped = false; husk.clipped = false; craft.flown = husk.flown = false; shotFired = false;
-  planRaw = plan = null; lastAnalysis = null; shownStroke = null; tapMark = null; SK = null; revealed = false;
+  planRaw = plan = null; lastAnalysis = null; shownStroke = null; tapMark = null; SK = null; revealed = false; detent = null;
   tray = []; tgt = huskTgt = null; picked = false; noTarget = false;
   hp = huskChoose(); fanT0 = clock;
 }
@@ -283,7 +422,7 @@ function strainAfter(strain, m, clipped) { return clipped ? strain + (m.colour =
 // every point of an arc of length L lies within L/2 of one of its ends, so if both ends sit L/2 clear of the edge it cannot clip
 const clear = (x, y, r) => x - r >= B / 2 && x + r <= W - B / 2 && y - r >= B / 2 && y + r <= BH - B / 2;
 function execFast(p0, m) {
-  const e = poseAt(p0, m, 1), r = lenOf(m.speed) / 2;
+  const e = poseAt(p0, m, 1), r = lenM(m) / 2;
   if (!clear(p0.x, p0.y, r) || !clear(e.x, e.y, r)) return execPath(p0, m);
   if (m.shape === 'Flip') e.h = angN(e.h + Math.PI);
   return { uEnd: 1, clipped: false, end: e };
@@ -418,25 +557,35 @@ function sightsOf(s, tx, ty) {
   if (Math.abs(angN(Math.atan2(dy, dx) - s.h)) > Math.PI / 4 + 1e-9) return null;
   return { d, band: d <= 100 ? 'Close' : d <= 200 ? 'Mid' : 'Far' };
 }
-function setPlan(m) { planRaw = m; plan = clampStrained(m, craft.strain); }
+function setPlan(m) {
+  planRaw = m;
+  if (m && m.free) plan = craft.strain >= 1 && m.colour === 'red' ? rebuildFree(m, true) : m;
+  else plan = clampStrained(m, craft.strain);
+}
 
 // ---------------------------------------------------------------- strokes (touch and the test API share this path)
-function strokeBegin(p, now) { if (phase !== 'plan') return; SK = { raw: [p], t0: now, maxD: 0 }; }
+function strokeBegin(p, now) {
+  if (phase !== 'plan') return;
+  SK = { raw: [p], t0: now, maxD: 0 };
+  if (controls === 'detents') detentSet(detentPick(p, null, craft.strain));     // a fresh touch picks the nearest spot at once
+}
 function strokeMove(p) {
   if (!SK) return;
   const a = SK.raw[0]; SK.raw.push(p);
   SK.maxD = Math.max(SK.maxD, Math.hypot(p.x - a.x, p.y - a.y) * S);
-  if (SK.maxD >= T.tapPx) { tapMark = null; const r = analyse(SK.raw); if (r) { lastAnalysis = r; setPlan(r.m); } }
+  if (controls === 'detents') { detentSet(detentPick(p, detent, craft.strain)); return; }
+  if (SK.maxD >= T.tapPx) { tapMark = null; const r = analyse(SK.raw); if (r) lastAnalysis = r; setPlan(freeFromStroke(SK.raw, craft.strain >= 1)); }
 }
 function strokeEnd(now) {
   if (!SK) return;
   const sk = SK; SK = null;
+  if (controls === 'detents') { if (plan) vib(6); return; }                    // lifting commits what is shown
   if (sk.maxD < T.tapPx) {
-    if (now - sk.t0 < T.tapMs) { tapMark = sk.raw[0]; shownStroke = null; lastAnalysis = null; setPlan(tapPick(sk.raw[0])); vib(8); blip(520, 0.05, 'sine', 0.03); }
+    if (now - sk.t0 < T.tapMs) { tapMark = sk.raw[0]; lastAnalysis = null; setPlan(freeFromArc(clampStrained(tapPick(sk.raw[0]), craft.strain), craft.strain >= 1)); vib(8); blip(520, 0.05, 'sine', 0.03); }
     return;
   }
-  shownStroke = sk.raw;
-  const r = analyse(sk.raw); if (r) { lastAnalysis = r; setPlan(r.m); }
+  const r = analyse(sk.raw); if (r) lastAnalysis = r;
+  setPlan(freeFromStroke(sk.raw, craft.strain >= 1));
   vib(8);
 }
 
@@ -447,10 +596,10 @@ function fly() {
   // what it expected against what you did (scored on the frozen read, after both plans are locked)
   const pl = rv.plan; stats.reads++;
   if (pl) {
-    const ex = execPath(pose(craft), plan), rm = pl.read.m;
-    const same = mkey(rm) === mkey(plan) || (Math.hypot(pl.read.end.x - ex.end.x, pl.read.end.y - ex.end.y) < 22 && Math.abs(angN(pl.read.end.h - ex.end.h)) < 0.5);
+    const ex = execPath(pose(craft), plan), rm = pl.read.m, mine = plan.near || plan;
+    const same = mkey(rm) === mkey(mine) || (Math.hypot(pl.read.end.x - ex.end.x, pl.read.end.y - ex.end.y) < 22 && Math.abs(angN(pl.read.end.h - ex.end.h)) < 0.5);
     readHit = same; if (same) stats.readRight++;
-    const learnt = recordHabit(pl.sit, plan);
+    const learnt = recordHabit(pl.sit, mine);
     // only said when the habit model is in play at this level
     if (learnt && LEVELS[level].habit) { stats.learned++; after(T.revealMs + 200, () => toast('It has learned you: you ' + famWords(learnt.fav), C_HUSK, 3200)); }
   }
@@ -463,8 +612,10 @@ function fly() {
   });
   return true;
 }
+let trace = [];
 function flyShip(ship, m, cb) {
   const p0 = pose(ship), ex = execPath(p0, m);
+  if (ship === craft) trace = [];
   ship.fl = { p0, m, ex, t0: clock, dur: T.flyMs };
   after(T.flyMs, () => {
     ship.x = ex.end.x; ship.y = ex.end.y; ship.h = ex.end.h; ship.fl = null; ship.flown = true;
@@ -626,9 +777,11 @@ document.getElementById('bRivals').addEventListener('click', () => showStart(see
 function showStart(sd) {
   seed = sd; document.getElementById('end').classList.remove('on');
   for (const b of document.querySelectorAll('#lvl button')) b.classList.toggle('on', b.dataset.l === level);
+  for (const b of document.querySelectorAll('#ctl button')) b.classList.toggle('on', b.dataset.c === controls);
   document.getElementById('start').classList.add('on');
 }
 for (const b of document.querySelectorAll('#lvl button')) b.addEventListener('click', () => { level = b.dataset.l; for (const x of document.querySelectorAll('#lvl button')) x.classList.toggle('on', x === b); });
+for (const b of document.querySelectorAll('#ctl button')) b.addEventListener('click', () => { controls = b.dataset.c; for (const x of document.querySelectorAll('#ctl button')) x.classList.toggle('on', x === b); try { localStorage.setItem('flight.controls', controls); } catch (e) { /* storage off */ } });
 for (const b of document.querySelectorAll('.rcard')) b.addEventListener('click', () => { audioOn(); restart(seed, { rival: b.dataset.r }); });
 
 // ---------------------------------------------------------------- feel: particles, vibration, a little sound
@@ -716,8 +869,8 @@ function drawFan(c, p0, sc, rgb, a) {
   ringPath(c, p0, lenOf(1) * sc); c.stroke(); ringPath(c, p0, lenOf(2) * sc); c.stroke();
 }
 function pathLine(c, p0, m, uEnd, sc) {
-  c.beginPath(); c.moveTo(p0.x, p0.y);
-  const n = 24; for (let i = 1; i <= n; i++) { const q = poseAt(p0, m, uEnd * i / n, sc); c.lineTo(q.x, q.y); }
+  const q0 = poseAt(p0, m, 0, sc); c.beginPath(); c.moveTo(q0.x, q0.y);
+  const n = m.path ? Math.max(24, (m.path.length / 3 - 1) * 2) : 24; for (let i = 1; i <= n; i++) { const q = poseAt(p0, m, uEnd * i / n, sc); c.lineTo(q.x, q.y); }
 }
 function drawPlanPath(c, ship, m, col, a) {
   const p0 = pose(ship), ex = execPath(p0, m);
@@ -764,11 +917,11 @@ function drawBoard(c) {
     const grow = ANIM ? smooth(clamp((clock - fanT0) / 260, 0, 1)) : 1;
     drawFan(c, pose(husk), 1, '240,138,93', 0.45);
     drawFan(c, pose(craft), grow, '98,200,255', 1);
-    if (plan) drawPlanPath(c, craft, plan, HEX[plan.colour], 1);
+    if (plan) drawPlanPath(c, craft, plan, pathCol(plan), 1);
   }
   if (phase === 'fly') {
     // the reveal: both plans drawn together, then the Husk flies, then the Craft
-    for (const [s, m, col] of [[husk, hp, C_HUSK], [craft, plan, HEX[plan.colour]]]) {
+    for (const [s, m, col] of [[husk, hp, C_HUSK], [craft, plan, pathCol(plan)]]) {
       if (s.flown) continue;
       const p0 = s.fl ? s.fl.p0 : pose(s), ex = s.fl ? s.fl.ex : execPath(p0, m);
       c.globalAlpha = s.fl ? 0.4 : 0.95; c.lineCap = 'round';
@@ -797,6 +950,7 @@ function drawBoard(c) {
   // ships
   for (const s of [husk, craft]) {
     const q = s.fl ? flightPose(s) : pose(s);
+    if (s === craft && s.fl && trace.length < 400) trace.push({ x: q.x, y: q.y });
     if (s.fl && ANIM) { for (let i = 0; i < 2; i++) addParticle(q.x - Math.cos(q.h) * 14, q.y - Math.sin(q.h) * 14, -Math.cos(q.h) * 50 + (Math.random() - 0.5) * 30, -Math.sin(q.h) * 50 + (Math.random() - 0.5) * 30, s === craft ? 0 : 1); }
     if (s.hull <= 0 && !s.fl) { c.globalAlpha = 0.35; }
     if (s.focus) { const rg = s === craft ? '160,230,255' : '255,190,150'; c.strokeStyle = 'rgba(' + rg + ',' + (0.35 + 0.35 * pulse) + ')'; c.lineWidth = 3; c.beginPath(); c.arc(q.x, q.y, 22, 0, 7); c.stroke(); c.strokeStyle = 'rgba(' + rg + ',0.15)'; c.lineWidth = 8; c.stroke(); }
@@ -972,40 +1126,56 @@ function drawPad(c) {
   c.strokeStyle = 'rgba(98,200,255,0.18)'; c.lineWidth = 1.2; c.stroke();
   const p0 = { x: PO.x, y: PO.y, h: UP };
   drawFan(c, p0, K, '98,200,255', 0.9);
-  // the 15 landing spots (the tap fallback) and the Flip spot behind
-  c.fillStyle = 'rgba(200,225,255,0.22)';
-  for (const m of ALL15) { const e = padEnd(m); c.beginPath(); c.arc(PO.x + e.x, PO.y + e.y, 2.6, 0, 7); c.fill(); }
-  
-  // the raw stroke, thin
-  const raw = SK && SK.maxD >= T.tapPx ? SK.raw : shownStroke;
-  if (raw && raw.length > 1) {
-    c.strokeStyle = 'rgba(232,236,248,0.4)'; c.lineWidth = 1.6; c.lineJoin = 'round'; c.beginPath();
-    raw.forEach((p, i) => i ? c.lineTo(PO.x + p.x, PO.y + p.y) : c.moveTo(PO.x + p.x, PO.y + p.y)); c.stroke();
+  if (controls === 'detents') {
+    // the dial: 18 spots; the Hard ones shut while strained; the chosen one pops when it clicks in
+    for (const d of DETENTS) {
+      const shut = craft.strain >= 1 && d.m.colour === 'red', on = detent === d, x = PO.x + d.p.x, y = PO.y + d.p.y;
+      const pop = on && ANIM ? 1 + 0.9 * Math.max(0, 1 - (clock - popAt) / 160) : 1;
+      c.beginPath(); c.arc(x, y, (on ? 5.5 : 3.6) * pop, 0, 7);
+      c.fillStyle = shut ? 'rgba(255,90,106,0.18)' : on ? HEX[d.m.colour] : d.m.shape === 'Flip' ? 'rgba(255,150,160,0.45)' : 'rgba(200,225,255,0.38)'; c.fill();
+      if (shut) { c.strokeStyle = 'rgba(255,90,106,0.45)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x - 4, y - 4); c.lineTo(x + 4, y + 4); c.moveTo(x + 4, y - 4); c.lineTo(x - 4, y + 4); c.stroke(); }
+    }
+    c.font = font(11, 700); c.fillStyle = 'rgba(255,150,160,0.55)'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText('Flip', PO.x + 9, PO.y + 25);
+  } else {
+    c.fillStyle = 'rgba(200,225,255,0.2)';
+    for (const m of ALL15) { const e = padEnd(m); c.beginPath(); c.arc(PO.x + e.x, PO.y + e.y, 2.6, 0, 7); c.fill(); }
+    if (tapMark) { c.strokeStyle = 'rgba(232,236,248,0.6)'; c.lineWidth = 1.5; c.beginPath(); c.arc(PO.x + tapMark.x, PO.y + tapMark.y, 9, 0, 7); c.stroke(); }
   }
-  if (tapMark) { c.strokeStyle = 'rgba(232,236,248,0.6)'; c.lineWidth = 1.5; c.beginPath(); c.arc(PO.x + tapMark.x, PO.y + tapMark.y, 9, 0, 7); c.stroke(); }
-  // the quantised manoeuvre, bold
+  // the one path: what you will fly, nothing else
   if (plan) {
-    const col = HEX[plan.colour];
-    c.lineCap = 'round'; c.strokeStyle = col; c.lineWidth = 6; pathLine(c, p0, plan, 1, K); c.stroke();
+    const col = pathCol(plan);
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = col; c.lineWidth = 6; pathLine(c, p0, plan, 1, K); c.stroke();
+    if (plan.free && (plan.limited || plan.extended)) {
+      // at its limit the line stiffens: thicker, with a taut bright core where the ship cannot follow your finger
+      const n = plan.path.length / 3 - 1, pulse = 0.5 + 0.5 * Math.sin(clock / 90);
+      for (let i = 1; i <= n; i++) {
+        if (!plan.flag[i]) continue;
+        const a0 = poseAt(p0, plan, (i - 1) / n, K), a1 = poseAt(p0, plan, i / n, K);
+        c.strokeStyle = col; c.lineWidth = 10; c.beginPath(); c.moveTo(a0.x, a0.y); c.lineTo(a1.x, a1.y); c.stroke();
+        c.strokeStyle = 'rgba(255,255,255,' + (0.55 + 0.35 * pulse) + ')'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(a0.x, a0.y); c.lineTo(a1.x, a1.y); c.stroke();
+      }
+    }
     const e = poseAt(p0, plan, 1, K);
-    if (plan.shape === 'Flip') { c.lineWidth = 3; c.beginPath(); c.arc(e.x + plan.side * 9, e.y, 9, plan.side > 0 ? Math.PI : 0, plan.side > 0 ? 0 : Math.PI, plan.side < 0); c.stroke(); }
+    if (plan.shape === 'Flip') { c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.arc(e.x + plan.side * 9, e.y, 9, plan.side > 0 ? Math.PI : 0, plan.side > 0 ? 0 : Math.PI, plan.side < 0); c.stroke(); }
     drawShip(c, e.x, e.y, plan.shape === 'Flip' ? -UP : e.h, 'craft', 0.55, K);
   }
   drawShip(c, PO.x, PO.y, UP, 'craft', 1, K);
-  // label under the Craft
-  c.textAlign = 'center'; c.textBaseline = 'middle';
-  if (plan) { c.font = font(19, 800); c.fillStyle = HEX[plan.colour]; c.fillText(plan.label, PO.x, PO.y + 30); }
-  else if (round <= 2) { c.font = font(15, 600); c.fillStyle = 'rgba(200,215,240,0.75)'; c.fillText('Draw from your Craft, or tap a spot', PO.x, PO.y + 30); }
-  // header: Strain, the strained notice, the void warning
+  // label bottom-left (the Flip spots sit behind the Craft)
+  c.textBaseline = 'middle';
+  if (plan) { c.textAlign = 'left'; c.font = font(17, 800); c.fillStyle = pathCol(plan); c.fillText(sideLabel(plan), PAD.x + 12, PAD.y + PAD.h - 16); }
+  else if (round <= 2) { c.textAlign = 'center'; c.font = font(15, 600); c.fillStyle = 'rgba(200,215,240,0.75)'; c.fillText(controls === 'detents' ? 'Drag to a spot: it clicks into place' : 'Draw your flight from the Craft', PO.x, PO.y + 30); }
+  // header: Strain, the strained notice, the void warning, the limit
   c.textAlign = 'right'; c.font = font(14, 700); c.fillStyle = C_STRAIN; c.fillText('Strain', PAD.x + PAD.w - 50, PAD.y + 18);
   pips(c, PAD.x + PAD.w - 38, PAD.y + 18, Math.min(3, craft.strain), 3, C_STRAIN, 4, 11);
   if (craft.strain >= 1) {
     c.textAlign = 'left'; c.font = font(14, 700); c.fillStyle = (plan && plan.clamped) ? C_STRAIN : 'rgba(255,197,61,0.7)';
     c.fillText('Strained:', PAD.x + 12, PAD.y + 18); c.fillText('no Hard moves', PAD.x + 12, PAD.y + 38);
   }
-  if (plan && execPath(pose(craft), plan).clipped) { c.textAlign = 'right'; c.font = font(14, 700); c.fillStyle = HEX.red; c.fillText('Clips the void', PAD.x + PAD.w - 12, PAD.y + 42); }
+  let hy = PAD.y + 42;
+  if (plan && execPath(pose(craft), plan).clipped) { c.textAlign = 'right'; c.font = font(14, 700); c.fillStyle = HEX.red; c.fillText('Clips the void', PAD.x + PAD.w - 12, hy); hy += 20; }
+  if (plan && plan.free && (plan.limited || plan.extended)) { c.textAlign = 'right'; c.font = font(13, 700); c.fillStyle = 'rgba(255,255,255,0.8)'; c.fillText(plan.limited ? 'At its turn limit' : plan.L >= FR.Lmax - 0.5 ? 'Full length' : 'Shortest flight', PAD.x + PAD.w - 12, hy); }
 }
-const sideLabel = m => m.shape + ' ' + m.speed + sideWord(m) + ' · ' + WORD[m.colour];
+const sideLabel = m => m.free ? m.label : m.shape + ' ' + m.speed + sideWord(m) + ' · ' + WORD[m.colour];
 const sideWord = m => m.shape === 'Bank' || m.shape === 'Turn' ? (m.side > 0 ? ' right' : ' left') : '';
 function drawPanel(c) {
   if (phase === 'plan') drawPad(c);
@@ -1015,7 +1185,7 @@ function drawPanel(c) {
     c.font = font(20, 800); c.fillStyle = '#e8ecf8'; c.fillText(sub === 'reveal' ? 'Revealing…' : sub === 'husk' ? nm + ' flies' : 'Your Craft flies', 200, 592);
     c.font = font(18, 700);
     c.fillStyle = C_HUSK; c.fillText(nm + ': ' + sideLabel(hp), 200, 630);
-    c.fillStyle = HEX[plan.colour]; c.fillText('You: ' + sideLabel(plan), 200, 662);
+    c.fillStyle = pathCol(plan); c.fillText('You: ' + sideLabel(plan), 200, 662);
     if (rv.plan) {
       c.font = font(15, 600); c.fillStyle = 'rgba(240,138,93,0.85)'; c.fillText('It expected you: ' + rv.plan.read.m.shape + ' ' + rv.plan.read.m.speed + sideWord(rv.plan.read.m), 200, 698);
       c.font = font(16, 800); c.fillStyle = readHit ? C_HUSK : HEX.green; c.fillText(readHit ? 'It read you' : 'You surprised it', 200, 728);
@@ -1100,12 +1270,15 @@ window.addEventListener('resize', resize);
 const ship = s => ({ x: +s.x.toFixed(2), y: +s.y.toFixed(2), heading: +s.h.toFixed(4), shields: s.shields, hull: s.hull, strain: s.strain, focus: s.focus, clipped: s.clipped });
 const pctl = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * q))] : 0; };
 const planOut = pl => pl && { move: manOut(pl.m), read: { ...manOut(pl.read.m), p: +pl.read.p.toFixed(3), end: { x: +pl.read.end.x.toFixed(2), y: +pl.read.end.y.toFixed(2) } }, lean: pl.lean, honest: pl.honest, habit: pl.habit, desperate: pl.desperate, bold: pl.bold, situation: pl.sit.key, ms: pl.ms, best: +pl.best.toFixed(4), pairs: pl.n };
-const manOut = m => m && { speed: m.speed, shape: m.shape, side: m.side, colour: m.colour, label: m.label, clamped: !!m.clamped };
+const manOut = m => m && Object.assign({ speed: m.speed, shape: m.shape, side: m.side, colour: m.colour, label: m.label, clamped: !!m.clamped },
+  m.free ? { free: true, L: +m.L.toFixed(2), d: +m.d.toFixed(3), kShare: +m.kShare.toFixed(3), limited: m.limited, extended: m.extended, near: m.near && m.near.label + (m.near.side ? (m.near.side > 0 ? 'R' : 'L') : ''),
+    maxTurnStep: +Math.max(...m.H.slice(1).map((h, i) => Math.abs(h - m.H[i]))).toFixed(5), turnLimitStep: +(KMAX * m.L / (m.H.length - 1)).toFixed(5), maxHeading: +Math.max(...m.H.map(Math.abs)).toFixed(4),
+    endBearing: +Math.abs(Math.atan2(m.path[m.path.length - 2], m.path[m.path.length - 3])).toFixed(4) } : {});
 window.__fl = {
   state() {
     const ex = plan ? execPath(pose(craft), plan) : null;
     return {
-      phase, sub, round, seed, over, start: document.getElementById('start').classList.contains('on'),
+      phase, sub, round, seed, over, controls, ticks, detent: detent ? detent.m.label + (detent.m.side ? (detent.m.side > 0 ? 'R' : 'L') : '') : null, start: document.getElementById('start').classList.contains('on'),
       craft: ship(craft), husk: ship(husk),
       rival: { key: rivalKey, name: RV().name, level, lean: phase === 'plan' && rv.plan ? rv.plan.lean : null, read: phase !== 'plan' && rv.plan ? manOut(rv.plan.read.m) : null, readHit: phase !== 'plan' ? readHit : null, quiet: rv.quiet, bold: rv.bold },
       plan: plan ? { ...manOut(plan), end: { x: +ex.end.x.toFixed(2), y: +ex.end.y.toFixed(2), heading: +ex.end.h.toFixed(4) }, clipped: ex.clipped } : null,
@@ -1126,7 +1299,12 @@ window.__fl = {
   resetPerf() { perfS.length = 0; },
   toScreen(wx, wy) { return { x: OX + wx * S, y: OY + wy * S }; },
   padToScreen(px, py) { return { x: OX + (PO.x + px) * S, y: OY + (PO.y + py) * S }; },
-  padEnd(shape, speed, side) { return padEnd(man(shape, speed, side)); },
+  padEnd(shape, speed, side) { if (shape === 'Flip') { if (controls !== 'detents') return { x: 0, y: 24 }; const d = DETENTS.find(x => x.m.shape === 'Flip' && x.m.speed === speed); return { x: d.p.x, y: d.p.y }; } return padEnd(man(shape, speed, side)); },
+  controls(c) { if (CONTROLS[c]) { controls = c; detent = null; } return controls; },
+  // the board ghost as points (exactly what drawPlanPath draws), and the flown trace of the Craft's last flight
+  ghost(n) { if (!plan) return null; const p0 = pose(craft), ex = execPath(p0, plan), out = []; n = n || 240; for (let i = 0; i <= n; i++) { const q = poseAt(p0, plan, ex.uEnd * i / n); out.push({ x: +q.x.toFixed(3), y: +q.y.toFixed(3) }); } return out; },
+  padPath(n) { if (!plan) return null; const p0 = { x: 0, y: 0, h: UP }, out = []; n = n || 60; for (let i = 0; i <= n; i++) { const q = poseAt(p0, plan, i / n, K); out.push({ x: +q.x.toFixed(3), y: +q.y.toFixed(3) }); } return out; },
+  trace() { return trace.map(q => ({ x: +q.x.toFixed(3), y: +q.y.toFixed(3) })); },
   anim(on) { ANIM = !!on; if (!ANIM) { while (tasks.length) { const t = tasks.shift(); t.fn(); } } return ANIM; },
   btn(id) { layoutButtons(); const b = BTNS.find(x => x.id === id); return b ? { x: OX + (b.x + b.w / 2) * S, y: OY + (b.y + b.h / 2) * S, on: b.on, h: b.h * S, w: b.w * S } : null; },
   get S() { return S; }, T, STRIKE, DODGE,
@@ -1148,6 +1326,8 @@ seed = Math.max(1, parseInt(qs.get('seed') || '1', 10) || 1);
 try { const r0 = localStorage.getItem('flight.rival'), l0 = localStorage.getItem('flight.level'); if (RIVALS[r0]) rivalKey = r0; if (LEVELS[l0]) level = l0; } catch (e) { /* storage off */ }
 if (RIVALS[qs.get('rival')]) rivalKey = qs.get('rival');
 if (LEVELS[qs.get('level')]) level = qs.get('level');
+try { const c0 = localStorage.getItem('flight.controls'); if (CONTROLS[c0]) controls = c0; } catch (e) { /* storage off */ }
+if (CONTROLS[qs.get('controls')]) controls = qs.get('controls');
 resize();
 restart(seed);
 if (!RIVALS[qs.get('rival')]) showStart(seed);     // a link that names its rival starts the duel at once

@@ -268,3 +268,51 @@ paths skip sampling. Frame time unchanged (p95 0.5 ms at DPR 2). Console errors:
   Kite easy (careful 76%, brawler 69%), so it stays subtle.
 - Naive (random) players lose 97–99%. A real beginner is not random, but the first duel is a real fight; Easy is there.
 - Hard is a weight tweak, not a new mind: it is about 10–20 points harder for a careful player.
+
+---
+
+# E2 controls: Detents and Free (builder, 2026-10-17)
+
+The owner on E2: "the drawing and snapping feels like they are fighting each other". The freehand ink promised freedom
+and the snap took it away. Both variants now show **one line only**: the path you will fly. No ink. Pick on the start
+card ("Controls: Detents | Free", remembered on the device) or with `?controls=detents|free`. Detents is the default.
+
+## A. Detents (discrete, honest)
+
+- The 18 moves are landing spots on the pad: the 15 arcs where they land, the 3 Flips in a row behind the Craft
+  (labelled "Flip"). Your finger drags; the path jumps from spot to spot like a dial. Ahead of the Craft only arcs are
+  candidates, behind it only Flips, and a finger on the Craft itself (within 15 pad units) changes nothing.
+- Each change of move clicks: `vibrate(8)`, a short triangle-wave tick, and the chosen spot pops (it grows, then settles in
+  its colour). Lifting commits what is shown. A tap picks the nearest spot.
+- Hysteresis: a spot must be 10 pad units nearer than the current one to take over (3.5 in the Flip row, which is 9
+  apart). A ±4 unit wiggle across the Straight 2 / 3 boundary gives no clicks; a sweep across the speed-2 ring clicks
+  through Turn 2L, Bank 2L, Straight 2, Bank 2R, Turn 2R, each once.
+- Strained: the Hard spots are shut (dimmed, crossed). They can't be picked, rather than being silently clamped.
+
+## B. Free (continuous, no snapping)
+
+- The stroke is smoothed, then flown by pure pursuit (aim 18 units ahead along your stroke) inside the ship's limits:
+  turn rate at most Turn 1's (90° in 72), heading never past 90° from the nose, length 72–152 (a short stroke is
+  stretched straight, a long one stops), and the end inside the 90° fan from the nose (if not, the whole bend relaxes just
+  enough). The U-turn (curl past 112.5° or end behind the start) is still a Flip, at the drawn length.
+- When the ship can't follow your finger, the line stiffens where it can't: that stretch draws thicker with a bright
+  taut core, and the pad says "At its turn limit" (or "Full length" / "Shortest flight"). There is no second line.
+- Difficulty is continuous: d = 0.65 × (tightest bend over 24 units ÷ Turn 1's) + 0.35 × (length share of 72–152).
+  The line shades green → white → red as d rises; Strain goes by band (Easy < 0.45 ≤ Steady < 0.75 ≤ Hard; a Flip is
+  Hard). So gentle and long is Easy, a hard hook carried on at speed is Hard. Taps on the dots still pick those arcs, judged
+  by the same rule (Turn 1 is Steady, Turn 3 is Steady, Bank 2 is Easy). Strained, the turn cap drops so the path can't
+  reach Hard; it stiffens instead.
+- The label names the nearest of the 18 ("≈ Bank 2 right · Easy"). The rival still searches its own 18 moves; it files
+  your habits and scores its read under that nearest move.
+
+## Both
+
+- A free path is a sampled polyline in the ship's own frame, flown through the same `poseAt()` as the arcs, so the pad
+  line, the board ghost and the flight are one path. The touch suite checks it for 7 Detents moves and 5 Free strokes
+  (straight, bank, hook at the limit, S-curve, one that clips the edge): end pose difference 0, every flown frame within
+  0.001 px of the ghost, and pad path = board path within 0.001.
+- New checks: d1–d8 (Detents: forward, hysteresis, sweep, Flip, strained, ghost = flight, tap, one-tap ROLL), f1–f8
+  (Free: forward, bank, turn limit, length limits, Flip, strained, ghost = flight, tap), a second finger in each, and the
+  start card (tap "Free", then a rival: Free is on and stored). Sims take `--controls`. Detents sims match E2 exactly; Free
+  (taps on dots, so the arcs under the Free difficulty rule) gives careful 66 / 73 / 74%, brawler 45 / 56 / 48%.
+- Shots: `controls-detents` and `controls-free` (finger held down mid-gesture).
