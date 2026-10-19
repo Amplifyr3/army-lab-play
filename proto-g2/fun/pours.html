@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1e">
+<title>Pours (grey-box)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0f1e;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#e8ecf8}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .card{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,8,18,.88);z-index:5;
+    padding:10px;box-sizing:border-box}
+  .card.on{display:flex}
+  .panel{width:100%;max-width:440px;max-height:100%;overflow:hidden;background:#111833;border:1px solid #2a3663;border-radius:18px;
+    padding:14px 14px 12px;box-sizing:border-box}
+  h1{margin:0 0 2px;font-size:26px;letter-spacing:.12em;color:#e6b84a}
+  .sub{font-size:15px;line-height:1.3;color:#c9d1ec;margin:0 0 8px}
+  .tri{display:flex;gap:6px;margin:0 0 8px;font-size:14px;line-height:1.25}
+  .tri div{flex:1;border-radius:10px;padding:6px 7px;background:#0b1128;border:1px solid #26305a}
+  .tri b{display:block;font-size:15px}
+  .how{font-size:14px;line-height:1.3;color:#b8c2e4;margin:0 0 8px}
+  .seeds{display:flex;flex-direction:column;gap:6px;margin:0 0 8px}
+  .seed{display:flex;align-items:center;gap:10px}
+  .seed button{flex:0 0 56px;height:56px;border-radius:14px;border:2px solid #e6b84a;background:#1b2448;color:#ffe3a0;font-size:22px;
+    font-weight:800;cursor:pointer}
+  .seed span{font-size:14px;line-height:1.25;color:#d5dcf4}
+  .try{font-size:14px;line-height:1.3;color:#9fe3b4;background:#0b1a1a;border:1px solid #1f4a3c;border-radius:10px;padding:7px 9px;margin:0 0 8px}
+  .try b{color:#c6ffd6}
+  .cause{font-size:19px;line-height:1.3;font-weight:700;margin:0 0 8px}
+  .stats{font-size:15px;color:#c9d1ec;margin:0 0 8px}
+  .log{font-size:14px;line-height:1.45;color:#b8c2e4;margin:0 0 12px;padding:8px 10px;background:#0b1128;border-radius:10px;
+    border:1px solid #26305a;font-variant-numeric:tabular-nums}
+  .btns{display:flex;gap:8px}
+  .btns button{flex:1;height:56px;border-radius:14px;border:2px solid #e6b84a;background:#1b2448;color:#ffe3a0;font-size:17px;font-weight:700}
+  .btns button.pri{background:#e6b84a;color:#141a30}
+  #start .panel{overflow-y:auto;touch-action:pan-y}
+  .short{display:none}
+  @media (max-height:920px){
+    .tri .d,.how .long{display:none} .short{display:inline}
+    .tri{margin-bottom:6px} .tri div{padding:4px 6px} .seeds{gap:4px}
+  }
+  @media (max-height:720px){ .sub{display:none} h1{font-size:22px} }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="card on" id="start"><div class="panel">
+  <h1>POURS</h1>
+  <p class="sub">Your Core holds three star spirits. Each pour is a different kind of spark, and the right spark at the right moment wins.</p>
+  <div class="tri">
+    <div style="border-color:#7a3a22"><b style="color:#ff7a3d">Ember · Breakers</b><span class="d">only kind that cracks turrets and Cores; cracks Wardens</span><span class="short">crack Cores, walls</span></div>
+    <div style="border-color:#2f5a2a"><b style="color:#86e05c">Moss · Swarmers</b><span class="d">fast; out-shoot Breakers; claim land; can't hurt Cores</span><span class="short">beat Breakers</span></div>
+    <div style="border-color:#24407a"><b style="color:#5c9bff">Tide · Wardens</b><span class="d">dig in as a wall; shred Swarmers; block lanes</span><span class="short">wall off Swarmers</span></div>
+  </div>
+  <p class="how"><span class="short">Tap a spirit, then the board: the whole pool pours as that kind. Tap a rival Core to assault it, your own to call everyone home. Hold a spirit for its power. Gold star = attuned (+30%).</span><span class="long">Tap a spirit, then tap the board: your whole pool pours out as that kind. Tap a rival Core to assault it. Tap your own Core to call everyone home. Hold a spirit for its power (glowing pip = ready): Ember bombs your last tap, Moss rushes, Tide mends walls. The gold star marks your attuned spirit (+30%).</span></p>
+  <p class="try"><b>What to try</b><br>1. Watch a rival Core: the colour gathering there says what is coming. Answer it.<br>2. Try winning with one kind only. It should fail.<br>3. Play seeds 1 and 2 back to back.</p>
+  <div class="seeds" id="seeds"></div>
+</div></div>
+
+<div class="card" id="end"><div class="panel">
+  <p class="cause" id="cause"></p>
+  <p class="stats" id="stats"></p>
+  <div class="log" id="log"></div>
+  <div class="btns"><button class="pri" id="again">Again</button><button id="next">Next seed</button><button id="home">Home</button></div>
+</div></div>
+
+<script>
+(() => {
+'use strict';
+// ---------------------------------------------------------------- constants
+const W = 360, H = 620;                       // world units (board)
+const HUD_H = 58, DOCK_H = 156;               // css px
+const CREW_COL = ['#e6b84a', '#5ad2e1', '#785ae1'];
+const CREW_RGB = [[230,184,74],[90,210,225],[120,90,225]];
+const KIND = [
+  { key:'ember', name:'Ember', role:'Breakers', one:'Breaker', col:'#ff6a2b', hp:3, spd:26, rng:20, cd:0.8 },
+  { key:'moss',  name:'Moss',  role:'Swarmers', one:'Swarmer', col:'#7ddc50', hp:1, spd:50, rng:22, cd:0.45 },
+  { key:'tide',  name:'Tide',  role:'Wardens',  one:'Warden',  col:'#3f88ff', hp:3, spd:30, rng:24, cd:0.6 },
+];
+const DUG_RNG = 36, DUG_CD = 0.35;
+// DMG[attacker kind][defender kind]
+const DMG = [[1, 0.25, 3], [2, 1, 0.25], [0.3, 2, 1]];
+const COUNTER = [1, 2, 0];                    // the kind that answers kind k
+const CORE_HP = [120, 100, 100], TUR_HP = 20, TUR_RNG = 44, TUR_CD = 0.55, TUR_REBUILD = 30;
+const CAP = 60, PROD_BASE = 1 / 0.8, STREAM_RATE = 30;
+const SURGE_T = 300, TIMEOUT_T = 420, TELE_T = 3, CORE_DMG = 1;
+const MAXS = 240;
+const GO = 0, HOLD = 1, ASSAULT = 2, HOME = 3, DUG = 4;
+const ATT_MUL = 1.3, HOLD_IDLE = 12;
+const POW_CD = 25, POW_NAME = ['bomb', 'rush', 'mend'];
+
+// ---------------------------------------------------------------- seeds / variety engine
+// each crew pours in a readable rhythm: its favourite kind, with Breakers woven in (only Breakers hurt Cores)
+const BOT_STYLE = {
+  0: { minPour: 20, think: [7, 10], seq: [0, 0, 1, 0, 2], defPref: 0.65 },     // Breaker crew: break, break, swarm...
+  1: { minPour: 22, think: [7, 10], seq: [1, 0, 1, 1, 0], defPref: 0.65 },     // Swarmer crew: raid, then break
+  2: { minPour: 18, think: [7, 10], seq: [2, 0, 2, 1, 0], defPref: 0.65 },     // Warden crew: wall, then break
+  rush: { minPour: 12, think: [5, 6.5], seq: [0, 0, 0, 1, 0, 0], defPref: 0.8 },
+};
+const PRESET = {
+  1: { rivals: [{ name: 'Corsairs', pref: 0, x: 70, y: 100 }, { name: 'Draco', pref: 0, x: 290, y: 100 }],
+       voids: [], att: 1,
+       line: 'Two Breaker crews on an open board: they hit you and each other. Moss attuned.' },
+  2: { rivals: [{ name: 'Lyre', pref: 2, x: 92, y: 150 }, { name: 'Draco', pref: 2, x: 272, y: 112 }],
+       voids: [{ x: 92, y: 340, r: 58 }, { x: 268, y: 336, r: 58 }], att: 2,
+       line: 'Two Warden crews wall three narrow lanes. Tide attuned, the wrong tool: lean on Ember.' },
+  3: { rivals: [{ name: 'Corsairs', pref: 0, rush: true, x: 180, y: 96 }, { name: 'Orion', pref: 1, x: 300, y: 250 }],
+       voids: [{ x: 70, y: 330, r: 48 }, { x: 150, y: 420, r: 26 }], att: 0,
+       line: 'Corsairs rush Breakers early and often; Orion swarms close on the right. Ember attuned: race them.' },
+  4: { rivals: [{ name: 'Hydra', pref: 1, x: 70, y: 140 }, { name: 'Lyre', pref: 2, x: 290, y: 130 }],
+       voids: [{ x: 74, y: 505, r: 50 }, { x: 286, y: 505, r: 50 }], att: 0,
+       line: 'Hydra swarm, Lyre walls. Your Core sits in a narrow pocket. Ember attuned.' },
+  5: { rivals: [{ name: 'Hydra', pref: 1, x: 85, y: 110 }, { name: 'Corsairs', pref: 0, x: 282, y: 130 }],
+       voids: [{ x: 178, y: 330, r: 40 }], att: 2,
+       line: 'Hydra swarm, Corsairs break: every answer needed. One rift mid-board. Tide attuned.' },
+};
+const NAMES = ['Hydra', 'Corsairs', 'Lyre', 'Draco', 'Orion', 'Vela', 'Cygnus'];
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function genConfig(seed) {
+  if (PRESET[seed]) return PRESET[seed];
+  const r = mulberry32(seed * 7919 + 13);
+  const n1 = NAMES[(r() * NAMES.length) | 0]; let n2 = n1; while (n2 === n1) n2 = NAMES[(r() * NAMES.length) | 0];
+  const rivals = [{ name: n1, pref: (r() * 3) | 0, x: 60 + r() * 90, y: 90 + r() * 110 },
+                  { name: n2, pref: (r() * 3) | 0, x: 210 + r() * 90, y: 90 + r() * 110 }];
+  if (r() < 0.25) { const q = rivals[(r() * 2) | 0]; q.rush = true; q.pref = 0; }   // a rusher is always a Breaker crew
+  const vn = (r() * 3) | 0, voids = [];
+  for (let i = 0; i < vn; i++) voids.push({ x: 60 + r() * 240, y: 270 + r() * 170, r: 28 + r() * 26 });
+  const att = (r() * 3) | 0;
+  const verb = p => ['break', 'swarm', 'walls'][p];
+  const line = `${n1} ${verb(rivals[0].pref)}${rivals[0].rush ? ' (rusher)' : ''}, ${n2} ${verb(rivals[1].pref)}${rivals[1].rush ? ' (rusher)' : ''}. ` +
+    `${vn ? vn + (vn > 1 ? ' rifts' : ' rift') : 'No rifts'}. ${KIND[att].name} attuned.`;
+  return { rivals, voids, att, line };
+}
+
+// ---------------------------------------------------------------- state
+let rnd = Math.random;
+const S = []; for (let i = 0; i < MAXS; i++) S.push({ on: false, c: 0, k: 0, x: 0, y: 0, vx: 0, vy: 0, a: 0, hp: 1, mhp: 1, mode: 0,
+  tx: 0, ty: 0, core: -1, cd: 0, scan: 0, foe: -1, foeT: -1, att: 1, born: 0, idle: 0 });
+const GC = 30, GXN = 12, GYN = 21, head = new Int16Array(GXN * GYN), nxt = new Int16Array(MAXS);
+const TGW = 24, TGH = 44, TN = TGW * TGH, inf = new Float32Array(TN * 3), owner = new Int8Array(TN);
+const FX = []; for (let i = 0; i < 90; i++) FX.push({ t: 0, life: 0, x: 0, y: 0, r: 0, col: '', kind: 0 });
+const TR = []; for (let i = 0; i < 160; i++) TR.push({ t: 0, x1: 0, y1: 0, x2: 0, y2: 0, k: 0 });
+let G = null;   // round state
+
+function newRound(seed) {
+  const cfg = genConfig(seed);
+  rnd = mulberry32(seed * 104729 + 7);
+  for (const s of S) s.on = false;
+  for (const f of FX) f.t = 0; for (const t of TR) t.t = 0;
+  inf.fill(0); owner.fill(-1);
+  const crews = [];
+  const mk = (i, name, x, y, pref, rush) => {
+    const tur = [];
+    for (let j = 0; j < 3; j++) { const a = -Math.PI / 2 + j * 2 * Math.PI / 3 + (i === 0 ? Math.PI : 0);
+      tur.push({ x: x + Math.cos(a) * 21, y: y + Math.sin(a) * 21, hp: TUR_HP, rb: 0, cd: 0.3 * j }); }
+    const st = rush ? BOT_STYLE.rush : BOT_STYLE[pref];
+    return { i, name, alive: true, core: { x, y, hp: CORE_HP[i], mhp: CORE_HP[i] }, tur, pool: 8, prod: 0, land: 0, onb: 0,
+      pref, rush: !!rush, st, stream: null, lastHitBy: -1, brokeAt: 0,
+      bot: { state: 'idle', t: 0, kind: 0, order: null, think: 14 + rnd() * 4 + (rush ? -5 : 0), threatT: 1, defCd: 0, stuck: 0, first: true, seqI: 0 } };
+  };
+  crews.push(mk(0, 'You', 180, 560, -1, false));
+  cfg.rivals.forEach((r, j) => crews.push(mk(j + 1, r.name, r.x, r.y, r.pref, r.rush)));
+  G = { seed, cfg, t: 0, crews, voids: cfg.voids, att: cfg.att, sel: cfg.att, taps: 0, pours: 0, log: [],
+    over: false, endT: 0, result: '', cause: '', surge: false, terrT: 0, toast: '', toastT: 0, ping: null,
+    kills: [[0,0,0],[0,0,0],[0,0,0]], lost: [[0,0,0],[0,0,0],[0,0,0]], dugKilled: 0, lastPour: null, warned: 0,
+    recent: [], pourKinds: [0, 0, 0], pow: [8, 8, 8], mossBoost: 0, bombs: [], lastTap: { x: 180, y: 470 }, powers: 0 };
+  terrVer = -1;
+  // seed territory around cores
+  for (let k = 0; k < 6; k++) stampTerritory();
+}
+
+// ---------------------------------------------------------------- helpers
+const fmt = t => { t = Math.max(0, Math.floor(t)); return `${(t / 60) | 0}:${String(t % 60).padStart(2, '0')}`; };
+const poss = n => n.endsWith('s') ? n + "'" : n + "'s";
+function log(txt, mine) { G.log.push({ t: G.t, txt, mine: !!mine }); }
+function toast(msg) { G.toast = msg; G.toastT = 1.8; }
+function addFx(x, y, r, col, life, kind) {
+  for (const f of FX) if (f.t <= 0) { f.t = life; f.life = life; f.x = x; f.y = y; f.r = r; f.col = col; f.kind = kind || 0; return; }
+}
+function addTr(x1, y1, x2, y2, k) {
+  for (const t of TR) if (t.t <= 0) { t.t = 0.09; t.x1 = x1; t.y1 = y1; t.x2 = x2; t.y2 = y2; t.k = k; return; }
+}
+function clampToBoard(p) {
+  p.x = Math.max(12, Math.min(W - 12, p.x)); p.y = Math.max(12, Math.min(H - 12, p.y));
+  for (const v of G.voids) { const dx = p.x - v.x, dy = p.y - v.y, d = Math.hypot(dx, dy) || 1;
+    if (d < v.r + 6) { p.x = v.x + dx / d * (v.r + 6); p.y = v.y + dy / d * (v.r + 6); } }
+  return p;
+}
+function onboard(c) { let n = 0; for (const s of S) if (s.on && s.c === c) n++; return n; }
+
+// ---------------------------------------------------------------- orders and pours
+// order: { core: crewIndex | -1, x, y }  (core = assault/raid/blockade that Core)
+function buildOrder(c, k, order) {
+  const src = G.crews[c].core;
+  const o = { core: order.core, x: order.x, y: order.y, slots: null, mode: GO };
+  if (order.core >= 0) {
+    const T = G.crews[order.core].core;
+    const dx = src.x - T.x, dy = src.y - T.y, d = Math.hypot(dx, dy) || 1;
+    if (k === 0) { o.mode = ASSAULT; o.x = T.x; o.y = T.y; }
+    else if (k === 1) { const p = clampToBoard({ x: T.x + dx / d * 72, y: T.y + dy / d * 72 }); o.x = p.x; o.y = p.y; }
+    else { const p = clampToBoard({ x: T.x + dx / d * 80, y: T.y + dy / d * 80 }); o.x = p.x; o.y = p.y; }
+  }
+  return o;
+}
+function wallSlots(cx, cy, fromX, fromY, n) {
+  let dx = cx - fromX, dy = cy - fromY; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+  const px = -dy, py = dx, out = [], perRow = 14, sp = 10.5;
+  for (let i = 0; i < n; i++) {
+    const row = (i / perRow) | 0, inRow = Math.min(perRow, n - row * perRow), j = i % perRow;
+    const off = (j - (inRow - 1) / 2) * sp + (row % 2 ? sp / 2 : 0);
+    const p = clampToBoard({ x: cx + px * off - dx * row * 9, y: cy + py * off - dy * row * 9 });
+    for (const cr of G.crews) { const C = cr.core, ox = p.x - C.x, oy = p.y - C.y, od = Math.hypot(ox, oy) || 1;   // never on a Core
+      if (od < 32) { p.x = C.x + ox / od * 32; p.y = C.y + oy / od * 32; } }
+    out.push(p);
+  }
+  return out;
+}
+function pour(c, k, order) {
+  const cr = G.crews[c];
+  if (!cr.alive || cr.stream || cr.pool < 1) return false;
+  const n = cr.pool; cr.pool = 0;
+  const o = buildOrder(c, k, order);
+  if (k === 2) o.slots = wallSlots(o.x, o.y, cr.core.x, cr.core.y, n);
+  cr.stream = { k, left: n, n, o, acc: 1, idx: 0 };
+  return n;
+}
+function emit(cr, dt) {
+  const st = cr.stream; st.acc += dt * STREAM_RATE;
+  const C = cr.core;
+  while (st.acc >= 1 && st.left > 0) {
+    st.acc -= 1; st.left--;
+    const s = S.find(q => !q.on); if (!s) { cr.pool++; continue; }
+    const tx = st.o.slots ? st.o.slots[st.idx].x : st.o.x, ty = st.o.slots ? st.o.slots[st.idx].y : st.o.y; st.idx++;
+    const dx = tx - C.x, dy = ty - C.y, d = Math.hypot(dx, dy) || 1;
+    const K = KIND[st.k], att = (cr.i === 0 && st.k === G.att) ? ATT_MUL : 1;
+    s.on = true; s.c = cr.i; s.k = st.k; s.x = C.x + dx / d * 15 + (rnd() - 0.5) * 8; s.y = C.y + dy / d * 15 + (rnd() - 0.5) * 8;
+    s.vx = dx / d * K.spd; s.vy = dy / d * K.spd; s.a = Math.atan2(dy, dx); s.hp = s.mhp = K.hp * att; s.att = att;
+    s.mode = st.o.mode; s.core = st.o.core; s.idle = 0; s.cd = rnd() * 0.4; s.scan = rnd() * 0.2; s.foe = -1; s.foeT = -1; s.born = G.t;
+    // spread Ember/Moss anchors slightly so the group holds as a blob
+    if (st.k !== 2) { s.tx = tx + (rnd() - 0.5) * 22; s.ty = ty + (rnd() - 0.5) * 22; } else { s.tx = tx; s.ty = ty; }
+    if (s.mode === ASSAULT) { s.tx = tx; s.ty = ty; }
+  }
+  if (st.left <= 0) cr.stream = null;
+}
+function recall(c) {
+  let n = 0; for (const s of S) if (s.on && s.c === c) { s.mode = HOME; s.core = -1; n++; }
+  return n;
+}
+// long-press powers (yours only; bots have none: a grey-box simplification)
+const BOMB_BY = { c: 0, k: 0, att: 1, x: 0, y: 0 };
+function power(k) {
+  if (!G || G.over || G.pow[k] > 0) return false;
+  G.pow[k] = POW_CD; G.powers++;
+  if (k === 0) { const p = clampToBoard({ x: G.lastTap.x, y: G.lastTap.y }); G.bombs.push({ x: p.x, y: p.y, t: 1 }); log(`Ember bomb ${describeOrder({ core: -1, x: p.x, y: p.y })}`, true); toast('Ember bomb: lands in 1 s'); }
+  else if (k === 1) { G.mossBoost = 5; log('Moss rush: Swarmers +50% speed', true); toast('Moss rush: Swarmers +50% speed for 5 s'); }
+  else { let n = 0; for (const s of S) if (s.on && s.c === 0 && s.k === 2) { s.hp = s.mhp; n++; addFx(s.x, s.y, 8, KIND[2].col, 0.5, 0); }
+    log(`Tide mend: ${n} Wardens whole again`, true); toast(`Tide mend: ${n} Wardens whole again`); }
+  return true;
+}
+function stepPowers(dt) {
+  for (let k = 0; k < 3; k++) if (G.pow[k] > 0) G.pow[k] -= dt;
+  if (G.mossBoost > 0) G.mossBoost -= dt;
+  for (let i = G.bombs.length - 1; i >= 0; i--) { const b = G.bombs[i]; b.t -= dt; if (b.t > 0) continue;
+    G.bombs.splice(i, 1); addFx(b.x, b.y, 34, KIND[0].col, 0.6, 1);
+    for (const s of S) if (s.on && s.c !== 0 && Math.hypot(s.x - b.x, s.y - b.y) < 32) { s.hp -= 3; if (s.hp <= 0) { BOMB_BY.k = 0; kill(s, BOMB_BY); } }
+    for (const cr of G.crews) if (cr.i > 0 && cr.alive) for (const tu of cr.tur) if (tu.hp > 0 && Math.hypot(tu.x - b.x, tu.y - b.y) < 32) { tu.hp -= 8; tu.rb = 0; }
+  }
+}
+function describeOrder(order) {
+  if (order.core > 0) return `at ${poss(G.crews[order.core].name)} Core`;
+  if (order.core === 0) return 'at your Core';
+  const P = G.crews[0].core; if (Math.hypot(order.x - P.x, order.y - P.y) < 140) return 'in front of your Core';
+  let best = 1, bd = 1e9; for (let i = 1; i < 3; i++) { const C = G.crews[i].core; const d = Math.hypot(order.x - C.x, order.y - C.y); if (d < bd) { bd = d; best = i; } }
+  return bd < 170 ? `near ${G.crews[best].name}` : 'mid-board';
+}
+
+// ---------------------------------------------------------------- player input (shared by touch and tests)
+function selectKind(k) {
+  if (!G || G.over) return;
+  const cr = G.crews[0];
+  if (G.sel === k && cr.stream && cr.stream.k === k) return;   // same button during a pour: nothing
+  G.sel = k; G.taps++;
+}
+function tapWorld(x, y) {
+  if (!G || G.over) return;
+  G.taps++;
+  const me = G.crews[0];
+  G.lastTap = { x, y };
+  // core hit?
+  let hit = -1;
+  for (const cr of G.crews) if (cr.alive && Math.hypot(x - cr.core.x, y - cr.core.y) < 30) hit = cr.i;
+  if (hit === 0) {
+    const n = recall(0); G.ping = { x, y, t: 0.6, col: CREW_COL[0] };
+    if (n) { log(`called ${n} sparks home`, true); toast(`${n} sparks flying home`); } else toast('nothing out to call home');
+    return;
+  }
+  if (me.stream) { toast('still pouring'); return; }
+  if (me.pool < 1) { toast('pool is empty: wait for sparks'); return; }
+  const k = G.sel;
+  const p = hit > 0 ? { core: hit, x: G.crews[hit].core.x, y: G.crews[hit].core.y } : Object.assign({ core: -1 }, clampToBoard({ x, y }));
+  const n = pour(0, k, p);
+  if (n) {
+    G.pours++; G.pourKinds[k]++; G.lastPour = { k, n, t: G.t, where: describeOrder(p) };
+    const verb = hit > 0 ? (k === 0 ? 'assault' : k === 1 ? 'raid' : 'wall off') : 'pour';
+    log(`${verb === 'pour' ? 'poured' : verb === 'assault' ? 'poured' : verb === 'raid' ? 'raided' : 'walled'} ${n} ${KIND[k].role} ${describeOrder(p)}`, true);
+    G.ping = { x: p.x, y: p.y, t: 0.7, col: KIND[k].col };
+  }
+}
+
+// ---------------------------------------------------------------- simulation
+function buildGrid() {
+  head.fill(-1);
+  for (let i = 0; i < MAXS; i++) { const s = S[i]; if (!s.on) continue;
+    const gx = Math.max(0, Math.min(GXN - 1, (s.x / GC) | 0)), gy = Math.max(0, Math.min(GYN - 1, (s.y / GC) | 0));
+    const cell = gy * GXN + gx; nxt[i] = head[cell]; head[cell] = i; }
+}
+function scan(s) {
+  let best = -1, bd = 3600, bt = -1, btd = 3600;
+  const cx = (s.x / GC) | 0, cy = (s.y / GC) | 0;
+  for (let gy = cy - 2; gy <= cy + 2; gy++) { if (gy < 0 || gy >= GYN) continue;
+    for (let gx = cx - 2; gx <= cx + 2; gx++) { if (gx < 0 || gx >= GXN) continue;
+      for (let j = head[gy * GXN + gx]; j !== -1; j = nxt[j]) { const o = S[j]; if (!o.on || o.c === s.c) continue;
+        const dx = o.x - s.x, dy = o.y - s.y, d2 = dx * dx + dy * dy;
+        if (d2 < bd) { bd = d2; best = j; }
+        if (o.k === 2 && d2 < btd) { btd = d2; bt = j; } } } }
+  s.foe = best; s.foeT = bt;
+}
+function kill(t, by) {
+  t.on = false;
+  addFx(t.x, t.y, t.k === 0 ? 9 : 6, KIND[t.k].col, 0.35, 0);
+  if (by) {
+    if (by.c === 0) { G.kills[by.k][t.k]++; if (t.mode === DUG) G.dugKilled++; }
+    if (t.c === 0) { G.lost[by.k][t.k]++; G.recent.push({ t: G.t, by: by.k, mine: t.k }); if (G.recent.length > 300) G.recent.shift(); }
+  }
+}
+function hitShip(s, t) {
+  const dmg = DMG[s.k][t.k] * s.att;
+  t.hp -= dmg; addTr(s.x, s.y, t.x, t.y, s.k);
+  if (t.hp <= 0) kill(t, s);
+}
+function hitStructure(s, cr) {
+  // nearest living turret within reach, else the Core once every turret is down
+  let best = null, bd = 1e9;
+  for (const tu of cr.tur) if (tu.hp > 0) { const d = Math.hypot(tu.x - s.x, tu.y - s.y); if (d < bd) { bd = d; best = tu; } }
+  const mul = (G.surge ? 3 : 1) * s.att * CORE_DMG;
+  if (best) {
+    if (bd > KIND[0].rng + 5) return false;
+    best.hp -= mul; best.rb = 0; addTr(s.x, s.y, best.x, best.y, 0);
+    if (best.hp <= 0) { addFx(best.x, best.y, 10, CREW_COL[cr.i], 0.5, 0); if (cr.i === 0) log(`a turret fell to ${poss(G.crews[s.c].name)} Breakers`); }
+    return true;
+  }
+  const d = Math.hypot(cr.core.x - s.x, cr.core.y - s.y);
+  if (d > KIND[0].rng + 14) return false;
+  cr.core.hp -= mul; cr.lastHitBy = s.c; addTr(s.x, s.y, cr.core.x, cr.core.y, 0);
+  if (cr.core.hp <= 0) breakCore(cr, s.c);
+  return true;
+}
+function breakCore(cr, byC) {
+  cr.alive = false; cr.core.hp = 0; cr.brokeAt = G.t; cr.stream = null; cr.pool = 0;
+  addFx(cr.core.x, cr.core.y, 46, CREW_COL[cr.i], 1.2, 1);
+  for (const s of S) if (s.on) {
+    if (s.c === cr.i) { s.on = false; addFx(s.x, s.y, 5, CREW_COL[cr.i], 0.4, 0); }
+    else if (s.mode === ASSAULT && s.core === cr.i) { s.mode = HOLD; s.tx = cr.core.x + (rnd() - 0.5) * 30; s.ty = cr.core.y + (rnd() - 0.5) * 30; s.core = -1; }
+  }
+  if (cr.i !== 0) log(`${poss(cr.name)} Core broke` + (byC === 0 ? ' to your Breakers' : ` to ${poss(G.crews[byC].name)} Breakers`), byC === 0);
+}
+
+function stepShip(s, dt) {
+  const K = KIND[s.k];
+  s.scan -= dt; if (s.scan <= 0) { s.scan = 0.2; scan(s); }
+  s.cd -= dt;
+  let foe = s.foe >= 0 ? S[s.foe] : null; if (foe && (!foe.on || foe.c === s.c)) foe = null;
+  let foeT = s.foeT >= 0 ? S[s.foeT] : null; if (foeT && (!foeT.on || foeT.c === s.c)) foeT = null;
+  const fd = foe ? Math.hypot(foe.x - s.x, foe.y - s.y) : 1e9;
+  const ftd = foeT ? Math.hypot(foeT.x - s.x, foeT.y - s.y) : 1e9;
+  const rng = s.mode === DUG ? DUG_RNG : K.rng;
+  // ---- shooting
+  if (s.cd <= 0) {
+    let shot = false;
+    if (s.k === 0 && foeT && ftd <= rng) { hitShip(s, foeT); shot = true; }
+    else if (s.k === 0 && s.mode === ASSAULT && G.crews[s.core] && G.crews[s.core].alive) shot = hitStructure(s, G.crews[s.core]);
+    if (!shot && foe && fd <= rng) { hitShip(s, foe); shot = true; }
+    if (shot) s.cd = (s.mode === DUG ? DUG_CD : K.cd) * (0.9 + rnd() * 0.2);
+  }
+  if (!s.on) return;
+  if (s.mode === DUG) { s.vx = 0; s.vy = 0; return; }
+  // ---- goal
+  let gx = s.tx, gy = s.ty, stop = 4, spd = K.spd * (s.k === 1 && s.c === 0 && G.mossBoost > 0 ? 1.5 : 1);
+  if (s.mode === HOME) { const C = G.crews[s.c].core; gx = C.x; gy = C.y; stop = 0;
+    if (Math.hypot(gx - s.x, gy - s.y) < 15) { s.on = false; const cr = G.crews[s.c]; cr.pool++; return; } }
+  else if (s.mode === ASSAULT) {
+    const cr = G.crews[s.core];
+    if (!cr || !cr.alive) { s.mode = HOLD; }
+    else {
+      let best = null, bd = 1e9;
+      for (const tu of cr.tur) if (tu.hp > 0) { const d = Math.hypot(tu.x - s.x, tu.y - s.y); if (d < bd) { bd = d; best = tu; } }
+      if (best) { gx = best.x; gy = best.y; stop = K.rng * 0.7; } else { gx = cr.core.x; gy = cr.core.y; stop = 12 + K.rng * 0.6; }
+      if (foeT && ftd < 34) { gx = foeT.x; gy = foeT.y; stop = K.rng * 0.7; }   // Breakers crack a wall in their way
+    }
+  } else if (s.mode === GO) {
+    if (s.k === 1 && foe && fd < 40) { gx = foe.x; gy = foe.y; stop = K.rng * 0.6; }
+    else if (s.k === 0 && foeT && ftd < 34) { gx = foeT.x; gy = foeT.y; stop = K.rng * 0.7; }
+    const d = Math.hypot(s.tx - s.x, s.ty - s.y);
+    if (d < 7) { if (s.k === 2) { s.mode = DUG; s.x = s.tx; s.y = s.ty; s.vx = s.vy = 0; return; } s.mode = HOLD; }
+  }
+  if (s.mode === HOLD) {
+    gx = s.tx; gy = s.ty; stop = 10;
+    // a pour with nothing left to fight drifts home and rejoins the pool (its land stays claimed)
+    if (s.k !== 2) { if (foe && fd < 80) s.idle = 0; else if ((s.idle += dt) > HOLD_IDLE) { s.mode = HOME; } }
+    if (s.k !== 2 && foe && Math.hypot(foe.x - s.tx, foe.y - s.ty) < 70) { gx = foe.x; gy = foe.y; stop = K.rng * 0.6; }
+    if (s.k === 0 && foeT && Math.hypot(foeT.x - s.tx, foeT.y - s.ty) < 80) { gx = foeT.x; gy = foeT.y; stop = K.rng * 0.6; }
+    if (s.k === 2) { s.mode = GO; }   // a Warden that lost its place walks back and digs in again
+  }
+  let dx = gx - s.x, dy = gy - s.y; const d = Math.hypot(dx, dy) || 1;
+  let want = d > stop ? spd * Math.min(1, (d - stop) / 10 + 0.15) : 0;
+  let ux = dx / d, uy = dy / d;
+  let ax = ux * want, ay = uy * want;
+  // ---- separation + walls (enemy Wardens dug in) via grid
+  const cx = (s.x / GC) | 0, cy = (s.y / GC) | 0;
+  for (let yy = cy - 1; yy <= cy + 1; yy++) { if (yy < 0 || yy >= GYN) continue;
+    for (let xx = cx - 1; xx <= cx + 1; xx++) { if (xx < 0 || xx >= GXN) continue;
+      for (let j = head[yy * GXN + xx]; j !== -1; j = nxt[j]) { const o = S[j]; if (o === s || !o.on) continue;
+        const ox = s.x - o.x, oy = s.y - o.y, o2 = ox * ox + oy * oy;
+        if (o.mode === DUG && o.c !== s.c) {
+          if (o2 < 81 && o2 > 0.01) { const od = Math.sqrt(o2); s.x = o.x + ox / od * 9; s.y = o.y + oy / od * 9;
+            const vn = s.vx * (ox / od) + s.vy * (oy / od); if (vn < 0) { s.vx -= vn * ox / od; s.vy -= vn * oy / od; } }
+        } else if (o.c === s.c && o.mode !== DUG && o2 < 49 && o2 > 0.01) { const od = Math.sqrt(o2); ax += ox / od * (7 - od) * 9; ay += oy / od * (7 - od) * 9; }
+      } } }
+  // ---- rifts
+  for (const v of G.voids) {
+    const vx = s.x - v.x, vy = s.y - v.y, vd = Math.hypot(vx, vy) || 1, R = v.r + 12;
+    if (vd < R) {
+      const nx = vx / vd, ny = vy / vd; let tx = -ny, ty = nx; if (tx * ux + ty * uy < 0) { tx = -tx; ty = -ty; }
+      const f = (R - vd) / 12; ax += (nx * f * 0.8 + tx * f) * spd; ay += (ny * f * 0.8 + ty * f) * spd;
+      if (vd < v.r + 2) { s.x = v.x + nx * (v.r + 2); s.y = v.y + ny * (v.r + 2); }
+    }
+  }
+  // ---- rival Core bodies are solid
+  for (const cr of G.crews) { if (!cr.alive || cr.i === s.c) continue;
+    const ox = s.x - cr.core.x, oy = s.y - cr.core.y, od = Math.hypot(ox, oy);
+    if (od < 15 && od > 0.01) { s.x = cr.core.x + ox / od * 15; s.y = cr.core.y + oy / od * 15; } }
+  const k = Math.min(1, 6 * dt);
+  s.vx += (ax - s.vx) * k; s.vy += (ay - s.vy) * k;
+  const sp = Math.hypot(s.vx, s.vy), mx = spd * 1.4; if (sp > mx) { s.vx *= mx / sp; s.vy *= mx / sp; }
+  s.x += s.vx * dt; s.y += s.vy * dt;
+  s.x = Math.max(6, Math.min(W - 6, s.x)); s.y = Math.max(6, Math.min(H - 6, s.y));
+  if (sp > 3) { const ta = Math.atan2(s.vy, s.vx); let da = ta - s.a; da = Math.atan2(Math.sin(da), Math.cos(da)); s.a += da * Math.min(1, 10 * dt); }
+}
+
+function stepTurrets(cr, dt) {
+  for (const tu of cr.tur) {
+    if (tu.hp <= 0) {
+      tu.rb += dt;
+      if (tu.rb >= TUR_REBUILD) {
+        let near = false; for (const s of S) if (s.on && s.c !== cr.i && s.k === 0 && Math.hypot(s.x - tu.x, s.y - tu.y) < 60) { near = true; break; }
+        if (!near) { tu.hp = TUR_HP; tu.rb = 0; addFx(tu.x, tu.y, 9, CREW_COL[cr.i], 0.4, 0); } else tu.rb = TUR_REBUILD - 3;
+      }
+      continue;
+    }
+    tu.cd -= dt; if (tu.cd > 0) continue;
+    let best = null, bd = TUR_RNG * TUR_RNG;
+    const cx = (tu.x / GC) | 0, cy = (tu.y / GC) | 0;
+    for (let yy = cy - 2; yy <= cy + 2; yy++) { if (yy < 0 || yy >= GYN) continue;
+      for (let xx = cx - 2; xx <= cx + 2; xx++) { if (xx < 0 || xx >= GXN) continue;
+        for (let j = head[yy * GXN + xx]; j !== -1; j = nxt[j]) { const o = S[j]; if (!o.on || o.c === cr.i) continue;
+          const d2 = (o.x - tu.x) ** 2 + (o.y - tu.y) ** 2; if (d2 < bd) { bd = d2; best = o; } } } }
+    if (best) { tu.cd = TUR_CD; best.hp -= best.k === 0 ? 0.6 : 1; addTr(tu.x, tu.y, best.x, best.y, 3 + cr.i);
+      if (best.hp <= 0) kill(best, null); }
+    else tu.cd = 0.15;
+  }
+}
+
+function stampTerritory() {
+  for (let i = 0; i < inf.length; i++) inf[i] *= 0.55;
+  const cw = W / TGW, chh = H / TGH;
+  const stamp = (x, y, c, r, w) => {
+    const gx = (x / cw) | 0, gy = (y / chh) | 0;
+    for (let yy = Math.max(0, gy - r); yy <= Math.min(TGH - 1, gy + r); yy++)
+      for (let xx = Math.max(0, gx - r); xx <= Math.min(TGW - 1, gx + r); xx++) {
+        const dd = Math.abs(xx - gx) + Math.abs(yy - gy); if (dd > r + 1) continue;
+        inf[(yy * TGW + xx) * 3 + c] += w * (1 - dd / (r + 2)); }
+  };
+  for (const cr of G.crews) if (cr.alive) stamp(cr.core.x, cr.core.y, cr.i, 4, 5);
+  for (const s of S) if (s.on) stamp(s.x, s.y, s.c, s.k === 1 ? 3 : s.mode === DUG ? 2 : 1, s.k === 1 ? 1.4 : 1);
+  const cnt = [0, 0, 0];
+  for (let i = 0; i < TN; i++) {
+    let b = -1, bv = 0.7;
+    for (let c = 0; c < 3; c++) { if (!G.crews[c].alive) continue; const v = inf[i * 3 + c]; if (v > bv) { bv = v; b = c; } }
+    if (b >= 0) owner[i] = b; else if (owner[i] >= 0 && !G.crews[owner[i]].alive) owner[i] = -1;
+    if (owner[i] >= 0) cnt[owner[i]]++;
+  }
+  // rifts are not land
+  for (let c = 0; c < 3; c++) G.crews[c].land = cnt[c] / TN;
+  G.terrVer = (G.terrVer || 0) + 1;
+}
+
+// ---------------------------------------------------------------- bots
+function threatTo(c) {
+  // enemy sparks on the move whose order lands near this Core
+  const C = G.crews[c].core; const cnt = [0, 0, 0]; let n = 0, sx = 0, sy = 0;
+  for (const s of S) { if (!s.on || s.c === c || s.mode === DUG || s.mode === HOME) continue;
+    const toCore = s.mode === ASSAULT ? s.core === c : Math.hypot(s.tx - C.x, s.ty - C.y) < 120;
+    const d = Math.hypot(s.x - C.x, s.y - C.y);
+    if (toCore && d < 160) { cnt[s.k]++; n++; sx += s.x; sy += s.y; } }
+  if (n < 4) return null;
+  let k = 0; if (cnt[1] > cnt[k]) k = 1; if (cnt[2] > cnt[k]) k = 2;
+  return { n, k, x: sx / n, y: sy / n };
+}
+function pickKind(b, cr) {
+  const seq = cr.st.seq; const k = seq[b.seqI % seq.length]; b.seqI++;
+  if (rnd() < 0.12) return (k + 1 + ((rnd() * 2) | 0)) % 3;   // now and then, a surprise
+  return k;
+}
+function stepBot(cr, dt) {
+  const b = cr.bot;
+  b.defCd -= dt;
+  if (b.state === 'tele') {
+    b.t -= dt;
+    if (b.t <= 0) {
+      b.state = 'idle';
+      const n = pour(cr.i, b.kind, b.order);
+      if (n && (b.order.core === 0)) log(`${cr.name} poured ${n} ${KIND[b.kind].role} at your Core`);
+    }
+    return;
+  }
+  // defence: a bot sees sparks ordered at its Core and answers (slowly, and often with its favourite kind)
+  b.threatT -= dt;
+  if (b.threatT <= 0) {
+    b.threatT = 0.6;
+    const th = threatTo(cr.i);
+    if (th && cr.pool >= 6 && b.defCd <= 0 && !cr.stream) {
+      const k = rnd() < cr.st.defPref ? cr.pref : COUNTER[th.k];
+      const C = cr.core, dx = th.x - C.x, dy = th.y - C.y, d = Math.hypot(dx, dy) || 1;
+      // Swarmers and Breakers sortie out to meet the threat; Wardens dig in at the door
+      const off = k === 2 ? 46 : Math.max(30, d * 0.6);
+      const p = clampToBoard({ x: C.x + dx / d * off, y: C.y + dy / d * off });
+      teleg(cr, k, { core: -1, x: p.x, y: p.y }, true);
+      b.defCd = 8; return;
+    }
+  }
+  // stuck: its cap is all on the board and the pool cannot grow -> call everyone home
+  // stuck: its cap is parked on the board (holding or dug in) and the pool cannot grow -> call those home
+  let parked = 0; for (const s of S) if (s.on && s.c === cr.i && (s.mode === HOLD || s.mode === DUG)) parked++;
+  if (cr.pool < cr.st.minPour && parked >= CAP * 0.5) { b.stuck += dt;
+    if (b.stuck > 12) { for (const s of S) if (s.on && s.c === cr.i && (s.mode === HOLD || s.mode === DUG)) { s.mode = HOME; s.core = -1; } b.stuck = 0; } } else b.stuck = 0;
+  b.think -= dt;
+  if (b.think > 0) return;
+  b.think = cr.st.think[0] + rnd() * (cr.st.think[1] - cr.st.think[0]);
+  if (cr.pool < cr.st.minPour || cr.stream) return;
+  const k = pickKind(b, cr);
+  // target: you about half the time (you are the one who can win), else the weakest Core
+  let T = -1, best = 1e9;
+  if ((b.first && cr.rush) || rnd() < 0.38) T = 0;
+  else for (const o of G.crews) { if (!o.alive || o.i === cr.i) continue;
+    let hp = o.core.hp; for (const tu of o.tur) hp += Math.max(0, tu.hp);
+    const sc = hp / 160 + Math.hypot(o.core.x - cr.core.x, o.core.y - cr.core.y) / 600 + rnd() * 0.35;
+    if (sc < best) { best = sc; T = o.i; } }
+  if (T < 0) return;
+  b.first = false;
+  let order;
+  if (k === 2 && rnd() < 0.5) { const A = cr.core, B = G.crews[T].core, f = 0.42 + rnd() * 0.1;
+    const p = clampToBoard({ x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f }); order = { core: -1, x: p.x, y: p.y, aim: T }; }
+  else order = { core: T, x: G.crews[T].core.x, y: G.crews[T].core.y };
+  teleg(cr, k, order, false);
+}
+function teleg(cr, k, order, def) {
+  const b = cr.bot; b.state = 'tele'; b.t = TELE_T; b.kind = k; b.order = order; b.def = def;
+  if (atPlayer(order) && !def) { G.warned++; log(`${cr.name} gathered ${KIND[k].role} at you`); }
+}
+function atPlayer(order) {
+  if (!order) return false;
+  if (order.core === 0) return true;
+  if (order.core > 0) return false;
+  const P = G.crews[0].core; return Math.hypot(order.x - P.x, order.y - P.y) < 170 || order.aim === 0;
+}
+
+// ---------------------------------------------------------------- step
+function step(dt) {
+  if (!G || G.over) { tickFx(dt); return; }
+  G.t += dt;
+  if (!G.surge && G.t >= SURGE_T) { G.surge = true; toast('SURGE: Cores take triple damage'); log('Surge: Cores take triple damage'); }
+  buildGrid();
+  for (const cr of G.crews) {
+    if (!cr.alive) continue;
+    cr.onb = onboard(cr.i);
+    cr.prod += dt * PROD_BASE * (0.7 + 1.2 * cr.land);
+    while (cr.prod >= 1) { cr.prod -= 1; if (cr.pool + cr.onb + (cr.stream ? cr.stream.left : 0) < CAP) cr.pool++; }
+    if (cr.stream) emit(cr, dt);
+    stepTurrets(cr, dt);
+    if (cr.i > 0) stepBot(cr, dt);
+  }
+  stepPowers(dt);
+  for (let i = 0; i < MAXS; i++) { const s = S[i]; if (s.on) stepShip(s, dt); }
+  G.terrT -= dt; if (G.terrT <= 0) { G.terrT = 0.25; stampTerritory(); }
+  tickFx(dt);
+  if (G.toastT > 0) G.toastT -= dt;
+  // end
+  const me = G.crews[0];
+  if (!me.alive && me.core.hp <= 0) return end(false);
+  if (me.core.hp <= 0) { breakCore(me, me.lastHitBy); return end(false); }
+  if (!G.crews[1].alive && !G.crews[2].alive) return end(true);
+  if (G.t >= TIMEOUT_T) return end(false, true);
+}
+function tickFx(dt) {
+  for (const f of FX) if (f.t > 0) f.t -= dt;
+  for (const t of TR) if (t.t > 0) t.t -= dt;
+  if (G && G.ping) { G.ping.t -= dt; if (G.ping.t <= 0) G.ping = null; }
+}
+
+// ---------------------------------------------------------------- end card: the cause names the matchup
+function end(won, timeout) {
+  G.over = true; G.result = won ? 'won' : timeout ? 'stalled' : 'lost'; G.endT = G.t;
+  const me = G.crews[0], P = me.core, t = fmt(G.t);
+  const plural = k => KIND[k].role;
+  let cause;
+  if (won) {
+    const last = G.crews[1].brokeAt > G.crews[2].brokeAt ? G.crews[1] : G.crews[2];
+    const k = G.kills;
+    const opts = [
+      { v: k[1][0], s: `after your Swarmers shredded ${k[1][0]} of their Breakers` },
+      { v: G.dugKilled * 1.5, s: `after cracking ${G.dugKilled} dug-in Wardens on the way` },
+      { v: k[2][1], s: `while your Wardens cut down ${k[2][1]} Swarmers` },
+    ].sort((a, b) => b.v - a.v);
+    cause = `Won at ${t}: your Breakers cracked ${poss(last.name)} Core ${opts[0].v >= 4 ? opts[0].s : 'before they could answer'}.`;
+  } else if (timeout) {
+    const alive = G.crews.filter(c => c.i > 0 && c.alive).map(c => c.name).join(' and ');
+    cause = G.pourKinds[0] === 0
+      ? `Stalled at ${t}: ${alive} still stand. You never poured Breakers, the only sparks that hurt Cores.`
+      : `Stalled at ${t}: ${alive} still stand. Their sorties ate your Breakers; open the door with their counter first.`;
+  } else {
+    const killer = G.crews[me.lastHitBy] || G.crews[1];
+    // what happened in the last 40 s decides the sentence
+    const rec = [0, 0, 0]; for (const e of G.recent) if (e.t > G.t - 40 && e.by === 0) rec[e.mine]++;
+    let n = 0; for (const s of S) if (s.on && s.c === killer.i && s.k === 0 && Math.hypot(s.x - P.x, s.y - P.y) < 140) n++;
+    const their = n >= 3 ? `${n} of ${poss(killer.name)} Breakers` : `${poss(killer.name)} Breakers`;
+    const lp = G.lastPour;
+    if (G.pours === 0) cause = `Lost at ${t}: you never poured, and ${poss(killer.name)} Breakers walked into your Core.`;
+    else if (rec[1] >= 5 && rec[1] >= rec[2]) cause = `Lost at ${t}: ${their} out-numbered the ${rec[1]} Swarmers you sent to stop them. Answer earlier, or with more.`;
+    else if (rec[2] >= 4) cause = `Lost at ${t}: ${their} cracked your Warden wall. Wardens stop Swarmers; Swarmers answer Breakers.`;
+    else if (lp && G.t - lp.t < 45 && lp.where.indexOf('your Core') < 0) cause = `Lost at ${t}: ${their} reached your Core while your pool was out as ${plural(lp.k)} ${lp.where}.`;
+    else cause = `Lost at ${t}: ${their} reached your Core and nothing at home answered them. Swarmers answer Breakers.`;
+    if (G.surge) cause += ' The Surge tripled their damage.';
+  }
+  G.cause = cause;
+  setTimeout(showEnd, 1300);
+}
+function showEnd() {
+  if (!G || !G.over) return;
+  $('cause').textContent = G.cause;
+  $('cause').style.color = G.result === 'won' ? '#ffe3a0' : '#ff9d8a';
+  let myKills = 0; for (const r of G.kills) for (const v of r) myKills += v;
+  let myLost = 0; for (const r of G.lost) for (const v of r) myLost += v;
+  $('stats').textContent = `Seed ${G.seed} · time ${fmt(G.endT)} · taps ${G.taps} · pours ${G.pours} · powers ${G.powers} · sparks broken ${myKills} · lost ${myLost}`;
+  // the last four of your decisions plus the last two moments that decided it (a Core breaking, a pour at you)
+  const mine = G.log.filter(e => e.mine).slice(-4);
+  const key = G.log.filter(e => !e.mine && /Core broke|at your Core|Surge/.test(e.txt)).slice(-(6 - mine.length));
+  const lines = mine.concat(key).sort((a, b) => a.t - b.t);
+  $('log').innerHTML = lines.length ? lines.map(e => `${fmt(e.t)} ${e.txt.replace(/</g, '&lt;')}`).join('<br>') : 'no decisions this round';
+  show('end');
+}
+
+// ---------------------------------------------------------------- rendering
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+let dpr = 1, cw = 0, ch = 0, bs = 1, bx = 0, by = 0;
+let bgCanvas = null, terrCanvas = document.createElement('canvas'), terrImg = null;
+terrCanvas.width = TGW; terrCanvas.height = TGH; const tctx = terrCanvas.getContext('2d'); terrImg = tctx.createImageData(TGW, TGH);
+const softCanvas = document.createElement('canvas'); softCanvas.width = TGW * 5; softCanvas.height = TGH * 5; const sctx = softCanvas.getContext('2d'); let terrVer = -1;
+const DOCK = [{ x: 0, y: 0, r: 40 }, { x: 0, y: 0, r: 40 }, { x: 0, y: 0, r: 40 }];
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1); cw = window.innerWidth; ch = window.innerHeight;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  const aw = cw - 10, ah = ch - HUD_H - DOCK_H - 4;
+  bs = Math.min(aw / W, ah / H); bx = (cw - W * bs) / 2; by = HUD_H + (ah - H * bs) / 2 + 2;
+  const r = Math.max(30, Math.min(44, cw / 6 - 12));
+  for (let i = 0; i < 3; i++) { DOCK[i].x = cw * (1 + 2 * i) / 6; DOCK[i].y = ch - r - 40; DOCK[i].r = r; }
+  bgCanvas = document.createElement('canvas'); bgCanvas.width = cv.width; bgCanvas.height = cv.height;
+  const b = bgCanvas.getContext('2d'); b.fillStyle = '#0b0f1e'; b.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+  const r2 = mulberry32(99);
+  for (let i = 0; i < 160; i++) { b.fillStyle = `rgba(200,210,255,${0.15 + r2() * 0.35})`; const z = (r2() < 0.1 ? 1.6 : 0.9) * dpr;
+    b.fillRect(r2() * bgCanvas.width, r2() * bgCanvas.height, z, z); }
+}
+function shipPath(k, x, y, a, dug) {
+  const c = Math.cos(a), s = Math.sin(a);
+  const P = (px, py, first) => { const X = x + px * c - py * s, Y = y + px * s + py * c; first ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); };
+  if (dug) { for (let i = 0; i < 6; i++) { const t = i * Math.PI / 3; i ? ctx.lineTo(x + Math.cos(t) * 5.4, y + Math.sin(t) * 5.4) : ctx.moveTo(x + 5.4, y); } ctx.closePath(); return; }
+  if (k === 0) { P(7, 0, 1); P(-4.5, 5.2); P(-2, 0); P(-4.5, -5.2); }
+  else if (k === 1) { P(4.6, 0, 1); P(-3.4, 2.1); P(-3.4, -2.1); }
+  else { P(5, 0, 1); P(0, 3.8); P(-5, 0); P(0, -3.8); }
+  ctx.closePath();
+}
+function iconPath(k, x, y, sc) {   // kind silhouette pointing up, for buttons and tells
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); ctx.beginPath();
+  if (k === 2) { for (let i = -1; i <= 1; i++) for (let j = 0; j < 6; j++) { const t = j * Math.PI / 3 + Math.PI / 6, cx = i * 9.5;
+    j ? ctx.lineTo(cx + Math.cos(t) * 5, Math.sin(t) * 5) : ctx.moveTo(cx + Math.cos(t) * 5, Math.sin(t) * 5); if (j === 5) ctx.closePath(); } }
+  else if (k === 0) { ctx.moveTo(0, -8); ctx.lineTo(6.5, 5.5); ctx.lineTo(0, 2.5); ctx.lineTo(-6.5, 5.5); ctx.closePath(); }
+  else { for (const [ox, oy] of [[-5, 2], [0, -3], [5, 2]]) { ctx.moveTo(ox, oy - 5); ctx.lineTo(ox + 2.2, oy + 3); ctx.lineTo(ox - 2.2, oy + 3); ctx.closePath(); } }
+  ctx.restore();
+}
+function hexPath(x, y, r, rot) { ctx.beginPath(); for (let i = 0; i < 6; i++) { const t = rot + i * Math.PI / 3; i ? ctx.lineTo(x + Math.cos(t) * r, y + Math.sin(t) * r) : ctx.moveTo(x + Math.cos(t) * r, y + Math.sin(t) * r); } ctx.closePath(); }
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+function playerThreat() {
+  if (!G) return null;
+  for (const cr of G.crews) if (cr.i > 0 && cr.alive && cr.bot.state === 'tele' && atPlayer(cr.bot.order) && !cr.bot.def) return cr;
+  return null;
+}
+function render(now) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(bgCanvas, 0, 0);
+  if (!G) return;
+  const T = now / 1000;
+  // ---- board space
+  ctx.setTransform(dpr * bs, 0, 0, dpr * bs, dpr * bx, dpr * by);
+  rr(0, 0, W, H, 18); ctx.fillStyle = 'rgba(18,26,52,0.55)'; ctx.fill(); ctx.lineWidth = 1.5 / bs * 1.2; ctx.strokeStyle = '#26305a'; ctx.stroke();
+  // territory
+  if (terrVer !== G.terrVer) {   // rebuild the soft ground only when the land changed (4x a second)
+    terrVer = G.terrVer; const d = terrImg.data;
+    for (let i = 0; i < TN; i++) { const o = owner[i], p = i * 4;
+      if (o >= 0 && G.crews[o].alive) { const c = CREW_RGB[o]; d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = 60; } else d[p + 3] = 0; }
+    tctx.putImageData(terrImg, 0, 0);
+    sctx.clearRect(0, 0, softCanvas.width, softCanvas.height); sctx.filter = 'blur(4px)'; sctx.imageSmoothingEnabled = true;
+    sctx.drawImage(terrCanvas, 0, 0, softCanvas.width, softCanvas.height); sctx.filter = 'none';
+  }
+  ctx.save(); rr(0, 0, W, H, 18); ctx.clip(); ctx.drawImage(softCanvas, 0, 0, W, H); ctx.restore();
+  // rifts
+  for (const v of G.voids) {
+    ctx.beginPath(); ctx.arc(v.x, v.y, v.r, 0, 7); ctx.fillStyle = '#05060d'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(140,120,220,0.35)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(v.x, v.y, v.r * 0.62, 0, 7); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(140,120,220,0.15)'; ctx.stroke();
+  }
+  const fs = 14 / bs;
+  // telegraph lines (under ships)
+  ctx.setLineDash([5, 6]);
+  for (const cr of G.crews) { if (cr.i === 0 || !cr.alive || cr.bot.state !== 'tele') continue;
+    const o = cr.bot.order; ctx.beginPath(); ctx.moveTo(cr.core.x, cr.core.y); ctx.lineTo(o.x, o.y);
+    ctx.lineDashOffset = -T * 20; ctx.lineWidth = 2; ctx.strokeStyle = KIND[cr.bot.kind].col; ctx.globalAlpha = 0.75; ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(o.x, o.y, 9 + 3 * Math.sin(T * 8), 0, 7); ctx.stroke(); }
+  ctx.setLineDash([]);
+  // cores
+  for (const cr of G.crews) drawCore(cr, T, fs);
+  // ships: trails per crew, then bodies per crew x kind (fill kind colour, outline crew colour)
+  ctx.lineWidth = 1.4;
+  for (let c = 0; c < 3; c++) {
+    ctx.beginPath();
+    for (const s of S) { if (!s.on || s.c !== c || s.mode === DUG) continue; const sp = Math.hypot(s.vx, s.vy); if (sp < 4) continue;
+      const bx0 = s.x - Math.cos(s.a) * 4, by0 = s.y - Math.sin(s.a) * 4; ctx.moveTo(bx0, by0); ctx.lineTo(bx0 - s.vx * 0.16, by0 - s.vy * 0.16); }
+    ctx.strokeStyle = CREW_COL[c]; ctx.globalAlpha = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  // wall links between dug Wardens of one crew (a readable line of hexes)
+  ctx.lineWidth = 2.2;
+  for (let c = 0; c < 3; c++) { ctx.beginPath(); let any = false;
+    for (let i = 0; i < MAXS; i++) { const s = S[i]; if (!s.on || s.c !== c || s.mode !== DUG) continue;
+      for (let j = i + 1; j < MAXS; j++) { const o = S[j]; if (!o.on || o.c !== c || o.mode !== DUG) continue;
+        const dd = (o.x - s.x) ** 2 + (o.y - s.y) ** 2; if (dd < 150) { ctx.moveTo(s.x, s.y); ctx.lineTo(o.x, o.y); any = true; } } }
+    if (any) { ctx.strokeStyle = 'rgba(63,136,255,0.55)'; ctx.stroke(); } }
+  for (let c = 0; c < 3; c++) for (let k = 0; k < 3; k++) {
+    ctx.beginPath(); let any = false;
+    for (const s of S) { if (!s.on || s.c !== c || s.k !== k) continue; shipPath(k, s.x, s.y, s.a, s.mode === DUG); any = true; }
+    if (!any) continue;
+    ctx.fillStyle = KIND[k].col; ctx.fill(); ctx.lineWidth = k === 1 ? 1.1 : 1.5; ctx.strokeStyle = CREW_COL[c]; ctx.stroke();
+  }
+  // tracers
+  for (let k = 0; k < 6; k++) { ctx.beginPath(); let any = false;
+    for (const t of TR) if (t.t > 0 && t.k === k) { ctx.moveTo(t.x1, t.y1); ctx.lineTo(t.x2, t.y2); any = true; }
+    if (any) { ctx.strokeStyle = k < 3 ? KIND[k].col : CREW_COL[k - 3]; ctx.lineWidth = k === 0 ? 1.8 : 1.1; ctx.stroke(); } }
+  // fx
+  for (const f of FX) { if (f.t <= 0) continue; const p = 1 - f.t / f.life;
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + p), 0, 7); ctx.strokeStyle = f.col; ctx.globalAlpha = 1 - p; ctx.lineWidth = f.kind ? 4 : 1.5; ctx.stroke(); ctx.globalAlpha = 1; }
+  // telegraph rings + labels on top
+  for (const cr of G.crews) { if (cr.i === 0 || !cr.alive || cr.bot.state !== 'tele') continue; drawTell(cr, T, fs); }
+  for (const b of G.bombs) { ctx.beginPath(); ctx.arc(b.x, b.y, 32, 0, 7); ctx.setLineDash([4, 4]); ctx.strokeStyle = KIND[0].col; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(b.x, b.y, 32 * b.t, 0, 7); ctx.fillStyle = 'rgba(255,106,43,0.25)'; ctx.fill(); }
+  if (G.ping) { const p = G.ping; ctx.beginPath(); ctx.arc(p.x, p.y, 6 + (0.7 - p.t) * 30, 0, 7); ctx.strokeStyle = p.col; ctx.lineWidth = 2; ctx.globalAlpha = Math.min(1, p.t * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+  // ---- screen space
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawHud(T); drawDock(T);
+}
+function drawCore(cr, T, fs) {
+  const C = cr.core, col = CREW_COL[cr.i];
+  if (!cr.alive) { hexPath(C.x, C.y, 12, Math.PI / 6); ctx.strokeStyle = 'rgba(160,160,180,0.35)'; ctx.lineWidth = 1.5; ctx.stroke(); return; }
+  if (cr.i === 0) {   // crown ring with an inscribed triangle
+    ctx.beginPath(); ctx.arc(C.x, C.y, 27, 0, 7); ctx.strokeStyle = 'rgba(230,184,74,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + i * 2.0944 + T * 0.2; i ? ctx.lineTo(C.x + Math.cos(a) * 27, C.y + Math.sin(a) * 27) : ctx.moveTo(C.x + Math.cos(a) * 27, C.y + Math.sin(a) * 27); }
+    ctx.closePath(); ctx.strokeStyle = 'rgba(230,184,74,0.18)'; ctx.stroke();
+  }
+  // hp arc
+  ctx.beginPath(); ctx.arc(C.x, C.y, 16, -Math.PI / 2, -Math.PI / 2 + 6.283 * C.hp / C.mhp); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+  hexPath(C.x, C.y, 12, Math.PI / 6); ctx.fillStyle = '#141b36'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  // turrets
+  for (const tu of cr.tur) {
+    if (tu.hp > 0) { ctx.beginPath(); ctx.rect(tu.x - 3.5, tu.y - 3.5, 7, 7); ctx.fillStyle = col; ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(tu.x - 3, tu.y - 3); ctx.lineTo(tu.x + 3, tu.y + 3); ctx.moveTo(tu.x + 3, tu.y - 3); ctx.lineTo(tu.x - 3, tu.y + 3); ctx.strokeStyle = 'rgba(180,180,200,0.5)'; ctx.lineWidth = 1.2; ctx.stroke(); }
+  }
+  // pool motes orbiting and count
+  const n = Math.min(cr.pool, 18);
+  ctx.fillStyle = col;
+  for (let i = 0; i < n; i++) { const a = T * (cr.i ? 0.9 : 0.7) + i * 6.283 / n; ctx.fillRect(C.x + Math.cos(a) * 31 - 1, C.y + Math.sin(a) * 31 - 1, 2.2, 2.2); }
+  ctx.font = `700 ${fs}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#e8ecf8'; ctx.fillText(String(cr.pool), C.x, C.y + 0.5);
+  if (cr.i > 0) { ctx.font = `700 ${fs}px system-ui,sans-serif`; ctx.fillStyle = col;
+    const ly = C.y < 60 ? C.y + 46 : C.y - 44; ctx.fillText(`${cr.name} · ${KIND[cr.pref].role}`, Math.max(60, Math.min(W - 60, C.x)), ly); }
+}
+function drawTell(cr, T, fs) {
+  const b = cr.bot, C = cr.core, K = KIND[b.kind], p = 1 - b.t / TELE_T;
+  ctx.beginPath(); ctx.arc(C.x, C.y, 20 + 22 * p, 0, 7); ctx.strokeStyle = K.col; ctx.lineWidth = 3 + 2 * p; ctx.globalAlpha = 0.5 + 0.5 * p; ctx.stroke();
+  ctx.beginPath(); ctx.arc(C.x, C.y, 20 + 22 * p, -Math.PI / 2, -Math.PI / 2 + 6.283 * p); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke(); ctx.globalAlpha = 1;
+  // big silhouette + label beside the Core
+  const side = C.x < W / 2 ? 1 : -1, ix = C.x + side * 62, iy = C.y;
+  ctx.beginPath(); ctx.arc(ix, iy, 15, 0, 7); ctx.fillStyle = 'rgba(8,10,22,0.85)'; ctx.fill(); ctx.strokeStyle = K.col; ctx.lineWidth = 2; ctx.stroke();
+  iconPath(b.kind, ix, iy + 1, b.kind === 2 ? 0.75 : 1.25); ctx.fillStyle = K.col; ctx.fill();
+  ctx.font = `800 ${fs}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tgt = b.def ? 'home' : b.order.core === 0 || atPlayer(b.order) ? 'YOU' : b.order.core > 0 ? G.crews[b.order.core].name : (G.crews[b.order.aim] ? G.crews[b.order.aim].name : 'lane');
+  const lx = Math.max(52, Math.min(W - 52, ix)); const ly = iy + 26;
+  ctx.fillStyle = 'rgba(8,10,22,0.8)'; ctx.fillRect(lx - 50, ly - fs * 0.7, 100, fs * 1.4);
+  ctx.fillStyle = K.col; ctx.fillText(`${K.role.toUpperCase()} → ${tgt}`, lx, ly);
+}
+function drawHud(T) {
+  const me = G.crews[0];
+  ctx.fillStyle = 'rgba(10,14,30,0.92)'; ctx.fillRect(0, 0, cw, HUD_H);
+  ctx.strokeStyle = '#26305a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(cw, HUD_H - 0.5); ctx.stroke();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.font = '800 20px system-ui,sans-serif'; ctx.fillStyle = G.surge ? '#ff7a6a' : '#e8ecf8'; ctx.fillText(fmt(G.t), 12, 25);
+  if (G.surge) { ctx.font = '800 14px system-ui,sans-serif'; ctx.fillText('SURGE', 66, 25); }
+  ctx.font = '600 14px system-ui,sans-serif'; ctx.fillStyle = '#e6b84a';
+  ctx.fillText(`army ${me.pool + me.onb}  ·  pool ${me.pool}`, 12, 46);
+  for (let i = 1; i < 3; i++) {
+    const cr = G.crews[i], x = cw - 248 + (i - 1) * 124, y = 12;
+    ctx.beginPath(); ctx.arc(x + 12, y + 16, 12, 0, 7); ctx.fillStyle = cr.alive ? CREW_COL[i] : '#444a60'; ctx.fill();
+    ctx.font = '800 15px system-ui,sans-serif'; ctx.fillStyle = '#0b0f1e'; ctx.textAlign = 'center'; ctx.fillText(cr.name[0], x + 12, y + 21.5);
+    ctx.textAlign = 'left';
+    rr(x + 28, y + 4, 86, 9, 4); ctx.fillStyle = '#1d2547'; ctx.fill();
+    if (cr.alive) { rr(x + 28, y + 4, Math.max(4, 86 * cr.core.hp / cr.core.mhp), 9, 4); ctx.fillStyle = CREW_COL[i]; ctx.fill(); }
+    for (let j = 0; j < 3; j++) { ctx.fillStyle = cr.tur[j].hp > 0 && cr.alive ? CREW_COL[i] : '#3a4166'; ctx.fillRect(x + 28 + j * 11, y + 17, 8, 5); }
+    ctx.font = '700 14px system-ui,sans-serif'; ctx.fillStyle = cr.alive ? KIND[cr.pref].col : '#7a809a';
+    ctx.fillText(cr.alive ? KIND[cr.pref].role : 'broken', x + 28, y + 39);
+  }
+  // threat banner
+  const th = playerThreat();
+  let msg = null, col = '#e8ecf8';
+  if (th) { const K = KIND[th.bot.kind]; msg = `${th.name}: ${K.role.toUpperCase()} → you · answer ${KIND[COUNTER[th.bot.kind]].name}`; col = K.col; }
+  else if (G.toastT > 0) msg = G.toast;
+  if (msg) {
+    ctx.font = '700 15px system-ui,sans-serif'; const w = Math.min(cw - 16, ctx.measureText(msg).width + 24);
+    rr((cw - w) / 2, HUD_H + 6, w, 28, 14); ctx.fillStyle = 'rgba(8,10,22,0.9)'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(msg, cw / 2, HUD_H + 20, cw - 30);
+  }
+}
+function drawDock(T) {
+  const me = G.crews[0], th = playerThreat(), hint = th ? COUNTER[th.bot.kind] : -1;
+  ctx.fillStyle = 'rgba(10,14,30,0.92)'; ctx.fillRect(0, ch - DOCK_H, cw, DOCK_H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '700 15px system-ui,sans-serif'; ctx.fillStyle = '#e6b84a';
+  const pouring = me.stream;
+  ctx.fillText(pouring ? `pouring ${KIND[pouring.k].role}… ${pouring.left}` : me.pool > 0 ? `pool ${me.pool}: pick a spirit, tap the board` : 'pool empty: sparks are gathering', cw / 2, ch - DOCK_H + 14);
+  for (let k = 0; k < 3; k++) {
+    const b = DOCK[k], K = KIND[k], sel = G.sel === k;
+    if (hint === k) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 6 + 3 * Math.sin(T * 9), 0, 7); ctx.strokeStyle = K.col; ctx.lineWidth = 3; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1; }
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fillStyle = sel ? K.col : '#141b36'; ctx.fill();
+    ctx.lineWidth = sel ? 4 : 2.5; ctx.strokeStyle = sel ? '#ffffff' : K.col; ctx.stroke();
+    iconPath(k, b.x, b.y - b.r * 0.22, b.r / 16 * (k === 2 ? 0.75 : 1)); ctx.fillStyle = sel ? '#0b0f1e' : K.col; ctx.fill();
+    ctx.font = '800 15px system-ui,sans-serif'; ctx.fillStyle = sel ? '#0b0f1e' : '#e8ecf8'; ctx.fillText(K.name, b.x, b.y + b.r * 0.45);
+    ctx.font = '600 14px system-ui,sans-serif'; ctx.fillStyle = K.col; ctx.fillText(K.role, b.x, b.y + b.r + 14);
+    if (pouring && pouring.k === k) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, -Math.PI / 2, -Math.PI / 2 + 6.283 * (pouring.left / pouring.n)); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke(); }
+    if (G.pow[k] > 0) { ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.arc(b.x, b.y, b.r - 2, -Math.PI / 2, -Math.PI / 2 + 6.283 * G.pow[k] / POW_CD); ctx.closePath(); ctx.fillStyle = 'rgba(5,8,18,0.45)'; ctx.fill(); }
+    else { const px = b.x - b.r * 0.74, py = b.y - b.r * 0.74, pr = 7 + 1.5 * Math.sin(T * 4);   // power ready: a glowing pip
+      ctx.beginPath(); ctx.arc(px, py, pr + 3, 0, 7); ctx.fillStyle = '#0b0f1e'; ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, 7); ctx.fillStyle = K.col; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    if (G.att === k) { const sx = b.x + b.r * 0.74, sy = b.y - b.r * 0.74;   // attuned: a gold star
+      ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? 6 : 14; i ? ctx.lineTo(sx + Math.cos(a) * rr2, sy + Math.sin(a) * rr2) : ctx.moveTo(sx + Math.cos(a) * rr2, sy + Math.sin(a) * rr2); }
+      ctx.closePath(); ctx.fillStyle = '#e6b84a'; ctx.fill(); ctx.strokeStyle = '#0b0f1e'; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+}
+
+// ---------------------------------------------------------------- loop, input, cards
+let raf = 0, last = 0, acc = 0, lastDraw = 0;
+const perf = { ema: 0, max: 0, n: 0, samples: [] };
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  if (now - lastDraw < 1000 / 75) return;   // cap at 60 fps on fast displays (120 Hz draws every other frame)
+  lastDraw = now;
+  const t0 = performance.now();
+  let dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
+  let steps = 0; while (acc >= 1 / 60 && steps < 4) { step(1 / 60); acc -= 1 / 60; steps++; } if (steps === 4) acc = 0;
+  render(now);
+  const ft = performance.now() - t0; perf.ema = perf.ema ? perf.ema * 0.95 + ft * 0.05 : ft; perf.n++;
+  if (perf.n > 30) { perf.max = Math.max(perf.max, ft); perf.samples.push(ft); if (perf.samples.length > 600) perf.samples.shift(); }
+}
+function startLoop() { if (raf) return; last = lastDraw = performance.now(); raf = requestAnimationFrame(frame); }
+function stopLoop() { cancelAnimationFrame(raf); raf = 0; }
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopLoop(); else startLoop(); });
+window.addEventListener('resize', resize);
+
+let pressT = 0;
+const endPress = () => { clearTimeout(pressT); pressT = 0; };
+cv.addEventListener('pointerup', endPress); cv.addEventListener('pointercancel', endPress); cv.addEventListener('pointerleave', endPress);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (!G || G.over) return;
+  const x = e.clientX, y = e.clientY;
+  if (y > ch - DOCK_H) {
+    for (let k = 0; k < 3; k++) { const b = DOCK[k]; if (Math.hypot(x - b.x, y - b.y) <= b.r + 12) {
+      selectKind(k); clearTimeout(pressT); pressT = setTimeout(() => { pressT = 0; power(k); }, 450); return; } }
+    return;
+  }
+  if (y < HUD_H) return;
+  const wx = (x - bx) / bs, wy = (y - by) / bs;
+  if (wx < -10 || wx > W + 10 || wy < -10 || wy > H + 10) return;
+  tapWorld(wx, wy);
+});
+
+function show(id) { for (const c of ['start', 'end']) $(c).classList.toggle('on', c === id); }
+function startRound(seed) { newRound(seed); show(null); }
+function buildStart() {
+  const box = $('seeds'); box.innerHTML = '';
+  const rows = [1, 2, 3, 4, 5].map(s => [String(s), s, `Seed ${s}: ${genConfig(s).line}`]);
+  rows.push(['?', 0, 'Random: a fresh draw of rival kinds, rifts and your attuned spirit.']);
+  for (const [lab, s, line] of rows) {
+    const d = document.createElement('div'); d.className = 'seed';
+    const b = document.createElement('button'); b.textContent = lab; b.setAttribute('data-seed', s);
+    b.addEventListener('click', () => startRound(s || (100 + Math.floor(Math.random() * 9000))));
+    const sp = document.createElement('span'); sp.textContent = line;
+    d.append(b, sp); box.append(d);
+  }
+}
+$('again').addEventListener('click', () => startRound(G.seed));
+$('next').addEventListener('click', () => startRound(G.seed >= 1 && G.seed < 5 ? G.seed + 1 : G.seed === 5 ? 1 : 100 + Math.floor(Math.random() * 9000)));
+$('home').addEventListener('click', () => { G = null; show('start'); });
+
+// ---------------------------------------------------------------- test hooks (headless play + tuning)
+const policies = {
+  idle() {},
+  only(k) { return (st) => { if (G.t - st.lastAct < 12 || G.crews[0].pool < 15) return;
+    const T = weakestRival(); if (T < 0) return; selectKind(k); tapWorld(G.crews[T].core.x, G.crews[T].core.y); st.lastAct = G.t; }; },
+  // reads tells and answers them, at human pace (a decision at most every ~6 s, 1.5 s to react)
+  answer(pace) { pace = pace || 1; return (st) => {
+    const me = G.crews[0], P = me.core;
+    if (G.t - st.lastAct < 6 * pace) return;
+    const homeK = [0, 0, 0]; for (const s of S) if (s.on && s.c === 0 && Math.hypot(s.x - P.x, s.y - P.y) < 130) homeK[s.k]++;
+    let th = playerThreat();
+    if (th && homeK[COUNTER[th.bot.kind]] >= 12) th = null;   // the right answer is already standing at home
+    if (th) { if (st.seen !== th) { st.seen = th; st.seenT = G.t; }
+      if (G.t - st.seenT > 1.5 * pace && me.pool >= 6) {
+        const k = COUNTER[th.bot.kind], o = th.bot.order;
+        const C = th.core, dx = C.x - P.x, dy = C.y - P.y, d = Math.hypot(dx, dy);
+        if (k === 0) { selectKind(0); tapWorld(o.x, o.y); }
+        else { selectKind(k); tapWorld(P.x + dx / d * (k === 2 ? 50 : 40), P.y + dy / d * (k === 2 ? 50 : 40)); }
+        st.lastAct = G.t; return; } }
+    // live sparks already heading for me
+    const cnt = [0, 0, 0]; let sx = 0, sy = 0, n = 0;
+    for (const s of S) if (s.on && s.c !== 0 && s.mode !== HOME && Math.hypot(s.x - P.x, s.y - P.y) < 170) { cnt[s.k]++; if (s.mode !== DUG) { sx += s.x; sy += s.y; n++; } }
+    if (cnt[0] >= 5 && me.pool >= 6 && n) { selectKind(1); tapWorld(sx / n, sy / n); st.lastAct = G.t; return; }
+    if (cnt[1] >= 8 && me.pool >= 6 && n) { const dx = sx / n - P.x, dy = sy / n - P.y, d = Math.hypot(dx, dy) || 1; selectKind(2); tapWorld(P.x + dx / d * 45, P.y + dy / d * 45); st.lastAct = G.t; return; }
+    if (cnt[2] >= 4 && me.pool >= 8) { let wx = 0, wy = 0, m = 0; for (const s of S) if (s.on && s.c !== 0 && s.mode === DUG && Math.hypot(s.x - P.x, s.y - P.y) < 170) { wx += s.x; wy += s.y; m++; }
+      if (m) { selectKind(0); tapWorld(wx / m, wy / m); st.lastAct = G.t; return; } }
+    let parked = 0; for (const s of S) if (s.on && s.c === 0 && s.mode === DUG) parked++;
+    if (parked >= 45 && me.pool < 8 && G.t - (st.recallT || 0) > 60) { tapWorld(P.x, P.y); st.lastAct = st.recallT = G.t; return; }
+    if (G.t - st.lastAct < 10 * pace || me.pool < 18) return;
+    if (!(st.T > 0 && G.crews[st.T].alive)) st.T = weakestRival();   // commit to one target until it breaks
+    const T = st.T; if (T < 0) return;
+    const R = G.crews[T];
+    if (R.pool > 10 && me.pool < 40 && !(R.bot.state === 'tele' && !R.bot.def)) return;   // wait for them to pour out
+    // open their door with the kind that beats their favourite sortie, then send Breakers
+    const esc = COUNTER[R.pref];
+    let have = 0; for (const s of S) if (s.on && s.c === 0 && s.k === esc && Math.hypot(s.x - R.core.x, s.y - R.core.y) < 140) have++;
+    if (esc !== 0 && have < 8 && (!st.esc || st.esc.T !== T || G.t - st.esc.t > 30)) { selectKind(esc); tapWorld(R.core.x, R.core.y); st.esc = { T, t: G.t }; }
+    else { selectKind(0); tapWorld(R.core.x, R.core.y); }
+    st.lastAct = G.t;
+  }; },
+};
+function weakestRival() { let T = -1, b = 1e9; for (let i = 1; i < 3; i++) { const c = G.crews[i]; if (!c.alive) continue;
+  let hp = c.core.hp; for (const tu of c.tur) hp += Math.max(0, tu.hp); hp += c.pool * 2; if (hp < b) { b = hp; T = i; } } return T; }
+window.__pours = {
+  start: startRound, select: selectKind, tapWorld, step, power, PRESET, get G() { return G; }, perf,
+  board() { return { bx, by, bs, cw, ch, dock: DOCK.map(d => ({ x: d.x, y: d.y, r: d.r })) }; },
+  state() { return G && { t: G.t, over: G.over, result: G.result, cause: G.cause, taps: G.taps, pours: G.pours,
+    crews: G.crews.map(c => ({ name: c.name, alive: c.alive, hp: c.core.hp, pool: c.pool, onb: c.onb, land: +c.land.toFixed(2), pref: c.pref })),
+    ships: S.filter(s => s.on).length, log: G.log.map(e => fmt(e.t) + ' ' + e.txt) }; },
+  simulate(seed, policy, arg) {
+    newRound(seed); show(null);
+    const st = { lastAct: -99 }; const pol = policy === 'idle' ? policies.idle : policy === 'only' ? policies.only(arg) : policies.answer(arg);
+    while (!G.over) { pol(st); step(1 / 60); }
+    return { seed, policy: policy + (arg !== undefined ? arg : ''), result: G.result, t: +G.t.toFixed(1), cause: G.cause, taps: G.taps, pours: G.pours,
+      kills: G.kills, lost: G.lost, log: G.log.slice(-40).map(e => fmt(e.t) + ' ' + e.txt) };
+  },
+  policies, show, showEnd, ships() { return S.filter(s => s.on).map(s => ({ c: s.c, k: s.k, mode: s.mode, x: s.x, y: s.y, hp: s.hp, core: s.core, tx: s.tx, ty: s.ty })); },
+};
+
+resize(); buildStart(); startLoop();
+})();
+</script>
+</body>
+</html>
