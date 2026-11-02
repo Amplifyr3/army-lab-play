@@ -1,7 +1,7 @@
 {
-  "sourceRevision": "63ee708d2f45605ad12812caa4b0bc6bf0654c30",
-  "builtAtUtc": "2026-11-02T05:38:14.273Z",
-  "release": "journeys",
+  "sourceRevision": "aff32ba1fe296fbe9efdc522dba1fe6d85e2eaad",
+  "builtAtUtc": "2026-11-02T07:11:19.496Z",
+  "release": "collector",
   "preview": "astra-contender",
   "publicPath": "/army-lab-play/astra-flight/"
 }
