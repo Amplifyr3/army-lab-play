@@ -8,7 +8,7 @@
 // background as soon as the page asks ('music-fill', every launch until they're all in), so the first download stays small
 // and the full variety is there long before a player goes offline. <audio> asks for byte ranges: those are cut from
 // the saved file.
-const VERSION = 'b54ce40a4894';
+const VERSION = '236b5a9c221a';
 // CacheStorage belongs to the origin, not the registration. Live and preview installations
 // share it, so each scope owns a separate namespace. The new prefix also stays outside
 // older workers' origin-wide `army-lab-*` cleanup. Leave their unscoped caches untouched.
